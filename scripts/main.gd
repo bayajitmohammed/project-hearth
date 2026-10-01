@@ -259,10 +259,18 @@ func _build_world() -> void:
 func _build_interface() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	var safe_margin := MarginContainer.new()
+	safe_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	safe_margin.add_theme_constant_override("margin_left", 24)
+	safe_margin.add_theme_constant_override("margin_top", 24)
+	safe_margin.add_theme_constant_override("margin_right", 24)
+	safe_margin.add_theme_constant_override("margin_bottom", 24)
+	layer.add_child(safe_margin)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(20.0, 20.0)
-	panel.custom_minimum_size = Vector2(390.0, 0.0)
-	layer.add_child(panel)
+	panel.custom_minimum_size = Vector2(420.0, 0.0)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	safe_margin.add_child(panel)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 10)
 	panel.add_child(content)
@@ -275,10 +283,12 @@ func _build_interface() -> void:
 	content.add_child(address_input)
 	connect_button = Button.new()
 	connect_button.text = "Connect"
+	connect_button.custom_minimum_size.y = 48.0
 	connect_button.pressed.connect(_connect_to_server)
 	content.add_child(connect_button)
 	status_label = Label.new()
 	status_label.text = "Start the server, then connect."
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(status_label)
 
 
