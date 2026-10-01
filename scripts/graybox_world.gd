@@ -15,6 +15,7 @@ static func build(root: Node3D) -> Dictionary:
 	var resource_nodes := _add_resources(root)
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
+	var creature := _add_creature(root)
 
 	var supplies := _add_box(
 		root,
@@ -40,6 +41,7 @@ static func build(root: Node3D) -> Dictionary:
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
+		"creature": creature,
 	}
 
 
@@ -171,6 +173,19 @@ static func _add_repair_results(root: Node3D) -> Dictionary:
 	for node: MeshInstance3D in nodes.values():
 		node.visible = false
 	return nodes
+
+
+static func _add_creature(root: Node3D) -> MeshInstance3D:
+	var creature := MeshInstance3D.new()
+	creature.name = "ForestCreature"
+	var mesh := CapsuleMesh.new()
+	mesh.radius = 0.55
+	mesh.height = 1.2
+	creature.mesh = mesh
+	creature.position = WorldStateModel.CREATURE_SPAWN
+	creature.material_override = _material(Color("7652a6"))
+	root.add_child(creature)
+	return creature
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:

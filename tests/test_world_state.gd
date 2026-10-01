@@ -46,5 +46,26 @@ func _init() -> void:
 	assert(restored.gathered_resources.size() == 3)
 	assert(restored.repaired_parts.values().all(func(value: bool) -> bool: return value))
 	assert(restored.register_player("player-a") == state.positions["player-a"])
+
+	var combat_state := WorldStateModel.new()
+	combat_state.register_player("fighter")
+	combat_state.positions["fighter"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	for hit: int in WorldStateModel.CREATURE_MAX_HEALTH:
+		assert(combat_state.attack_creature("fighter"), "Attack %d should hit." % hit)
+	assert(combat_state.creature_defeated)
+	assert(not combat_state.attack_creature("fighter"))
+
+	var revive_state := WorldStateModel.new()
+	revive_state.register_player("victim")
+	revive_state.register_player("helper")
+	revive_state.positions["victim"] = WorldStateModel.CREATURE_SPAWN
+	revive_state.positions["helper"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	for attack: int in WorldStateModel.PLAYER_MAX_HEALTH:
+		revive_state.creature_attack_cooldown = 0.0
+		assert(revive_state.simulate_creature(0.1, ["victim"]), "Creature attack %d should land." % attack)
+	assert(revive_state.downed_players["victim"], "The creature should down a player after three hits.")
+	assert(revive_state.try_revive_player("helper"))
+	assert(not revive_state.downed_players["victim"])
+	assert(revive_state.player_health["victim"] == 2)
 	print("PASS: Project Hearth world state")
 	quit()

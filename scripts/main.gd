@@ -19,6 +19,7 @@ var status_label: Label
 var objective_label: Label
 var dialogue_label: Label
 var inventory_label: Label
+var combat_label: Label
 var address_input: LineEdit
 var connect_button: Button
 var craft_button: Button
@@ -27,6 +28,7 @@ var game_camera: Camera3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
+var creature_node: MeshInstance3D
 
 
 func _ready() -> void:
@@ -61,6 +63,8 @@ func _physics_process(delta: float) -> void:
 		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
 		_request_craft()
+	if Input.is_action_just_pressed("attack"):
+		_request_attack()
 
 
 func _process(delta: float) -> void:
@@ -79,6 +83,8 @@ func _simulate_server(delta: float) -> void:
 		world_state.move_player(token, pending_input, delta)
 		if world_state.try_collect(token):
 			_save_world()
+	if world_state.simulate_creature(delta, peer_to_token.values()):
+		_save_world()
 
 	snapshot_accumulator += delta
 	if snapshot_accumulator >= 0.05:
@@ -132,6 +138,18 @@ func request_craft_repair_kit() -> void:
 		receive_snapshot.rpc(_snapshot_for_clients())
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func request_attack() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	if world_state.attack_creature(peer_to_token[sender_id]):
+		_save_world()
+		receive_snapshot.rpc(_snapshot_for_clients())
+
+
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func receive_snapshot(snapshot: Dictionary) -> void:
 	var seen_tokens := {}
@@ -139,7 +157,9 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	for token: String in positions:
 		seen_tokens[token] = true
 		var position: Vector3 = positions[token]
-		_get_or_create_player_node(token).position = position
+		var player_node := _get_or_create_player_node(token)
+		player_node.position = position
+		player_node.scale = Vector3(1.0, 0.35, 1.0) if bool(snapshot.get("downed_players", {}).get(token, false)) else Vector3.ONE
 	for token: String in player_nodes.keys():
 		if not seen_tokens.has(token):
 			player_nodes[token].queue_free()
@@ -161,6 +181,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		materials,
 		repairs
 	)
+	var creature_defeated := bool(snapshot.get("creature_defeated", false))
+	creature_node.visible = not creature_defeated
+	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
+	_update_combat_interface(snapshot, creature_defeated)
 
 
 func _start_server(port: int) -> void:
@@ -233,6 +257,11 @@ func _snapshot_for_clients() -> Dictionary:
 		"materials": world_state.materials.duplicate(),
 		"gathered_resources": world_state.gathered_resources.duplicate(),
 		"repaired_parts": world_state.repaired_parts.duplicate(),
+		"player_health": world_state.player_health.duplicate(),
+		"downed_players": world_state.downed_players.duplicate(),
+		"creature_position": world_state.creature_position,
+		"creature_health": world_state.creature_health,
+		"creature_defeated": world_state.creature_defeated,
 	}
 
 
@@ -287,6 +316,7 @@ func _build_world() -> void:
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
+	creature_node = world_nodes["creature"]
 
 
 func _build_interface() -> void:
@@ -321,6 +351,9 @@ func _build_interface() -> void:
 	inventory_label = Label.new()
 	inventory_label.text = "Project bag — Wood: 0  Herb: 0  Repair kit: 0"
 	content.add_child(inventory_label)
+	combat_label = Label.new()
+	combat_label.text = "Health: 3/3  Forest creature: 3/3"
+	content.add_child(combat_label)
 	craft_button = Button.new()
 	craft_button.text = "Craft Repair Kit (C)"
 	craft_button.custom_minimum_size.y = 42.0
@@ -367,6 +400,11 @@ func _build_touch_controls(layer: CanvasLayer) -> void:
 	craft_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
 	craft_touch_button.pressed.connect(_request_craft)
 	controls.add_child(craft_touch_button)
+	var attack_touch_button := Button.new()
+	attack_touch_button.text = "Attack"
+	attack_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
+	attack_touch_button.pressed.connect(_request_attack)
+	controls.add_child(attack_touch_button)
 
 
 func _add_touch_button(parent: Control, label: String, direction: String) -> void:
@@ -397,6 +435,23 @@ func _request_interaction() -> void:
 func _request_craft() -> void:
 	if client_connected:
 		request_craft_repair_kit.rpc_id(1)
+
+
+func _request_attack() -> void:
+	if client_connected:
+		request_attack.rpc_id(1)
+
+
+func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
+	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
+	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
+	var creature_text := "defeated" if creature_defeated else "%d/%d" % [int(snapshot.get("creature_health", 0)), WorldStateModel.CREATURE_MAX_HEALTH]
+	combat_label.text = "Health: %d/%d%s  Forest creature: %s" % [
+		health,
+		WorldStateModel.PLAYER_MAX_HEALTH,
+		" — DOWNED, another player must use E nearby" if is_downed else "",
+		creature_text,
+	]
 
 
 func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs: Dictionary) -> void:

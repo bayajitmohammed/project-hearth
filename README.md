@@ -22,7 +22,7 @@ For an automatic local connection:
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --connect=ws://127.0.0.1:9080
 ```
 
-Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, and repair. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, and cottage repairs remain changed.
+Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, repair, or revive. Press **Space** (or controller X) near the forest creature to attack. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, creature, health, and cottage repairs remain changed.
 
 ## Run the state test
 

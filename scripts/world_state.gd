@@ -26,6 +26,9 @@ const REPAIR_POSITIONS := {
 	"wall": Vector3(-13.7, 0.6, 3.0),
 	"garden": Vector3(-7.0, 0.6, 0.3),
 }
+const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
+const CREATURE_MAX_HEALTH := 3
+const PLAYER_MAX_HEALTH := 3
 
 var collectible_collected := false
 var positions: Dictionary = {}
@@ -33,15 +36,28 @@ var quest_stage := "meet_mara"
 var materials := {"wood": 0, "herb": 0, "repair_kit": 0}
 var gathered_resources: Dictionary = {}
 var repaired_parts := {"door": false, "wall": false, "garden": false}
+var player_health: Dictionary = {}
+var downed_players: Dictionary = {}
+var creature_position := CREATURE_SPAWN
+var creature_health := CREATURE_MAX_HEALTH
+var creature_defeated := false
+var creature_attack_cooldown := 0.0
 
 
 func register_player(player_token: String) -> Vector3:
 	if not positions.has(player_token):
 		positions[player_token] = SPAWN_POINT
+	if not player_health.has(player_token):
+		player_health[player_token] = PLAYER_MAX_HEALTH
+	if not downed_players.has(player_token):
+		downed_players[player_token] = false
 	return positions[player_token]
 
 
 func move_player(player_token: String, input_vector: Vector2, delta: float) -> Vector3:
+	register_player(player_token)
+	if bool(downed_players.get(player_token, false)):
+		return positions[player_token]
 	var direction := Vector3(input_vector.x, 0.0, input_vector.y)
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
@@ -119,10 +135,69 @@ func try_repair_cottage(player_token: String) -> bool:
 
 func interact(player_token: String) -> bool:
 	return (
-		interact_with_mara(player_token)
+		try_revive_player(player_token)
+		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
 	)
+
+
+func attack_creature(player_token: String) -> bool:
+	register_player(player_token)
+	if creature_defeated or bool(downed_players.get(player_token, false)):
+		return false
+	if positions[player_token].distance_to(creature_position) > 2.0:
+		return false
+	creature_health -= 1
+	if creature_health <= 0:
+		creature_health = 0
+		creature_defeated = true
+	return true
+
+
+func simulate_creature(delta: float, active_tokens: Array) -> bool:
+	if creature_defeated:
+		return false
+	creature_attack_cooldown = maxf(creature_attack_cooldown - delta, 0.0)
+	var target_token := ""
+	var target_distance := INF
+	for player_token: String in active_tokens:
+		register_player(player_token)
+		if bool(downed_players.get(player_token, false)):
+			continue
+		var distance := creature_position.distance_to(positions[player_token])
+		if distance < target_distance:
+			target_distance = distance
+			target_token = player_token
+	if target_token.is_empty() or target_distance > 6.0:
+		return false
+	var target_position: Vector3 = positions[target_token]
+	if target_distance > 1.15:
+		var direction := (target_position - creature_position).normalized()
+		creature_position += direction * minf(1.5 * delta, target_distance - 1.0)
+		creature_position.y = CREATURE_SPAWN.y
+		return false
+	if creature_attack_cooldown > 0.0:
+		return false
+	creature_attack_cooldown = 1.0
+	player_health[target_token] = maxi(int(player_health[target_token]) - 1, 0)
+	if int(player_health[target_token]) == 0:
+		downed_players[target_token] = true
+	return true
+
+
+func try_revive_player(helper_token: String) -> bool:
+	register_player(helper_token)
+	if bool(downed_players.get(helper_token, false)):
+		return false
+	for player_token: String in downed_players:
+		if player_token == helper_token or not bool(downed_players[player_token]):
+			continue
+		if positions[helper_token].distance_to(register_player(player_token)) <= INTERACTION_RADIUS:
+			downed_players[player_token] = false
+			player_health[player_token] = 2
+			return true
+	return false
 
 
 func _all_repairs_complete() -> bool:
@@ -144,6 +219,11 @@ func to_dictionary() -> Dictionary:
 		"materials": materials.duplicate(),
 		"gathered_resources": gathered_resources.duplicate(),
 		"repaired_parts": repaired_parts.duplicate(),
+		"player_health": player_health.duplicate(),
+		"downed_players": downed_players.duplicate(),
+		"creature_position": [creature_position.x, creature_position.y, creature_position.z],
+		"creature_health": creature_health,
+		"creature_defeated": creature_defeated,
 		"positions": encoded_positions,
 	}
 
@@ -164,6 +244,15 @@ func load_dictionary(data: Dictionary) -> void:
 		"wall": bool(saved_repairs.get("wall", false)),
 		"garden": bool(saved_repairs.get("garden", false)),
 	}
+	player_health = data.get("player_health", {}).duplicate()
+	downed_players = data.get("downed_players", {}).duplicate()
+	var encoded_creature: Array = data.get("creature_position", [])
+	if encoded_creature.size() == 3:
+		creature_position = Vector3(float(encoded_creature[0]), float(encoded_creature[1]), float(encoded_creature[2]))
+	else:
+		creature_position = CREATURE_SPAWN
+	creature_health = int(data.get("creature_health", CREATURE_MAX_HEALTH))
+	creature_defeated = bool(data.get("creature_defeated", false))
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
 	for player_token: String in encoded_positions:
