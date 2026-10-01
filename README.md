@@ -63,9 +63,18 @@ adb reverse tcp:9080 tcp:9080
 
 On a physical Android device, replace `127.0.0.1` with the Mac's local-network address, such as `ws://192.168.1.20:9080`. The phone and Mac must be on the same network, and the server must be allowed through the Mac firewall.
 
+## Build the Windows debug client from macOS
+
+```sh
+mkdir -p exports/windows
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug "Windows Debug" exports/windows/project-hearth.exe
+```
+
+Copy the entire `exports/windows` folder to the Windows computer when Vertical Slice 1 is ready for cross-platform testing. If the authoritative server stays on the Mac, connect from Windows using the Mac's local-network address, such as `ws://192.168.1.20:9080`.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
 - Desktop Web client: export, rendering, connection, movement, and collection verified
 - Android client: debug APK export, rendering, connection, touch movement, and collection verified on a Pixel 7a emulator
-- Windows client: pending
+- Windows client: export verified on macOS; runtime test deferred until Vertical Slice 1
