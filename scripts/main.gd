@@ -3,6 +3,7 @@ extends Node3D
 const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
 const WorldStateModel = preload("res://scripts/world_state.gd")
+const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 
 var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
@@ -18,6 +19,7 @@ var status_label: Label
 var address_input: LineEdit
 var connect_button: Button
 var collectible_mesh: MeshInstance3D
+var game_camera: Camera3D
 
 
 func _ready() -> void:
@@ -48,6 +50,15 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	submit_input.rpc_id(1, input_vector)
+
+
+func _process(delta: float) -> void:
+	if game_camera == null or not player_nodes.has(local_token):
+		return
+	var player_node: MeshInstance3D = player_nodes[local_token]
+	var target_position := player_node.position + Vector3(0.0, 13.0, 11.0)
+	game_camera.position = game_camera.position.lerp(target_position, minf(delta * 6.0, 1.0))
+	game_camera.look_at(player_node.position + Vector3(0.0, 0.5, 0.0))
 
 
 func _simulate_server(delta: float) -> void:
@@ -128,7 +139,7 @@ func _connect_to_server() -> void:
 
 func _on_connected_to_server() -> void:
 	client_connected = true
-	_status("Connected — use WASD or arrow keys")
+	_status("Connected — follow the road toward the lost supplies")
 	connect_button.disabled = true
 	register_player.rpc_id(1, local_token)
 
@@ -214,48 +225,9 @@ func _read_connect_argument() -> String:
 
 
 func _build_world() -> void:
-	var environment := WorldEnvironment.new()
-	var environment_resource := Environment.new()
-	environment_resource.background_mode = Environment.BG_COLOR
-	environment_resource.background_color = Color("8fc7d8")
-	environment_resource.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment_resource.ambient_light_color = Color.WHITE
-	environment_resource.ambient_light_energy = 0.65
-	environment.environment = environment_resource
-	add_child(environment)
-
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-55.0, -25.0, 0.0)
-	light.shadow_enabled = true
-	add_child(light)
-
-	var floor_mesh := MeshInstance3D.new()
-	var floor_box := BoxMesh.new()
-	floor_box.size = Vector3(18.0, 0.25, 14.0)
-	floor_mesh.mesh = floor_box
-	floor_mesh.position.y = -0.125
-	var floor_material := StandardMaterial3D.new()
-	floor_material.albedo_color = Color("7aae68")
-	floor_mesh.material_override = floor_material
-	add_child(floor_mesh)
-
-	collectible_mesh = MeshInstance3D.new()
-	var collectible_shape := SphereMesh.new()
-	collectible_shape.radius = 0.45
-	collectible_shape.height = 0.9
-	collectible_mesh.mesh = collectible_shape
-	collectible_mesh.position = WorldStateModel.COLLECTIBLE_POSITION
-	var collectible_material := StandardMaterial3D.new()
-	collectible_material.albedo_color = Color("ffd45c")
-	collectible_material.emission_enabled = true
-	collectible_material.emission = Color("ba7b15")
-	collectible_mesh.material_override = collectible_material
-	add_child(collectible_mesh)
-
-	var camera := Camera3D.new()
-	camera.position = Vector3(0.0, 11.0, 10.5)
-	camera.rotation_degrees = Vector3(-45.0, 0.0, 0.0)
-	add_child(camera)
+	var world_nodes := GrayboxWorldBuilder.build(self)
+	collectible_mesh = world_nodes["collectible"]
+	game_camera = world_nodes["camera"]
 
 
 func _build_interface() -> void:
@@ -277,8 +249,12 @@ func _build_interface() -> void:
 	content.add_theme_constant_override("separation", 10)
 	panel.add_child(content)
 	var title := Label.new()
-	title.text = "PROJECT HEARTH — SLICE 0"
+	title.text = "PROJECT HEARTH — A NEW HOME"
 	content.add_child(title)
+	var objective := Label.new()
+	objective.text = "GRAYBOX GOAL: Follow the road, find the abandoned cottage, then recover the lost supplies."
+	objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(objective)
 	address_input = LineEdit.new()
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"

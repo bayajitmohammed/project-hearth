@@ -11,9 +11,9 @@ This repository contains the Godot game. The design source of truth is the Obsid
 
 ## Current build target
 
-Slice 0 proves that Windows, desktop Web, and Android clients can join one authoritative room, move, claim one object exactly once, reconnect, and load persisted state.
+Slice 0 is complete except for the intentionally deferred Windows runtime test. The active target is Slice 1, **A New Home**. Its first graybox increment contains the arrival road, damaged cottage, forest boundary, lost supplies, larger movement area, and a following camera.
 
-Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep the server authoritative and the first proof grayboxed.
+Continue in the build order recorded in `Prototype and Vertical Slices.md`, starting with Mara and the shared cottage-repair request. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
 
 ## Verification
 

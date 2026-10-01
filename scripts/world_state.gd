@@ -1,9 +1,13 @@
 class_name WorldState
 extends RefCounted
 
-const SPAWN_POINT := Vector3(0.0, 0.6, 4.0)
-const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -2.0)
+const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
+const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
+const WORLD_MIN_X := -17.0
+const WORLD_MAX_X := 17.0
+const WORLD_MIN_Z := -14.0
+const WORLD_MAX_Z := 14.0
 
 var collectible_collected := false
 var positions: Dictionary = {}
@@ -20,8 +24,8 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	var next_position: Vector3 = register_player(player_token) + direction * 4.0 * delta
-	next_position.x = clampf(next_position.x, -8.0, 8.0)
-	next_position.z = clampf(next_position.z, -6.0, 6.0)
+	next_position.x = clampf(next_position.x, WORLD_MIN_X, WORLD_MAX_X)
+	next_position.z = clampf(next_position.z, WORLD_MIN_Z, WORLD_MAX_Z)
 	positions[player_token] = next_position
 	return next_position
 

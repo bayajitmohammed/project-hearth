@@ -1,6 +1,6 @@
 # Project Hearth
 
-Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients.
+Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. Slice 1, **A New Home**, is now in development.
 
 ## Run locally on macOS
 
@@ -22,7 +22,7 @@ For an automatic local connection:
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --connect=ws://127.0.0.1:9080
 ```
 
-Press **Connect**, move with WASD or the arrow keys, and touch the gold sphere. Restart the client to verify the same player position returns. Restart the server to verify the collected sphere stays gone.
+Press **Connect**, move with WASD or the arrow keys, follow the arrival road, and recover the lost supplies near the forest. Restart the client to verify the same player position returns. Restart the server to verify the supplies stay collected.
 
 ## Run the state test
 
