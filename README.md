@@ -46,9 +46,26 @@ python3 -m http.server 8060 --directory exports/web
 
 Open `http://127.0.0.1:8060`, enter `ws://127.0.0.1:9080`, and connect to the same headless server used by the native client.
 
+## Build the Android debug client
+
+```sh
+mkdir -p exports/android
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --export-debug "Android Debug" exports/android/project-hearth-debug.apk
+```
+
+The prototype package ID is `com.example.projecthearth`; choose the permanent production ID before publishing to an app store.
+
+For the Android emulator, forward its localhost port before pressing Connect:
+
+```sh
+adb reverse tcp:9080 tcp:9080
+```
+
+On a physical Android device, replace `127.0.0.1` with the Mac's local-network address, such as `ws://192.168.1.20:9080`. The phone and Mac must be on the same network, and the server must be allowed through the Mac firewall.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
 - Desktop Web client: export, rendering, connection, movement, and collection verified
-- Android client: pending
+- Android client: debug APK export, rendering, connection, touch movement, and collection verified on a Pixel 7a emulator
 - Windows client: pending

@@ -8,6 +8,7 @@ var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
 var peer_inputs: Dictionary = {}
 var player_nodes: Dictionary = {}
+var touch_directions: Dictionary = {}
 var local_token := ""
 var is_server := false
 var client_connected := false
@@ -45,6 +46,7 @@ func _physics_process(delta: float) -> void:
 	if not client_connected:
 		return
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	submit_input.rpc_id(1, input_vector)
 
 
@@ -290,6 +292,43 @@ func _build_interface() -> void:
 	status_label.text = "Start the server, then connect."
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(status_label)
+	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+		_build_touch_controls(layer)
+
+
+func _build_touch_controls(layer: CanvasLayer) -> void:
+	var controls := HBoxContainer.new()
+	controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	controls.offset_left = 24.0
+	controls.offset_top = -96.0
+	controls.offset_right = 360.0
+	controls.offset_bottom = -24.0
+	controls.add_theme_constant_override("separation", 12)
+	layer.add_child(controls)
+	_add_touch_button(controls, "←", "left")
+	_add_touch_button(controls, "↑", "forward")
+	_add_touch_button(controls, "↓", "back")
+	_add_touch_button(controls, "→", "right")
+
+
+func _add_touch_button(parent: Control, label: String, direction: String) -> void:
+	var button := Button.new()
+	button.text = label
+	button.custom_minimum_size = Vector2(72.0, 72.0)
+	button.button_down.connect(_set_touch_direction.bind(direction, true))
+	button.button_up.connect(_set_touch_direction.bind(direction, false))
+	parent.add_child(button)
+
+
+func _set_touch_direction(direction: String, pressed: bool) -> void:
+	touch_directions[direction] = pressed
+
+
+func _touch_input_vector() -> Vector2:
+	return Vector2(
+		float(touch_directions.get("right", false)) - float(touch_directions.get("left", false)),
+		float(touch_directions.get("back", false)) - float(touch_directions.get("forward", false)),
+	)
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:
