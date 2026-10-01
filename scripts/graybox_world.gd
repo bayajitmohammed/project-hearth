@@ -12,6 +12,9 @@ static func build(root: Node3D) -> Dictionary:
 	_add_forest_edge(root)
 	_add_landmark_signs(root)
 	_add_mara(root)
+	var resource_nodes := _add_resources(root)
+	var repair_nodes := _add_repair_markers(root)
+	var repair_result_nodes := _add_repair_results(root)
 
 	var supplies := _add_box(
 		root,
@@ -31,7 +34,13 @@ static func build(root: Node3D) -> Dictionary:
 	camera.current = true
 	root.add_child(camera)
 
-	return {"collectible": supplies, "camera": camera}
+	return {
+		"collectible": supplies,
+		"camera": camera,
+		"resources": resource_nodes,
+		"repairs": repair_nodes,
+		"repair_results": repair_result_nodes,
+	}
 
 
 static func _add_environment(root: Node3D) -> void:
@@ -116,6 +125,52 @@ static func _add_mara(root: Node3D) -> void:
 	name_label.outline_size = 8
 	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	root.add_child(name_label)
+
+
+static func _add_resources(root: Node3D) -> Dictionary:
+	var nodes := {}
+	for resource_id: String in WorldStateModel.RESOURCE_POSITIONS:
+		var resource_type: String = WorldStateModel.RESOURCE_TYPES[resource_id]
+		var node: MeshInstance3D
+		if resource_type == "wood":
+			node = _add_box(
+				root, resource_id, Vector3(1.2, 0.45, 0.55),
+				WorldStateModel.RESOURCE_POSITIONS[resource_id], Color("8a5c3b"), Vector3(0.0, 20.0, 0.0)
+			)
+		else:
+			node = _add_cylinder(
+				root, resource_id, 0.32, 0.55,
+				WorldStateModel.RESOURCE_POSITIONS[resource_id], Color("79d06d"), 6
+			)
+		nodes[resource_id] = node
+	return nodes
+
+
+static func _add_repair_markers(root: Node3D) -> Dictionary:
+	var nodes := {}
+	for part_id: String in WorldStateModel.REPAIR_POSITIONS:
+		var node := _add_cylinder(
+			root, "Repair_%s" % part_id, 0.55, 0.12,
+			WorldStateModel.REPAIR_POSITIONS[part_id] - Vector3(0.0, 0.48, 0.0),
+			Color("f4d35e"), 16
+		)
+		var material := node.material_override as StandardMaterial3D
+		material.emission_enabled = true
+		material.emission = Color("8a6415")
+		node.visible = false
+		nodes[part_id] = node
+	return nodes
+
+
+static func _add_repair_results(root: Node3D) -> Dictionary:
+	var nodes := {
+		"door": _add_box(root, "RepairedDoor", Vector3(1.5, 2.3, 0.22), Vector3(-10.0, 1.3, 5.78), Color("4e7a58")),
+		"wall": _add_box(root, "RepairedWall", Vector3(0.22, 2.0, 1.7), Vector3(-13.48, 1.25, 3.0), Color("e6d6ae")),
+		"garden": _add_box(root, "GardenPlanter", Vector3(2.4, 0.5, 1.2), Vector3(-7.0, 0.3, 0.3), Color("6c8f4f")),
+	}
+	for node: MeshInstance3D in nodes.values():
+		node.visible = false
+	return nodes
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:

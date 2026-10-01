@@ -18,10 +18,15 @@ var snapshot_accumulator := 0.0
 var status_label: Label
 var objective_label: Label
 var dialogue_label: Label
+var inventory_label: Label
 var address_input: LineEdit
 var connect_button: Button
+var craft_button: Button
 var collectible_mesh: MeshInstance3D
 var game_camera: Camera3D
+var resource_nodes: Dictionary = {}
+var repair_nodes: Dictionary = {}
+var repair_result_nodes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -54,6 +59,8 @@ func _physics_process(delta: float) -> void:
 	submit_input.rpc_id(1, input_vector)
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
+	if Input.is_action_just_pressed("craft"):
+		_request_craft()
 
 
 func _process(delta: float) -> void:
@@ -108,7 +115,19 @@ func request_interaction() -> void:
 	if not peer_to_token.has(sender_id):
 		return
 	var player_token: String = peer_to_token[sender_id]
-	if world_state.interact_with_mara(player_token):
+	if world_state.interact(player_token):
+		_save_world()
+		receive_snapshot.rpc(_snapshot_for_clients())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_craft_repair_kit() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	if world_state.craft_repair_kit():
 		_save_world()
 		receive_snapshot.rpc(_snapshot_for_clients())
 
@@ -126,7 +145,22 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			player_nodes[token].queue_free()
 			player_nodes.erase(token)
 	collectible_mesh.visible = not bool(snapshot.get("collectible_collected", false))
-	_update_quest_interface(str(snapshot.get("quest_stage", "meet_mara")))
+	var gathered: Dictionary = snapshot.get("gathered_resources", {})
+	for resource_id: String in resource_nodes:
+		resource_nodes[resource_id].visible = not bool(gathered.get(resource_id, false))
+	var repairs: Dictionary = snapshot.get("repaired_parts", {})
+	var quest_stage := str(snapshot.get("quest_stage", "meet_mara"))
+	var materials: Dictionary = snapshot.get("materials", {})
+	var has_repair_kit := int(materials.get("repair_kit", 0)) > 0
+	for part_id: String in repair_nodes:
+		var is_repaired := bool(repairs.get(part_id, false))
+		repair_nodes[part_id].visible = quest_stage == "repair_cottage" and has_repair_kit and not is_repaired
+		repair_result_nodes[part_id].visible = is_repaired
+	_update_quest_interface(
+		quest_stage,
+		materials,
+		repairs
+	)
 
 
 func _start_server(port: int) -> void:
@@ -196,6 +230,9 @@ func _snapshot_for_clients() -> Dictionary:
 		"positions": active_positions,
 		"collectible_collected": world_state.collectible_collected,
 		"quest_stage": world_state.quest_stage,
+		"materials": world_state.materials.duplicate(),
+		"gathered_resources": world_state.gathered_resources.duplicate(),
+		"repaired_parts": world_state.repaired_parts.duplicate(),
 	}
 
 
@@ -247,6 +284,9 @@ func _build_world() -> void:
 	var world_nodes := GrayboxWorldBuilder.build(self)
 	collectible_mesh = world_nodes["collectible"]
 	game_camera = world_nodes["camera"]
+	resource_nodes = world_nodes["resources"]
+	repair_nodes = world_nodes["repairs"]
+	repair_result_nodes = world_nodes["repair_results"]
 
 
 func _build_interface() -> void:
@@ -278,6 +318,15 @@ func _build_interface() -> void:
 	dialogue_label.text = "Mara is waiting by the cottage."
 	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(dialogue_label)
+	inventory_label = Label.new()
+	inventory_label.text = "Project bag — Wood: 0  Herb: 0  Repair kit: 0"
+	content.add_child(inventory_label)
+	craft_button = Button.new()
+	craft_button.text = "Craft Repair Kit (C)"
+	craft_button.custom_minimum_size.y = 42.0
+	craft_button.disabled = true
+	craft_button.pressed.connect(_request_craft)
+	content.add_child(craft_button)
 	address_input = LineEdit.new()
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"
@@ -309,10 +358,15 @@ func _build_touch_controls(layer: CanvasLayer) -> void:
 	_add_touch_button(controls, "↓", "back")
 	_add_touch_button(controls, "→", "right")
 	var interact_button := Button.new()
-	interact_button.text = "Talk"
+	interact_button.text = "Use"
 	interact_button.custom_minimum_size = Vector2(88.0, 72.0)
 	interact_button.pressed.connect(_request_interaction)
 	controls.add_child(interact_button)
+	var craft_touch_button := Button.new()
+	craft_touch_button.text = "Craft"
+	craft_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
+	craft_touch_button.pressed.connect(_request_craft)
+	controls.add_child(craft_touch_button)
 
 
 func _add_touch_button(parent: Control, label: String, direction: String) -> void:
@@ -340,20 +394,40 @@ func _request_interaction() -> void:
 		request_interaction.rpc_id(1)
 
 
-func _update_quest_interface(quest_stage: String) -> void:
+func _request_craft() -> void:
+	if client_connected:
+		request_craft_repair_kit.rpc_id(1)
+
+
+func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs: Dictionary) -> void:
+	var wood_count := int(materials.get("wood", 0))
+	var herb_count := int(materials.get("herb", 0))
+	var kit_count := int(materials.get("repair_kit", 0))
+	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d" % [wood_count, herb_count, kit_count]
+	craft_button.disabled = quest_stage != "repair_cottage" or wood_count < 2 or herb_count < 1 or kit_count > 0
 	match quest_stage:
 		"meet_mara":
 			objective_label.text = "GOAL: Meet Mara beside the abandoned cottage. Press E or controller A to talk."
 			dialogue_label.text = "Mara: Newcomers? Come here—I may have a home for you."
 		"recover_supplies":
-			objective_label.text = "GOAL: Follow the road north and recover Mara's lost supplies."
-			dialogue_label.text = "Mara: Bring the supplies back and we can begin repairing this place."
+			objective_label.text = "GOAL: Gather 2 wood and 1 herb with E, then recover Mara's supplies."
+			dialogue_label.text = "Mara: Bring the supplies and useful forest materials back here."
 		"return_to_mara":
 			objective_label.text = "GOAL: Return the recovered supplies to Mara."
 			dialogue_label.text = "The supplies are safe. Mara will want to see them."
 		"repair_cottage":
-			objective_label.text = "GOAL: Make a repair kit for the abandoned cottage."
+			var repair_count := 0
+			for repaired: bool in repairs.values():
+				if repaired:
+					repair_count += 1
+			if kit_count == 0:
+				objective_label.text = "GOAL: Craft a repair kit with 2 wood and 1 herb. Press C."
+			else:
+				objective_label.text = "GOAL: Use E at the three gold repair markers. Repairs: %d/3" % repair_count
 			dialogue_label.text = "Mara: It is yours if you are willing to restore it together."
+		"home_repaired":
+			objective_label.text = "HOME REPAIRED: The cottage now belongs to your group."
+			dialogue_label.text = "Mara: Welcome home. The neighborhood will remember what you did."
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

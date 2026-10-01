@@ -22,7 +22,7 @@ For an automatic local connection:
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --connect=ws://127.0.0.1:9080
 ```
 
-Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to speak with Mara. Follow the arrival road and recover her lost supplies near the forest. Restart the client to verify the same player position returns. Restart the server to verify the quest and supplies remain changed.
+Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, and repair. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, and cottage repairs remain changed.
 
 ## Run the state test
 
