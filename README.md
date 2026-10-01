@@ -24,6 +24,8 @@ For an automatic local connection:
 
 Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, repair, or revive. Press **Space** (or controller X) near the forest creature to attack. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, creature, health, and cottage repairs remain changed.
 
+Completing all three repairs grants one reputation point, changes Mara's response, and reveals the Old Stone Ruins rumor at the forest boundary.
+
 ## Run the state test
 
 ```sh

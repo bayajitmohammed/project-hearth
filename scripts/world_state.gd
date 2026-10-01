@@ -42,6 +42,8 @@ var creature_position := CREATURE_SPAWN
 var creature_health := CREATURE_MAX_HEALTH
 var creature_defeated := false
 var creature_attack_cooldown := 0.0
+var reputation := 0
+var map_rumor_unlocked := false
 
 
 func register_player(player_token: String) -> Vector3:
@@ -129,6 +131,8 @@ func try_repair_cottage(player_token: String) -> bool:
 			if _all_repairs_complete():
 				materials["repair_kit"] = 0
 				quest_stage = "home_repaired"
+				reputation = 1
+				map_rumor_unlocked = true
 			return true
 	return false
 
@@ -213,7 +217,7 @@ func to_dictionary() -> Dictionary:
 		var position: Vector3 = positions[player_token]
 		encoded_positions[player_token] = [position.x, position.y, position.z]
 	return {
-		"version": 2,
+		"version": 3,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
 		"materials": materials.duplicate(),
@@ -224,6 +228,8 @@ func to_dictionary() -> Dictionary:
 		"creature_position": [creature_position.x, creature_position.y, creature_position.z],
 		"creature_health": creature_health,
 		"creature_defeated": creature_defeated,
+		"reputation": reputation,
+		"map_rumor_unlocked": map_rumor_unlocked,
 		"positions": encoded_positions,
 	}
 
@@ -253,6 +259,8 @@ func load_dictionary(data: Dictionary) -> void:
 		creature_position = CREATURE_SPAWN
 	creature_health = int(data.get("creature_health", CREATURE_MAX_HEALTH))
 	creature_defeated = bool(data.get("creature_defeated", false))
+	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
+	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
 	for player_token: String in encoded_positions:

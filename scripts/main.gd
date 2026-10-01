@@ -20,6 +20,7 @@ var objective_label: Label
 var dialogue_label: Label
 var inventory_label: Label
 var combat_label: Label
+var world_change_label: Label
 var address_input: LineEdit
 var connect_button: Button
 var craft_button: Button
@@ -29,6 +30,7 @@ var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
 var creature_node: MeshInstance3D
+var rumor_marker: MeshInstance3D
 
 
 func _ready() -> void:
@@ -185,6 +187,12 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	creature_node.visible = not creature_defeated
 	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
 	_update_combat_interface(snapshot, creature_defeated)
+	var rumor_unlocked := bool(snapshot.get("map_rumor_unlocked", false))
+	rumor_marker.visible = rumor_unlocked
+	world_change_label.text = "Reputation: %d  Map rumor: %s" % [
+		int(snapshot.get("reputation", 0)),
+		"Old Stone Ruins beyond the northern trail" if rumor_unlocked else "Locked",
+	]
 
 
 func _start_server(port: int) -> void:
@@ -262,6 +270,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"creature_position": world_state.creature_position,
 		"creature_health": world_state.creature_health,
 		"creature_defeated": world_state.creature_defeated,
+		"reputation": world_state.reputation,
+		"map_rumor_unlocked": world_state.map_rumor_unlocked,
 	}
 
 
@@ -317,6 +327,7 @@ func _build_world() -> void:
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
 	creature_node = world_nodes["creature"]
+	rumor_marker = world_nodes["rumor_marker"]
 
 
 func _build_interface() -> void:
@@ -354,6 +365,14 @@ func _build_interface() -> void:
 	combat_label = Label.new()
 	combat_label.text = "Health: 3/3  Forest creature: 3/3"
 	content.add_child(combat_label)
+	world_change_label = Label.new()
+	world_change_label.text = "Reputation: 0  Map rumor: Locked"
+	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(world_change_label)
+	var controls_hint := Label.new()
+	controls_hint.text = "Move: WASD/arrows · Use/revive: E · Attack: Space · Craft: C"
+	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(controls_hint)
 	craft_button = Button.new()
 	craft_button.text = "Craft Repair Kit (C)"
 	craft_button.custom_minimum_size.y = 42.0

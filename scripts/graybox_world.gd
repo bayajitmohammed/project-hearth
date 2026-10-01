@@ -16,6 +16,7 @@ static func build(root: Node3D) -> Dictionary:
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
 	var creature := _add_creature(root)
+	var rumor_marker := _add_rumor_marker(root)
 
 	var supplies := _add_box(
 		root,
@@ -42,6 +43,7 @@ static func build(root: Node3D) -> Dictionary:
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
 		"creature": creature,
+		"rumor_marker": rumor_marker,
 	}
 
 
@@ -88,13 +90,13 @@ static func _add_cottage(root: Node3D) -> void:
 
 
 static func _add_forest_edge(root: Node3D) -> void:
-	var tree_positions := [
-		Vector3(-15.0, 0.0, -9.0), Vector3(-11.5, 0.0, -12.0), Vector3(-8.0, 0.0, -9.5),
-		Vector3(-4.8, 0.0, -12.5), Vector3(5.0, 0.0, -12.0), Vector3(8.5, 0.0, -9.0),
-		Vector3(12.0, 0.0, -12.2), Vector3(15.0, 0.0, -9.5)
-	]
-	for index: int in tree_positions.size():
-		_add_tree(root, "Tree%d" % index, tree_positions[index])
+	var random := RandomNumberGenerator.new()
+	random.seed = 314159
+	for index: int in 10:
+		var side := -1.0 if index % 2 == 0 else 1.0
+		var x_position := side * random.randf_range(4.5, 15.5)
+		var z_position := random.randf_range(-12.8, -8.7)
+		_add_tree(root, "Tree%d" % index, Vector3(x_position, 0.0, z_position))
 
 
 static func _add_tree(root: Node3D, tree_name: String, tree_position: Vector3) -> void:
@@ -186,6 +188,15 @@ static func _add_creature(root: Node3D) -> MeshInstance3D:
 	creature.material_override = _material(Color("7652a6"))
 	root.add_child(creature)
 	return creature
+
+
+static func _add_rumor_marker(root: Node3D) -> MeshInstance3D:
+	var marker := _add_cylinder(root, "MapRumor", 0.38, 1.5, Vector3(0.0, 0.8, -12.5), Color("62c4d8"), 6)
+	var material := marker.material_override as StandardMaterial3D
+	material.emission_enabled = true
+	material.emission = Color("1a6675")
+	marker.visible = false
+	return marker
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:

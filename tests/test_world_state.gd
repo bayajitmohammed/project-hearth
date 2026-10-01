@@ -38,6 +38,8 @@ func _init() -> void:
 		assert(state.try_repair_cottage("player-a"))
 	assert(state.quest_stage == "home_repaired")
 	assert(state.materials["repair_kit"] == 0)
+	assert(state.reputation == 1)
+	assert(state.map_rumor_unlocked)
 
 	var restored := WorldStateModel.new()
 	restored.load_dictionary(state.to_dictionary())
@@ -45,6 +47,8 @@ func _init() -> void:
 	assert(restored.quest_stage == "home_repaired")
 	assert(restored.gathered_resources.size() == 3)
 	assert(restored.repaired_parts.values().all(func(value: bool) -> bool: return value))
+	assert(restored.reputation == 1)
+	assert(restored.map_rumor_unlocked)
 	assert(restored.register_player("player-a") == state.positions["player-a"])
 
 	var combat_state := WorldStateModel.new()
