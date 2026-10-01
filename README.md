@@ -10,6 +10,12 @@ Start the authoritative server:
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9080
 ```
 
+The default room code is `HEARTH`, and rooms accept at most four registered players. To run an isolated fresh playtest without touching the normal save:
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9090 --room=TEST42 --save-file=/tmp/project-hearth-playtest.json
+```
+
 Start one or more clients from the editor or another terminal:
 
 ```sh
@@ -21,6 +27,8 @@ For an automatic local connection:
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --connect=ws://127.0.0.1:9080
 ```
+
+Add `--room=TEST42` when connecting to a server that uses a non-default room code.
 
 Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, repair, or revive. Press **Space** (or controller X) near the forest creature to attack. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, creature, health, and cottage repairs remain changed.
 
@@ -80,3 +88,14 @@ Copy the entire `exports/windows` folder to the Windows computer when Vertical S
 - Desktop Web client: export, rendering, connection, movement, and collection verified
 - Android client: debug APK export, rendering, connection, touch movement, and collection verified on a Pixel 7a emulator
 - Windows client: export verified on macOS; runtime test deferred until Vertical Slice 1
+
+## Slice 1 verification status
+
+- World rules and version-3 persistence: automated state test passes
+- macOS development build: parsing and rendered-scene smoke test pass
+- Desktop Web: rebuilt, rendered, connected, and accepted movement with no console errors
+- Android: rebuilt, installed, rendered, connected, and accepted touch movement on the Pixel 7a emulator
+- Windows: rebuilt successfully on macOS; runtime test still requires the Windows computer
+- Remaining gate: complete the full loop with 1–4 fresh players, then repeat the runtime check on Windows
+
+Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.

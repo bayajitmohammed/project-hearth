@@ -2,6 +2,8 @@ extends Node3D
 
 const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
+const DEFAULT_ROOM_CODE := "HEARTH"
+const MAX_PLAYERS := 4
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 
@@ -14,6 +16,8 @@ var local_token := ""
 var is_server := false
 var client_connected := false
 var snapshot_accumulator := 0.0
+var save_path := SAVE_PATH
+var server_room_code := DEFAULT_ROOM_CODE
 
 var status_label: Label
 var objective_label: Label
@@ -22,6 +26,7 @@ var inventory_label: Label
 var combat_label: Label
 var world_change_label: Label
 var address_input: LineEdit
+var room_code_input: LineEdit
 var connect_button: Button
 var craft_button: Button
 var collectible_mesh: MeshInstance3D
@@ -43,9 +48,12 @@ func _ready() -> void:
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 
 	if "--server" in OS.get_cmdline_user_args():
+		save_path = _read_save_path_argument()
+		server_room_code = _read_room_argument()
 		_start_server(_read_port_argument())
 	else:
 		local_token = _load_or_create_player_token()
+		room_code_input.text = _read_room_argument()
 		var connect_address := _read_connect_argument()
 		if not connect_address.is_empty():
 			address_input.text = connect_address
@@ -95,10 +103,16 @@ func _simulate_server(delta: float) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(player_token: String) -> void:
+func register_player(player_token: String, requested_room_code: String) -> void:
 	if not is_server or player_token.is_empty():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
+	if requested_room_code.strip_edges().to_upper() != server_room_code:
+		registration_rejected.rpc_id(sender_id, "Room code not found")
+		return
+	if not peer_to_token.has(sender_id) and peer_to_token.size() >= MAX_PLAYERS:
+		registration_rejected.rpc_id(sender_id, "Room is full (maximum %d players)" % MAX_PLAYERS)
+		return
 	peer_to_token[sender_id] = player_token
 	peer_inputs[sender_id] = Vector2.ZERO
 	world_state.register_player(player_token)
@@ -154,6 +168,8 @@ func request_attack() -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func receive_snapshot(snapshot: Dictionary) -> void:
+	if client_connected and status_label.text == "Joining room…":
+		_status("Connected — follow the road toward the lost supplies")
 	var seen_tokens := {}
 	var positions: Dictionary = snapshot.get("positions", {})
 	for token: String in positions:
@@ -195,6 +211,15 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	]
 
 
+@rpc("authority", "call_remote", "reliable")
+func registration_rejected(reason: String) -> void:
+	client_connected = false
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	connect_button.disabled = false
+	room_code_input.editable = true
+	_status(reason)
+
+
 func _start_server(port: int) -> void:
 	is_server = true
 	_load_world()
@@ -207,6 +232,7 @@ func _start_server(port: int) -> void:
 	_status("Server listening on port %d" % port)
 	connect_button.visible = false
 	address_input.visible = false
+	room_code_input.visible = false
 
 
 func _connect_to_server() -> void:
@@ -223,9 +249,10 @@ func _connect_to_server() -> void:
 
 func _on_connected_to_server() -> void:
 	client_connected = true
-	_status("Connected — follow the road toward the lost supplies")
+	_status("Joining room…")
 	connect_button.disabled = true
-	register_player.rpc_id(1, local_token)
+	room_code_input.editable = false
+	register_player.rpc_id(1, local_token, room_code_input.text)
 
 
 func _on_connection_failed() -> void:
@@ -272,19 +299,20 @@ func _snapshot_for_clients() -> Dictionary:
 		"creature_defeated": world_state.creature_defeated,
 		"reputation": world_state.reputation,
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
+		"room_code": server_room_code,
 	}
 
 
 func _save_world() -> void:
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(world_state.to_dictionary()))
 
 
 func _load_world() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
+	if not FileAccess.file_exists(save_path):
 		return
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file := FileAccess.open(save_path, FileAccess.READ)
 	if file == null:
 		return
 	var parsed = JSON.parse_string(file.get_as_text())
@@ -317,6 +345,24 @@ func _read_connect_argument() -> String:
 		if argument.begins_with("--connect="):
 			return argument.trim_prefix("--connect=")
 	return ""
+
+
+func _read_room_argument() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--room="):
+			var requested := argument.trim_prefix("--room=").strip_edges().to_upper()
+			if not requested.is_empty():
+				return requested
+	return DEFAULT_ROOM_CODE
+
+
+func _read_save_path_argument() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--save-file="):
+			var requested := argument.trim_prefix("--save-file=").strip_edges()
+			if not requested.is_empty():
+				return requested
+	return SAVE_PATH
 
 
 func _build_world() -> void:
@@ -383,6 +429,11 @@ func _build_interface() -> void:
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"
 	content.add_child(address_input)
+	room_code_input = LineEdit.new()
+	room_code_input.text = DEFAULT_ROOM_CODE
+	room_code_input.placeholder_text = "Room code"
+	room_code_input.max_length = 16
+	content.add_child(room_code_input)
 	connect_button = Button.new()
 	connect_button.text = "Connect"
 	connect_button.custom_minimum_size.y = 48.0
