@@ -22,7 +22,7 @@ For an automatic local connection:
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --connect=ws://127.0.0.1:9080
 ```
 
-Press **Connect**, move with WASD or the arrow keys, follow the arrival road, and recover the lost supplies near the forest. Restart the client to verify the same player position returns. Restart the server to verify the supplies stay collected.
+Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to speak with Mara. Follow the arrival road and recover her lost supplies near the forest. Restart the client to verify the same player position returns. Restart the server to verify the quest and supplies remain changed.
 
 ## Run the state test
 

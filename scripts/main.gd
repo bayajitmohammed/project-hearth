@@ -16,6 +16,8 @@ var client_connected := false
 var snapshot_accumulator := 0.0
 
 var status_label: Label
+var objective_label: Label
+var dialogue_label: Label
 var address_input: LineEdit
 var connect_button: Button
 var collectible_mesh: MeshInstance3D
@@ -50,6 +52,8 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	submit_input.rpc_id(1, input_vector)
+	if Input.is_action_just_pressed("interact"):
+		_request_interaction()
 
 
 func _process(delta: float) -> void:
@@ -96,6 +100,19 @@ func submit_input(input_vector: Vector2) -> void:
 		peer_inputs[sender_id] = input_vector.limit_length(1.0)
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func request_interaction() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	var player_token: String = peer_to_token[sender_id]
+	if world_state.interact_with_mara(player_token):
+		_save_world()
+		receive_snapshot.rpc(_snapshot_for_clients())
+
+
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func receive_snapshot(snapshot: Dictionary) -> void:
 	var seen_tokens := {}
@@ -109,6 +126,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			player_nodes[token].queue_free()
 			player_nodes.erase(token)
 	collectible_mesh.visible = not bool(snapshot.get("collectible_collected", false))
+	_update_quest_interface(str(snapshot.get("quest_stage", "meet_mara")))
 
 
 func _start_server(port: int) -> void:
@@ -177,6 +195,7 @@ func _snapshot_for_clients() -> Dictionary:
 	return {
 		"positions": active_positions,
 		"collectible_collected": world_state.collectible_collected,
+		"quest_stage": world_state.quest_stage,
 	}
 
 
@@ -251,10 +270,14 @@ func _build_interface() -> void:
 	var title := Label.new()
 	title.text = "PROJECT HEARTH — A NEW HOME"
 	content.add_child(title)
-	var objective := Label.new()
-	objective.text = "GRAYBOX GOAL: Follow the road, find the abandoned cottage, then recover the lost supplies."
-	objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(objective)
+	objective_label = Label.new()
+	objective_label.text = "GOAL: Follow the road and meet Mara beside the abandoned cottage."
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(objective_label)
+	dialogue_label = Label.new()
+	dialogue_label.text = "Mara is waiting by the cottage."
+	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(dialogue_label)
 	address_input = LineEdit.new()
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"
@@ -285,6 +308,11 @@ func _build_touch_controls(layer: CanvasLayer) -> void:
 	_add_touch_button(controls, "↑", "forward")
 	_add_touch_button(controls, "↓", "back")
 	_add_touch_button(controls, "→", "right")
+	var interact_button := Button.new()
+	interact_button.text = "Talk"
+	interact_button.custom_minimum_size = Vector2(88.0, 72.0)
+	interact_button.pressed.connect(_request_interaction)
+	controls.add_child(interact_button)
 
 
 func _add_touch_button(parent: Control, label: String, direction: String) -> void:
@@ -305,6 +333,27 @@ func _touch_input_vector() -> Vector2:
 		float(touch_directions.get("right", false)) - float(touch_directions.get("left", false)),
 		float(touch_directions.get("back", false)) - float(touch_directions.get("forward", false)),
 	)
+
+
+func _request_interaction() -> void:
+	if client_connected:
+		request_interaction.rpc_id(1)
+
+
+func _update_quest_interface(quest_stage: String) -> void:
+	match quest_stage:
+		"meet_mara":
+			objective_label.text = "GOAL: Meet Mara beside the abandoned cottage. Press E or controller A to talk."
+			dialogue_label.text = "Mara: Newcomers? Come here—I may have a home for you."
+		"recover_supplies":
+			objective_label.text = "GOAL: Follow the road north and recover Mara's lost supplies."
+			dialogue_label.text = "Mara: Bring the supplies back and we can begin repairing this place."
+		"return_to_mara":
+			objective_label.text = "GOAL: Return the recovered supplies to Mara."
+			dialogue_label.text = "The supplies are safe. Mara will want to see them."
+		"repair_cottage":
+			objective_label.text = "GOAL: Make a repair kit for the abandoned cottage."
+			dialogue_label.text = "Mara: It is yours if you are willing to restore it together."
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

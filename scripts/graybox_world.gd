@@ -11,6 +11,7 @@ static func build(root: Node3D) -> Dictionary:
 	_add_cottage(root)
 	_add_forest_edge(root)
 	_add_landmark_signs(root)
+	_add_mara(root)
 
 	var supplies := _add_box(
 		root,
@@ -94,6 +95,27 @@ static func _add_tree(root: Node3D, tree_name: String, tree_position: Vector3) -
 static func _add_landmark_signs(root: Node3D) -> void:
 	_add_sign(root, "CottageSign", Vector3(-3.2, 0.0, 4.0), Color("e3bd68"))
 	_add_sign(root, "ForestSign", Vector3(2.0, 0.0, -6.7), Color("77b879"))
+
+
+static func _add_mara(root: Node3D) -> void:
+	var body := MeshInstance3D.new()
+	body.name = "Mara"
+	var body_mesh := CapsuleMesh.new()
+	body_mesh.radius = 0.42
+	body_mesh.height = 1.35
+	body.mesh = body_mesh
+	body.position = WorldStateModel.MARA_POSITION
+	body.material_override = _material(Color("b45b72"))
+	root.add_child(body)
+
+	var name_label := Label3D.new()
+	name_label.name = "MaraName"
+	name_label.text = "Mara"
+	name_label.position = WorldStateModel.MARA_POSITION + Vector3(0.0, 1.25, 0.0)
+	name_label.font_size = 36
+	name_label.outline_size = 8
+	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	root.add_child(name_label)
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:
