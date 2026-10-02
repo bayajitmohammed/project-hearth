@@ -22,6 +22,8 @@ var server_room_code := DEFAULT_ROOM_CODE
 var status_label: Label
 var objective_label: Label
 var dialogue_label: Label
+var progress_label: Label
+var interaction_prompt: Label
 var inventory_label: Label
 var combat_label: Label
 var world_change_label: Label
@@ -29,6 +31,9 @@ var address_input: LineEdit
 var room_code_input: LineEdit
 var connect_button: Button
 var craft_button: Button
+var quest_card: PanelContainer
+var connection_panel: PanelContainer
+var debug_panel: PanelContainer
 var collectible_mesh: MeshInstance3D
 var game_camera: Camera3D
 var resource_nodes: Dictionary = {}
@@ -75,6 +80,8 @@ func _physics_process(delta: float) -> void:
 		_request_craft()
 	if Input.is_action_just_pressed("attack"):
 		_request_attack()
+	if Input.is_action_just_pressed("toggle_debug"):
+		debug_panel.visible = not debug_panel.visible
 
 
 func _process(delta: float) -> void:
@@ -194,6 +201,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		var is_repaired := bool(repairs.get(part_id, false))
 		repair_nodes[part_id].visible = quest_stage == "repair_cottage" and has_repair_kit and not is_repaired
 		repair_result_nodes[part_id].visible = is_repaired
+	_update_repair_prompt(quest_stage, has_repair_kit, repairs, positions.get(local_token, Vector3.INF))
 	_update_quest_interface(
 		quest_stage,
 		materials,
@@ -209,6 +217,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		int(snapshot.get("reputation", 0)),
 		"Old Stone Ruins beyond the northern trail" if rumor_unlocked else "Locked",
 	]
+	connection_panel.visible = false
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -217,6 +226,7 @@ func registration_rejected(reason: String) -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	connect_button.disabled = false
 	room_code_input.editable = true
+	connection_panel.visible = true
 	_status(reason)
 
 
@@ -259,12 +269,14 @@ func _on_connection_failed() -> void:
 	client_connected = false
 	_status("Could not connect")
 	connect_button.disabled = false
+	connection_panel.visible = true
 
 
 func _on_server_disconnected() -> void:
 	client_connected = false
 	_status("Server disconnected")
 	connect_button.disabled = false
+	connection_panel.visible = true
 
 
 func _on_peer_connected(_peer_id: int) -> void:
@@ -381,68 +393,119 @@ func _build_interface() -> void:
 	add_child(layer)
 	var safe_margin := MarginContainer.new()
 	safe_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	safe_margin.add_theme_constant_override("margin_left", 24)
-	safe_margin.add_theme_constant_override("margin_top", 24)
-	safe_margin.add_theme_constant_override("margin_right", 24)
-	safe_margin.add_theme_constant_override("margin_bottom", 24)
+	safe_margin.add_theme_constant_override("margin_left", 20)
+	safe_margin.add_theme_constant_override("margin_top", 20)
+	safe_margin.add_theme_constant_override("margin_right", 20)
+	safe_margin.add_theme_constant_override("margin_bottom", 20)
 	layer.add_child(safe_margin)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(420.0, 0.0)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	safe_margin.add_child(panel)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 10)
-	panel.add_child(content)
+	var top_stack := VBoxContainer.new()
+	top_stack.custom_minimum_size.x = 360.0
+	top_stack.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	top_stack.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top_stack.add_theme_constant_override("separation", 8)
+	safe_margin.add_child(top_stack)
+
+	quest_card = PanelContainer.new()
+	quest_card.name = "QuestCard"
+	quest_card.custom_minimum_size = Vector2(360.0, 0.0)
+	var quest_style := StyleBoxFlat.new()
+	quest_style.bg_color = Color(0.055, 0.09, 0.12, 0.9)
+	quest_style.border_color = Color("20e0f0")
+	quest_style.set_border_width_all(2)
+	quest_style.set_corner_radius_all(10)
+	quest_style.set_content_margin_all(14)
+	quest_card.add_theme_stylebox_override("panel", quest_style)
+	top_stack.add_child(quest_card)
+	var quest_content := VBoxContainer.new()
+	quest_content.add_theme_constant_override("separation", 6)
+	quest_card.add_child(quest_content)
 	var title := Label.new()
-	title.text = "PROJECT HEARTH — A NEW HOME"
-	content.add_child(title)
+	title.text = "A NEW HOME"
+	title.add_theme_color_override("font_color", Color("7df4f7"))
+	title.add_theme_font_size_override("font_size", 16)
+	quest_content.add_child(title)
 	objective_label = Label.new()
-	objective_label.text = "GOAL: Follow the road and meet Mara beside the abandoned cottage."
+	objective_label.text = "Meet Mara beside the abandoned cottage."
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(objective_label)
+	objective_label.add_theme_font_size_override("font_size", 21)
+	quest_content.add_child(objective_label)
+	progress_label = Label.new()
+	progress_label.text = ""
+	progress_label.add_theme_color_override("font_color", Color("7df4f7"))
+	progress_label.add_theme_font_size_override("font_size", 18)
+	progress_label.visible = false
+	quest_content.add_child(progress_label)
 	dialogue_label = Label.new()
 	dialogue_label.text = "Mara is waiting by the cottage."
 	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(dialogue_label)
-	inventory_label = Label.new()
-	inventory_label.text = "Project bag — Wood: 0  Herb: 0  Repair kit: 0"
-	content.add_child(inventory_label)
-	combat_label = Label.new()
-	combat_label.text = "Health: 3/3  Forest creature: 3/3"
-	content.add_child(combat_label)
-	world_change_label = Label.new()
-	world_change_label.text = "Reputation: 0  Map rumor: Locked"
-	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(world_change_label)
-	var controls_hint := Label.new()
-	controls_hint.text = "Move: WASD/arrows · Use/revive: E · Attack: Space · Craft: C"
-	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(controls_hint)
+	dialogue_label.add_theme_color_override("font_color", Color("ced8dc"))
+	quest_content.add_child(dialogue_label)
 	craft_button = Button.new()
 	craft_button.text = "Craft Repair Kit (C)"
 	craft_button.custom_minimum_size.y = 42.0
-	craft_button.disabled = true
+	craft_button.visible = false
 	craft_button.pressed.connect(_request_craft)
-	content.add_child(craft_button)
+	quest_content.add_child(craft_button)
+
+	connection_panel = PanelContainer.new()
+	connection_panel.name = "ConnectionPanel"
+	top_stack.add_child(connection_panel)
+	var connection_content := VBoxContainer.new()
+	connection_content.add_theme_constant_override("separation", 8)
+	connection_panel.add_child(connection_content)
 	address_input = LineEdit.new()
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"
-	content.add_child(address_input)
+	connection_content.add_child(address_input)
 	room_code_input = LineEdit.new()
 	room_code_input.text = DEFAULT_ROOM_CODE
 	room_code_input.placeholder_text = "Room code"
 	room_code_input.max_length = 16
-	content.add_child(room_code_input)
+	connection_content.add_child(room_code_input)
 	connect_button = Button.new()
 	connect_button.text = "Connect"
-	connect_button.custom_minimum_size.y = 48.0
+	connect_button.custom_minimum_size.y = 46.0
 	connect_button.pressed.connect(_connect_to_server)
-	content.add_child(connect_button)
+	connection_content.add_child(connect_button)
 	status_label = Label.new()
 	status_label.text = "Start the server, then connect."
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(status_label)
+	connection_content.add_child(status_label)
+
+	debug_panel = PanelContainer.new()
+	debug_panel.name = "DebugPanel"
+	debug_panel.visible = false
+	top_stack.add_child(debug_panel)
+	var debug_content := VBoxContainer.new()
+	debug_panel.add_child(debug_content)
+	inventory_label = Label.new()
+	inventory_label.text = "Project bag — Wood: 0  Herb: 0  Repair kit: 0"
+	debug_content.add_child(inventory_label)
+	combat_label = Label.new()
+	combat_label.text = "Health: 3/3  Forest creature: 3/3"
+	debug_content.add_child(combat_label)
+	world_change_label = Label.new()
+	world_change_label.text = "Reputation: 0  Map rumor: Locked"
+	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	debug_content.add_child(world_change_label)
+	var controls_hint := Label.new()
+	controls_hint.text = "F3 closes debug · E use · Space attack · C craft"
+	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	debug_content.add_child(controls_hint)
+
+	interaction_prompt = Label.new()
+	interaction_prompt.name = "InteractionPrompt"
+	interaction_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	interaction_prompt.offset_left = -190.0
+	interaction_prompt.offset_top = -106.0
+	interaction_prompt.offset_right = 190.0
+	interaction_prompt.offset_bottom = -58.0
+	interaction_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	interaction_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	interaction_prompt.add_theme_font_size_override("font_size", 22)
+	interaction_prompt.add_theme_color_override("font_color", Color("e9feff"))
+	interaction_prompt.visible = false
+	layer.add_child(interaction_prompt)
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(layer)
 
@@ -529,30 +592,58 @@ func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs
 	var herb_count := int(materials.get("herb", 0))
 	var kit_count := int(materials.get("repair_kit", 0))
 	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d" % [wood_count, herb_count, kit_count]
-	craft_button.disabled = quest_stage != "repair_cottage" or wood_count < 2 or herb_count < 1 or kit_count > 0
+	craft_button.visible = quest_stage == "repair_cottage" and kit_count == 0
+	craft_button.disabled = wood_count < 2 or herb_count < 1
+	progress_label.visible = false
 	match quest_stage:
 		"meet_mara":
-			objective_label.text = "GOAL: Meet Mara beside the abandoned cottage. Press E or controller A to talk."
-			dialogue_label.text = "Mara: Newcomers? Come here—I may have a home for you."
+			objective_label.text = "Meet Mara beside the cottage"
+			dialogue_label.text = "Walk to Mara and press E to talk."
 		"recover_supplies":
-			objective_label.text = "GOAL: Gather 2 wood and 1 herb with E, then recover Mara's supplies."
-			dialogue_label.text = "Mara: Bring the supplies and useful forest materials back here."
+			objective_label.text = "Gather materials in the forest"
+			progress_label.visible = true
+			progress_label.text = "Wood %d/2  ·  Herb %d/1" % [mini(wood_count, 2), mini(herb_count, 1)]
+			dialogue_label.text = "Press E beside wood and herbs. Recover the lost supplies too."
 		"return_to_mara":
-			objective_label.text = "GOAL: Return the recovered supplies to Mara."
-			dialogue_label.text = "The supplies are safe. Mara will want to see them."
+			objective_label.text = "Return the supplies to Mara"
+			dialogue_label.text = "Meet Mara beside the cottage and press E."
 		"repair_cottage":
 			var repair_count := 0
 			for repaired: bool in repairs.values():
 				if repaired:
 					repair_count += 1
+			progress_label.visible = true
+			progress_label.text = "Cottage repairs  %d / 3" % repair_count
 			if kit_count == 0:
-				objective_label.text = "GOAL: Craft a repair kit with 2 wood and 1 herb. Press C."
+				objective_label.text = "Craft the cottage repair kit"
+				dialogue_label.text = "You need 2 wood and 1 herb. Press C or use the button."
 			else:
-				objective_label.text = "GOAL: Use E at the three gold repair markers. Repairs: %d/3" % repair_count
-			dialogue_label.text = "Mara: It is yours if you are willing to restore it together."
+				objective_label.text = "Repair the cottage"
+				dialogue_label.text = "Use E at each bright blue REPAIR marker in front of the cottage."
 		"home_repaired":
-			objective_label.text = "HOME REPAIRED: The cottage now belongs to your group."
+			objective_label.text = "Cottage repaired — welcome home!"
+			progress_label.visible = true
+			progress_label.text = "Cottage repairs  3 / 3"
 			dialogue_label.text = "Mara: Welcome home. The neighborhood will remember what you did."
+
+
+func _update_repair_prompt(quest_stage: String, has_repair_kit: bool, repairs: Dictionary, player_position: Vector3) -> void:
+	interaction_prompt.visible = false
+	if quest_stage != "repair_cottage" or not has_repair_kit or not player_position.is_finite():
+		return
+	var nearest_part := ""
+	var nearest_distance := INF
+	for part_id: String in WorldStateModel.REPAIR_POSITIONS:
+		if bool(repairs.get(part_id, false)):
+			continue
+		var distance := player_position.distance_to(WorldStateModel.REPAIR_POSITIONS[part_id])
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_part = part_id
+	if nearest_distance <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+		var action_name := "USE" if OS.has_feature("mobile") else "E"
+		interaction_prompt.text = "%s  ·  Repair %s" % [action_name, WorldStateModel.REPAIR_LABELS[nearest_part].capitalize()]
+		interaction_prompt.visible = true
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

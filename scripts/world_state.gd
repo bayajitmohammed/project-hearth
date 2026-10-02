@@ -22,10 +22,11 @@ const RESOURCE_TYPES := {
 	"herb_1": "herb", "herb_2": "herb",
 }
 const REPAIR_POSITIONS := {
-	"door": Vector3(-10.0, 0.6, 6.2),
-	"wall": Vector3(-13.7, 0.6, 3.0),
-	"garden": Vector3(-7.0, 0.6, 0.3),
+	"door": Vector3(-10.0, 0.6, 6.5),
+	"wall": Vector3(-13.8, 0.6, 6.5),
+	"garden": Vector3(-6.2, 0.6, 6.5),
 }
+const REPAIR_LABELS := {"door": "DOOR", "wall": "WALL", "garden": "GARDEN"}
 const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3

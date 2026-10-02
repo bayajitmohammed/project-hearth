@@ -153,16 +153,36 @@ static func _add_resources(root: Node3D) -> Dictionary:
 static func _add_repair_markers(root: Node3D) -> Dictionary:
 	var nodes := {}
 	for part_id: String in WorldStateModel.REPAIR_POSITIONS:
-		var node := _add_cylinder(
-			root, "Repair_%s" % part_id, 0.55, 0.12,
-			WorldStateModel.REPAIR_POSITIONS[part_id] - Vector3(0.0, 0.48, 0.0),
-			Color("f4d35e"), 16
-		)
-		var material := node.material_override as StandardMaterial3D
-		material.emission_enabled = true
-		material.emission = Color("8a6415")
-		node.visible = false
-		nodes[part_id] = node
+		var marker := Node3D.new()
+		marker.name = "Repair_%s" % part_id
+		marker.position = WorldStateModel.REPAIR_POSITIONS[part_id]
+		root.add_child(marker)
+
+		var disc := _add_cylinder(marker, "Disc", 0.72, 0.14, Vector3(0.0, -0.48, 0.0), Color("20e0f0"), 20)
+		var disc_material := disc.material_override as StandardMaterial3D
+		disc_material.emission_enabled = true
+		disc_material.emission = Color("20e0f0")
+		disc_material.emission_energy_multiplier = 2.0
+
+		var beacon := _add_cylinder(marker, "Beacon", 0.09, 1.5, Vector3(0.0, 0.3, 0.0), Color("e9feff"), 12)
+		var beacon_material := beacon.material_override as StandardMaterial3D
+		beacon_material.emission_enabled = true
+		beacon_material.emission = Color("20e0f0")
+		beacon_material.emission_energy_multiplier = 2.5
+
+		var label := Label3D.new()
+		label.name = "Label"
+		label.text = "REPAIR %s" % WorldStateModel.REPAIR_LABELS[part_id]
+		label.position = Vector3(0.0, 1.35, 0.0)
+		label.font_size = 48
+		label.pixel_size = 0.008
+		label.outline_size = 10
+		label.modulate = Color("e9feff")
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		marker.add_child(label)
+
+		marker.visible = false
+		nodes[part_id] = marker
 	return nodes
 
 
