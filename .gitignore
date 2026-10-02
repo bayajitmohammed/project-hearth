@@ -3,3 +3,6 @@
 *.tmp
 exports/
 save/
+docs/hearth-design-vault/.obsidian/workspace*.json
+docs/hearth-design-vault/.obsidian/cache/
+docs/hearth-design-vault/.trash/

@@ -1,0 +1,191 @@
+---
+tags: [game-design, prototype, roadmap]
+---
+
+# Prototype and Vertical Slices
+
+> [[00 Start Here|Home]] › [[01 Design Guide|Design Guide]] › **04 Production** · Active test: [[Cumulative Slices 1-6 Playtest Checklist]]
+
+## Use this note
+
+- [[#Playable slices|Roadmap table]]
+- [[#Current implementation handoff|Current implementation handoff]]
+- Implementation records: [[#Slice 1 build order|Slice 1]] · [[#Slice 2 — first cumulative increment|Slice 2]] · [[#Slice 3 — first cumulative increment|Slice 3]] · [[#Slice 4 — first cumulative increment|Slice 4]] · [[#Slice 5 — first cumulative increment|Slice 5]] · [[#Slice 6 — first cumulative increment|Slice 6]]
+- [[Cumulative Slices 1-6 Playtest Checklist|Temporary cumulative playtest checklist]]
+
+## Smallest fun prototype
+
+A 1–4 player build contains one city street, one shared homestead, one small generated forest, one NPC, one creature, one request, basic gathering/building, and persistence. Its exact scope is [[First Vertical Slice]].
+
+The test is successful if players help each other naturally, cause one remembered world change, and want to return to the same save. Visual polish, large content libraries, PvP, Discord, and offline simulation are excluded.
+
+## Playable slices
+
+| Slice | Playable promise           | Adds                                                                          | Ship to                 |
+| ----: | -------------------------- | ----------------------------------------------------------------------------- | ----------------------- |
+|     0 | **Multiplayer proof**      | Windows, browser, and Android join one room; movement, interaction, save/load | Internal testers        |
+|     1 | **A New Home**             | Arrival street, cottage, forest, gather/craft/build, one request              | Friends-and-family test |
+|     2 | **A Place That Remembers** | NPC routines, reputation, shared projects, chronicle, local event             | Closed alpha            |
+|     3 | **Beyond the Road**        | Generated regions, mapping, travel upgrades, ruin, combat, failure loop       | Public demo             |
+|     4 | **Choose a Life**          | Farming, cooking, craft, trade, mastery tracks, settlement needs              | Closed beta             |
+|     5 | **Our Shared World**       | 2–8 scaling, drop-in/out, dedicated server, catch-up, recovery tools          | Early Access            |
+|     6 | **Gather and Celebrate**   | Festivals, party activities, normalized PvP, launch content and polish        | Version 1.0             |
+
+Each slice remains playable and becomes part of the next build. A slice ships only when its named promise works end-to-end in multiplayer, survives save/load, and passes a fresh-player playtest. These are test stages and updates to one game—not separate products.
+
+## Working verification cadence
+
+During the cumulative implementation pass, every change receives automated coverage and is tested in the exported desktop Web build through Playwright CLI first. Broader runtime validation then proceeds to Windows desktop and native Android; native Mac is supplementary. Linux deployment packaging is deferred and does not block current slice work. Repeated fresh-player tests and full Web, Android, and Windows runtime passes are deferred until the cumulative game has taken enough shape for those tests to produce meaningful feedback.
+
+Until that later validation pass, completing a slice means its smallest promised systems are implemented cumulatively; it does **not** mean the slice has passed its final ship gate. Fresh-player understanding and all-target runtime compatibility remain required before release.
+
+## Current implementation handoff
+
+- Project: `/Users/kyrin0/Desktop/studio/garage/project-hearth`
+- Current checkpoint: the minimum cumulative Slice 6 promise, **Gather and Celebrate**, is implemented through the in-world Hearthlight Festival, explicit 1–8 player enrollment, a normalized checkpoint circuit, authoritative results, and persistent cosmetic ribbons.
+- Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
+- Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
+- Mac and Windows have been used together for the multiplayer quest loop, reconnection, persistence, movement, and camera checks.
+- Deferred validation: fresh-player usability and full Web, Android, and Windows runtime passes.
+- Historical focused Mac check: the active Slice 4 need and completed stall were inspected in first- and third-person presentation; overlapping garden labels, an oversized cumulative chronicle, and a spawn-crowding waystone were corrected. Browser-first Playwright checks now replace native Mac as the working presentation gate.
+- Focused desktop Web check: the Slice 5 HUD, room connection, WASD movement, camera toggle, pantry transfer, downed return, and recovery-pack prompt/label pass in Chromium through the exported build with no console errors. Synthetic pointer-lock mouse motion was not treated as a mouse-look validation.
+- Cumulative exported-Web check: a fresh-world Chromium journey passes through cottage repair, Welcome Lights, shared discovery, repeated solo guardian failure/return, eventual waystone restoration, the livelihood loop, empty-room sleep, reconnect catch-up, and pantry pickup. A non-blocking pointer-lock document message appeared only in the persistent-profile Playwright harness; focused gameplay runs and camera regression coverage remain clean.
+- Active completion work: follow [[Cumulative Slices 1-6 Playtest Checklist]] with a fresh player, then complete the full desktop Web, Windows, and native Android runtime pass. Archive the durable result here before deleting the temporary checklist.
+- After that validation: continue Slice 6 content and launch polish only where the playtest exposes a demonstrated need.
+
+## Slice 5 — first cumulative increment
+
+The smallest proof of **Our Shared World** begins after the neighborhood produce stall opens:
+
+1. One authoritative room admits up to eight distinct persistent player identities. Players may join, leave, and reconnect without resetting shared objectives or creating a second active copy of the same identity.
+2. The active player count is visible, while existing shared-project rules continue to credit the player who performs individual mastery work.
+3. When the room becomes empty, the world records that it went to sleep. On the first return, elapsed real time produces at most three pantry provisions at the completed produce stall. This catch-up is deliberately bounded and can never damage or decay the world.
+4. A player can take one personal trail provision from the pantry. These provisions are gathered expedition materials, not gear or permanent progression.
+5. Returning to safety while downed leaves carried trail provisions in one persistent recovery pack at the defeat location. The owner or a friend can recover the pack for its owner, and the pack survives disconnects and server restarts.
+6. The existing headless authoritative room remains the server proof. Linux deployment packaging, multi-room process management, and hosting infrastructure are deferred while browser, Windows desktop, and Android client quality take priority.
+
+The prototype uses a short catch-up interval so the behavior can be tested during development. Production calendar rates, accounts, multi-room process management, autoscaling, and encounter-content scaling remain later work. The uninterrupted cumulative Slice 3–5 desktop Web journey remains a required validation gate and is not considered passed by focused or automated Slice 5 coverage.
+
+### Implementation progress
+
+- [x] Eight-player room capacity, distinct active identities, and visible online count
+- [x] Persistent bounded pantry catch-up after an empty-room sleep
+- [x] Personal trail provisions and persistent friend-recoverable packs
+- [x] Version-7 persistence and version-6 migration
+- [x] Automated state, migration, presentation, two-client regression, and eight-client capacity coverage
+- [x] Focused exported desktop Web functionality and visual check in Chromium
+- [x] Exported desktop Web functionality and visual check of the cumulative Slice 3–5 journey
+- [ ] Deferred validation: fresh-player playtest of the cumulative game
+- [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
+
+## Slice 6 — first cumulative increment
+
+The smallest proof of **Gather and Celebrate** begins after the neighborhood produce stall opens:
+
+1. The successful food project opens the **Hearthlight Festival** at the existing neighborhood gathering place, so the social activity belongs to the shared world rather than a separate lobby.
+2. One to eight players explicitly opt into the **Hearthlight Circuit**, a short route through three ordered festival checkpoints. A joined player starts the run with a second interaction at the festival arch, giving friends a clear window to join while preserving solo play.
+3. The authoritative room owns enrollment, ordered checkpoint progress, and the first finisher. Players who did not opt in cannot advance or affect the result.
+4. The standard circuit uses the shared movement rules for every entrant; gear, mastery, provisions, and playtime grant no advantage. This is the first normalized, opt-in competitive activity and introduces no hostile open-world PvP.
+5. Every finisher receives one persistent cosmetic festival ribbon. The winner is named in the result, but ribbons grant no power and the activity can be replayed.
+6. Completing the circuit for the first time raises neighborhood morale and reputation, leaves persistent festival decorations at the gathering place, and records the celebration in the shared chronicle.
+7. Completed festival history and personal ribbons survive reconnects and server restarts. An interrupted signup or race safely returns to enrollment after a server restart; production scheduling, seasons, activity matchmaking, combat arenas, chaos-mode gear, and launch-content breadth remain future work.
+
+This is the minimum cumulative Slice 6 implementation, not the final Version 1.0 content and polish pass. Its purpose is to prove that friends can discover, opt into, complete, and replay one fair social activity inside the persistent world. Fresh-player usability and full Windows, desktop Web, and Android runtime validation remain release gates.
+
+### Implementation progress
+
+- [x] Server-authoritative festival enrollment, ordered circuit, winner, and replay flow
+- [x] Persistent first-completion world change and per-player cosmetic ribbons
+- [x] Version-8 persistence and version-7 migration
+- [x] In-world festival arch, checkpoints, objective guidance, and interaction prompts
+- [x] Automated state, migration, presentation, legacy regression, and simultaneous two-client coverage
+- [x] Focused exported desktop Web functionality and visual check in Chromium
+- [ ] Deferred validation: fresh-player playtest of the cumulative game
+- [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
+
+## Slice 3 — first cumulative increment
+
+The smallest current proof of **Beyond the Road** begins after Welcome Lights:
+
+1. Players follow the existing ruins rumor north into a deterministic seed-derived region beyond the original forest boundary.
+2. Entering Northwood and reaching the Old Stone Ruins reveals both locations for the whole room on a shared map.
+3. A ruin guardian creates a server-authoritative first-journey combat obstacle using the existing attack, downed, and cooperative-revive rules.
+4. A downed solo player may return safely to the cottage; equipped gear and permanent progression remain untouched. Recoverable expedition packs remain deferred until expedition inventory exists.
+5. Defeating the guardian lets the group restore an ancient waystone. The persistent route makes repeat travel between home and the ruins immediate.
+6. The restored route grants reputation and enters the shared chronicle.
+
+This is a deliberately small proof of region generation, shared discovery, an authored destination, first-journey danger, safer failure, and improved repeat travel. It does not introduce continent streaming, production procedural generation, a large combat system, or full expedition inventory.
+
+### Implementation progress
+
+- [x] Seed-derived Northwood region and authored Old Stone Ruins destination
+- [x] Server-authoritative shared map discovery and ruin guardian state
+- [x] Persistent waystone activation and two-way fast travel
+- [x] Solo return-to-safety extension of the existing downed/revive loop
+- [x] Version-5 persistence and version-4 migration
+- [x] Automated state, migration, presentation, and legacy regression coverage
+- [x] Two-client networking regression
+- [x] Exported desktop Web functionality and visual check of the cumulative journey
+- [ ] Deferred validation: fresh-player playtest of the cumulative game
+- [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
+
+## Slice 4 — first cumulative increment
+
+The smallest proof of **Choose a Life** begins after the Old Stone Ruins waystone is restored:
+
+1. The neighborhood posts one visible food need at the gathering place.
+2. Players harvest four persistent cottage-garden plots. Each harvest contributes moonroot to the shared project bag and grants Farming mastery to the player who tended it.
+3. At the cottage cookfire, a player turns two moonroot into one hearth stew. Cooking grants that player Cooking mastery.
+4. At the neighborhood market crate, a player delivers two stews. Each delivery grants that player Trade mastery and advances the shared settlement need.
+5. Fulfilling the need opens a persistent produce stall, improves neighborhood morale and reputation, and records the result in the chronicle.
+6. Each mastery track displays the individual player's contribution and first title, allowing friends to divide the work or one player to complete the whole loop.
+
+This is a deliberately small proof that farming, cooking, trade, individual mastery, and a shared settlement need form one readable loop. Crop timers, planting choices, recipe libraries, direct player trade, coin, bounded market simulation, and production chains remain future Slice 4 depth. The first titles are identity feedback, not the final mastery progression or functional cap.
+
+### Implementation progress
+
+- [x] Server-authoritative garden, cooking, delivery, and settlement-need state
+- [x] Per-player Farming, Cooking, and Trade mastery
+- [x] Persistent produce stall, morale/reputation result, and chronicle entry
+- [x] Version-6 persistence and version-5 migration
+- [x] In-world stations, objective guidance, interaction prompts, and mastery display
+- [x] Automated state, migration, presentation, and legacy regression coverage
+- [x] Two-client networking regression, including the complete livelihood loop
+- [x] Exported desktop Web functionality and visual check of the cumulative journey
+- [ ] Deferred validation: fresh-player playtest of the cumulative game
+- [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
+
+## Slice 2 — first cumulative increment
+
+The smallest current proof of **A Place That Remembers** begins when the cottage repair is complete:
+
+1. The repaired home creates a chronicle entry and unlocks a local welcome event.
+2. Mara invites the players, then moves from the cottage to the neighborhood gathering place.
+3. Players collectively light three welcome lanterns; every contribution is shared and persistent.
+4. Completion improves neighborhood morale and reputation, leaves the lanterns visibly lit, and adds the celebration to the chronicle.
+5. Version-3 Slice 1 saves migrate into the invitation rather than losing or replaying the cottage outcome.
+
+This is the minimum cumulative Slice 2 implementation, not the final production-scale simulation. Time-based schedules, a general event director, multiple NPC relationships, and reusable settlement-condition rules remain future depth to add only when later slices need them.
+
+### Implementation progress
+
+- [x] Server-authoritative event, shared lantern project, morale, Mara routine state, and chronicle
+- [x] Version-4 persistence and version-3 migration
+- [x] In-world markers, lit results, objective guidance, and visible shared chronicle
+- [x] Automated state, migration, readability, and legacy regression coverage
+- [x] Two-client Slice 1 networking regression
+- [x] Desktop Web, Android, and Windows debug exports rebuild successfully
+- [ ] Deferred validation: fresh-player playtest of the cumulative game
+- [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
+
+## Slice 1 build order
+
+1. Replace the networking test arena with the graybox arrival street, cottage, and forest boundary.
+2. Add Mara and the shared repair-cottage request.
+3. Add gathering, one inventory, one repair-kit recipe, and three persistent placements.
+4. Add one creature, health, defeat, and cooperative revive.
+5. Persist the cottage, inventory, reputation, quest state, and Mara's response.
+6. Add the map rumor and clear first-time guidance.
+7. Test the complete loop on Mac native, desktop Web, and Android throughout development.
+8. When the loop is playable, test the exported build on Windows and diagnose platform-specific issues there.
+9. Run a fresh 1–4 player playtest and check every item in [[First Vertical Slice#Done when]].

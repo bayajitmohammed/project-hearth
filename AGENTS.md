@@ -1,6 +1,6 @@
 # Project Hearth Guide
 
-This repository contains the Godot game. The design source of truth is the Obsidian vault at `/Users/kyrin0/Desktop/studio/notes/mmo-party-game-exploration`.
+This repository contains the Godot game. The design source of truth is the Obsidian vault at `docs/hearth-design-vault`.
 
 ## Before changing game behavior
 
