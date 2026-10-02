@@ -7,6 +7,7 @@ godot_bin="/Applications/Godot.app/Contents/MacOS/Godot"
 server_port="9080"
 room_code="HEARTH"
 save_file=""
+bind_address="*"
 
 show_help() {
 	print "Project Hearth server"
@@ -15,6 +16,7 @@ show_help() {
 	print ""
 	print "  --port=NUMBER       Server port (default: 9080)"
 	print "  --room=CODE         Room code (default: HEARTH)"
+	print "  --bind=ADDRESS      Listen address (default: all interfaces)"
 	print "  --save-file=PATH    Use a specific world save"
 	print "  --fresh             Use a new temporary world"
 	print "  --help              Show this help"
@@ -24,6 +26,7 @@ for argument in "$@"; do
 	case "$argument" in
 		--port=*) server_port="${argument#--port=}" ;;
 		--room=*) room_code="${argument#--room=}" ;;
+		--bind=*) bind_address="${argument#--bind=}" ;;
 		--save-file=*) save_file="${argument#--save-file=}" ;;
 		--fresh)
 			playtest_dir="$(mktemp -d /tmp/project-hearth-playtest.XXXXXX)"
@@ -51,6 +54,7 @@ server_args=(
 	"--server"
 	"--port=$server_port"
 	"--room=$room_code"
+	"--bind=$bind_address"
 )
 
 if [[ -n "$save_file" ]]; then
@@ -60,12 +64,17 @@ fi
 print "Starting Project Hearth server"
 print "Room: $room_code"
 print "Port: $server_port"
+print "Bind: $bind_address"
 if [[ -n "$save_file" ]]; then
 	print "Save: $save_file"
 else
 	print "Save: normal persistent world"
 fi
 print "Press Control-C to stop the server."
+local_ip="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+if [[ "$bind_address" == "*" && -n "$local_ip" ]]; then
+	print "Private-network clients: ws://$local_ip:$server_port"
+fi
 print ""
 
 exec "$godot_bin" --headless --path "$project_dir" -- "${server_args[@]}"

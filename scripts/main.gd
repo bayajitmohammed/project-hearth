@@ -4,6 +4,13 @@ const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
 const DEFAULT_ROOM_CODE := "HEARTH"
 const MAX_PLAYERS := 4
+const CAMERA_MIN_DISTANCE := 7.0
+const CAMERA_MAX_DISTANCE := 22.0
+const CAMERA_MOUSE_SENSITIVITY := 0.006
+const CAMERA_TOUCH_SENSITIVITY := 0.008
+const CAMERA_CONTROLLER_SPEED := 2.2
+const CAMERA_MIN_PITCH := deg_to_rad(20.0)
+const CAMERA_MAX_PITCH := deg_to_rad(70.0)
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 
@@ -18,6 +25,13 @@ var client_connected := false
 var snapshot_accumulator := 0.0
 var save_path := SAVE_PATH
 var server_room_code := DEFAULT_ROOM_CODE
+var latest_snapshot: Dictionary = {}
+var camera_yaw := 0.0
+var camera_pitch := deg_to_rad(48.0)
+var camera_distance := 17.0
+var camera_dragging := false
+var camera_touch_index := -1
+var local_input_enabled := true
 
 var status_label: Label
 var objective_label: Label
@@ -55,9 +69,11 @@ func _ready() -> void:
 	if "--server" in OS.get_cmdline_user_args():
 		save_path = _read_save_path_argument()
 		server_room_code = _read_room_argument()
-		_start_server(_read_port_argument())
+		_start_server(_read_port_argument(), _read_bind_address_argument())
 	else:
-		local_token = _load_or_create_player_token()
+		local_token = _read_player_token_argument()
+		if local_token.is_empty():
+			local_token = _load_or_create_player_token()
 		room_code_input.text = _read_room_argument()
 		var connect_address := _read_connect_argument()
 		if not connect_address.is_empty():
@@ -71,8 +87,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if not client_connected:
 		return
+	if not local_input_enabled:
+		return
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
+	input_vector = input_vector.rotated(-camera_yaw)
 	submit_input.rpc_id(1, input_vector)
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
@@ -87,10 +106,61 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if game_camera == null or not player_nodes.has(local_token):
 		return
+	_update_controller_camera(delta)
 	var player_node: MeshInstance3D = player_nodes[local_token]
-	var target_position := player_node.position + Vector3(0.0, 13.0, 11.0)
+	var horizontal_distance := camera_distance * cos(camera_pitch)
+	var target_position := player_node.position + Vector3(
+		sin(camera_yaw) * horizontal_distance,
+		sin(camera_pitch) * camera_distance,
+		cos(camera_yaw) * horizontal_distance
+	)
 	game_camera.position = game_camera.position.lerp(target_position, minf(delta * 6.0, 1.0))
 	game_camera.look_at(player_node.position + Vector3(0.0, 0.5, 0.0))
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if is_server:
+		return
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			camera_dragging = event.pressed
+			get_viewport().set_input_as_handled()
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			camera_distance = maxf(camera_distance - 1.5, CAMERA_MIN_DISTANCE)
+			get_viewport().set_input_as_handled()
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			camera_distance = minf(camera_distance + 1.5, CAMERA_MAX_DISTANCE)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and camera_dragging:
+		_orbit_camera(event.relative, CAMERA_MOUSE_SENSITIVITY)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenTouch:
+		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.45:
+			camera_touch_index = event.index
+		elif not event.pressed and event.index == camera_touch_index:
+			camera_touch_index = -1
+	elif event is InputEventScreenDrag and event.index == camera_touch_index:
+		_orbit_camera(event.relative, CAMERA_TOUCH_SENSITIVITY)
+
+
+func _orbit_camera(relative_motion: Vector2, sensitivity: float) -> void:
+	camera_yaw = wrapf(camera_yaw - relative_motion.x * sensitivity, -PI, PI)
+	camera_pitch = clampf(
+		camera_pitch - relative_motion.y * sensitivity,
+		CAMERA_MIN_PITCH,
+		CAMERA_MAX_PITCH
+	)
+
+
+func _update_controller_camera(delta: float) -> void:
+	for device_id: int in Input.get_connected_joypads():
+		var look := Vector2(
+			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_X),
+			Input.get_joy_axis(device_id, JOY_AXIS_RIGHT_Y)
+		)
+		if look.length() > 0.18:
+			_orbit_camera(look * delta, CAMERA_CONTROLLER_SPEED)
+			return
 
 
 func _simulate_server(delta: float) -> void:
@@ -175,6 +245,7 @@ func request_attack() -> void:
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func receive_snapshot(snapshot: Dictionary) -> void:
+	latest_snapshot = snapshot.duplicate(true)
 	if client_connected and status_label.text == "Joining room…":
 		_status("Connected — follow the road toward the lost supplies")
 	var seen_tokens := {}
@@ -230,16 +301,16 @@ func registration_rejected(reason: String) -> void:
 	_status(reason)
 
 
-func _start_server(port: int) -> void:
+func _start_server(port: int, bind_address: String = "*") -> void:
 	is_server = true
 	_load_world()
 	var web_socket_peer := WebSocketMultiplayerPeer.new()
-	var error := web_socket_peer.create_server(port)
+	var error := web_socket_peer.create_server(port, bind_address)
 	if error != OK:
 		_status("Server failed: %s" % error_string(error))
 		return
 	multiplayer.multiplayer_peer = web_socket_peer
-	_status("Server listening on port %d" % port)
+	_status("Server listening on %s:%d" % [bind_address, port])
 	connect_button.visible = false
 	address_input.visible = false
 	room_code_input.visible = false
@@ -352,10 +423,26 @@ func _read_port_argument() -> int:
 	return DEFAULT_PORT
 
 
+func _read_bind_address_argument() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--bind="):
+			var requested := argument.trim_prefix("--bind=").strip_edges()
+			if not requested.is_empty():
+				return requested
+	return "*"
+
+
 func _read_connect_argument() -> String:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--connect="):
 			return argument.trim_prefix("--connect=")
+	return ""
+
+
+func _read_player_token_argument() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--player-token="):
+			return argument.trim_prefix("--player-token=").strip_edges()
 	return ""
 
 
@@ -489,7 +576,7 @@ func _build_interface() -> void:
 	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(world_change_label)
 	var controls_hint := Label.new()
-	controls_hint.text = "F3 closes debug · E use · Space attack · C craft"
+	controls_hint.text = "F3 closes debug · E use · Space attack · C craft · RMB drag camera · wheel zoom"
 	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(controls_hint)
 

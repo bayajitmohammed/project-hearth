@@ -13,7 +13,7 @@ This repository contains the Godot game. The design source of truth is the Obsid
 
 Slice 0 is complete except for the intentionally deferred Windows runtime test. The active target is Slice 1, **A New Home**. Its graybox gameplay systems are implemented: Mara's shared quest, gathering, shared project materials, crafting, three cottage repairs, a forest creature, defeat/revive, reputation, a map rumor, and persistence.
 
-The current work is end-to-end multiplayer and platform verification, followed by a fresh-player playtest. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
+The adjustable third-person camera, fresh-player playtest, and two-client networking probe now pass. The current Slice 1 gate is the Windows runtime test over the private network. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
 
 ## Verification
 
