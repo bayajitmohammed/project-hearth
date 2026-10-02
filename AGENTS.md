@@ -11,9 +11,9 @@ This repository contains the Godot game. The design source of truth is the Obsid
 
 ## Current build target
 
-Slice 0 is complete. The active target is Slice 1, **A New Home**. Its graybox gameplay systems are implemented: Mara's shared quest, gathering, shared project materials, crafting, three cottage repairs, a forest creature, defeat/revive, reputation, a map rumor, and persistence.
+Slice 0 is complete and Slice 1, **A New Home**, is playable. The active target is Slice 2, **A Place That Remembers**. Its first cumulative increment begins after the cottage repair: Mara invites the players to light three shared welcome lanterns, moves to the gathering place, neighborhood morale improves, and the cottage repair and celebration enter the shared chronicle.
 
-The adjustable third-person camera, fresh-player playtest, two-client networking probe, and Mac-to-Windows private-network runtime check now pass. The remaining Slice 1 acceptance check is the complete loop across the target clients. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
+The adjustable third-person camera, fresh-player playtest, two-client networking probe, and Mac-to-Windows private-network runtime check pass. Retain the remaining Slice 1 full-loop cross-platform acceptance check as a regression item while building Slice 2. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
 
 ## Verification
 

@@ -40,6 +40,28 @@ func _init() -> void:
 	assert(state.materials["repair_kit"] == 0)
 	assert(state.reputation == 1)
 	assert(state.map_rumor_unlocked)
+	assert(state.neighborhood_event_stage == "invitation")
+	assert(state.chronicle == ["The newcomers repaired the abandoned cottage and made it their home."])
+
+	state.positions["player-a"] = state.mara_position
+	assert(state.interact_with_mara("player-a"))
+	assert(state.neighborhood_event_stage == "lighting")
+	assert(state.mara_position == WorldStateModel.MARA_WELCOME_POSITION)
+	state.register_player("player-b")
+	state.positions["player-a"] = WorldStateModel.WELCOME_LANTERN_POSITIONS["cottage"]
+	assert(state.try_light_welcome_lantern("player-a"))
+	assert(not state.try_light_welcome_lantern("player-a"), "A lit lantern must not accept duplicate credit.")
+	for lantern_id: String in ["road", "forest"]:
+		state.positions["player-b"] = WorldStateModel.WELCOME_LANTERN_POSITIONS[lantern_id]
+		assert(state.try_light_welcome_lantern("player-b"))
+	assert(state.neighborhood_event_stage == "complete")
+	assert(state.lit_welcome_lanterns.values().all(func(value: bool) -> bool: return value))
+	assert(state.neighborhood_morale == 1)
+	assert(state.reputation == 2)
+	assert(state.chronicle == [
+		"The newcomers repaired the abandoned cottage and made it their home.",
+		"Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
+	])
 
 	var restored := WorldStateModel.new()
 	restored.load_dictionary(state.to_dictionary())
@@ -47,9 +69,19 @@ func _init() -> void:
 	assert(restored.quest_stage == "home_repaired")
 	assert(restored.gathered_resources.size() == 3)
 	assert(restored.repaired_parts.values().all(func(value: bool) -> bool: return value))
-	assert(restored.reputation == 1)
+	assert(restored.reputation == 2)
 	assert(restored.map_rumor_unlocked)
+	assert(restored.neighborhood_event_stage == "complete")
+	assert(restored.mara_position == WorldStateModel.MARA_WELCOME_POSITION)
+	assert(restored.lit_welcome_lanterns.values().all(func(value: bool) -> bool: return value))
+	assert(restored.neighborhood_morale == 1)
+	assert(restored.chronicle.size() == 2)
 	assert(restored.register_player("player-a") == state.positions["player-a"])
+
+	var migrated_slice_one := WorldStateModel.new()
+	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})
+	assert(migrated_slice_one.neighborhood_event_stage == "invitation")
+	assert(migrated_slice_one.chronicle.size() == 1)
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")

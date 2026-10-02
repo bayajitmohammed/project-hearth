@@ -11,10 +11,11 @@ static func build(root: Node3D) -> Dictionary:
 	_add_cottage(root)
 	_add_forest_edge(root)
 	_add_landmark_signs(root)
-	_add_mara(root)
+	var mara := _add_mara(root)
 	var resource_nodes := _add_resources(root)
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
+	var welcome_lanterns := _add_welcome_lanterns(root)
 	var creature := _add_creature(root)
 	var rumor_marker := _add_rumor_marker(root)
 
@@ -39,9 +40,12 @@ static func build(root: Node3D) -> Dictionary:
 	return {
 		"collectible": supplies,
 		"camera": camera,
+		"mara": mara,
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
+		"welcome_lantern_markers": welcome_lanterns["markers"],
+		"welcome_lantern_lights": welcome_lanterns["lights"],
 		"creature": creature,
 		"rumor_marker": rumor_marker,
 	}
@@ -110,25 +114,30 @@ static func _add_landmark_signs(root: Node3D) -> void:
 	_add_sign(root, "ForestSign", Vector3(2.0, 0.0, -6.7), Color("77b879"))
 
 
-static func _add_mara(root: Node3D) -> void:
+static func _add_mara(root: Node3D) -> Node3D:
+	var routine := Node3D.new()
+	routine.name = "MaraRoutine"
+	routine.position = WorldStateModel.MARA_POSITION
+	root.add_child(routine)
+
 	var body := MeshInstance3D.new()
 	body.name = "Mara"
 	var body_mesh := CapsuleMesh.new()
 	body_mesh.radius = 0.42
 	body_mesh.height = 1.35
 	body.mesh = body_mesh
-	body.position = WorldStateModel.MARA_POSITION
 	body.material_override = _material(Color("b45b72"))
-	root.add_child(body)
+	routine.add_child(body)
 
 	var name_label := Label3D.new()
 	name_label.name = "MaraName"
 	name_label.text = "Mara"
-	name_label.position = WorldStateModel.MARA_POSITION + Vector3(0.0, 1.25, 0.0)
+	name_label.position = Vector3(0.0, 1.25, 0.0)
 	name_label.font_size = 36
 	name_label.outline_size = 8
 	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	root.add_child(name_label)
+	routine.add_child(name_label)
+	return routine
 
 
 static func _add_resources(root: Node3D) -> Dictionary:
@@ -195,6 +204,47 @@ static func _add_repair_results(root: Node3D) -> Dictionary:
 	for node: MeshInstance3D in nodes.values():
 		node.visible = false
 	return nodes
+
+
+static func _add_welcome_lanterns(root: Node3D) -> Dictionary:
+	var markers := {}
+	var lights := {}
+	for lantern_id: String in WorldStateModel.WELCOME_LANTERN_POSITIONS:
+		var marker := Node3D.new()
+		marker.name = "WelcomeLanternMarker_%s" % lantern_id
+		marker.position = WorldStateModel.WELCOME_LANTERN_POSITIONS[lantern_id]
+		root.add_child(marker)
+		var disc := _add_cylinder(marker, "Disc", 0.65, 0.12, Vector3(0.0, -0.48, 0.0), Color("f2a93b"), 20)
+		var disc_material := disc.material_override as StandardMaterial3D
+		disc_material.emission_enabled = true
+		disc_material.emission = Color("f2a93b")
+		disc_material.emission_energy_multiplier = 1.8
+		var label := Label3D.new()
+		label.name = "Label"
+		label.text = "LIGHT %s" % WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id]
+		label.position = Vector3(0.0, 1.25, 0.0)
+		label.font_size = 42
+		label.pixel_size = 0.008
+		label.outline_size = 10
+		label.modulate = Color("fff0ba")
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		marker.add_child(label)
+		marker.visible = false
+		markers[lantern_id] = marker
+
+		var lantern := Node3D.new()
+		lantern.name = "WelcomeLantern_%s" % lantern_id
+		lantern.position = WorldStateModel.WELCOME_LANTERN_POSITIONS[lantern_id]
+		root.add_child(lantern)
+		_add_box(lantern, "Post", Vector3(0.16, 1.8, 0.16), Vector3(0.0, 0.3, 0.0), Color("614634"))
+		var flame := _add_cylinder(lantern, "Glow", 0.28, 0.5, Vector3(0.0, 1.25, 0.0), Color("ffd66b"), 12)
+		var flame_material := flame.material_override as StandardMaterial3D
+		flame_material.emission_enabled = true
+		flame_material.emission = Color("ffb52e")
+		flame_material.emission_energy_multiplier = 3.0
+		lantern.visible = false
+		lights[lantern_id] = lantern
+	return {"markers": markers, "lights": lights}
 
 
 static func _add_creature(root: Node3D) -> MeshInstance3D:

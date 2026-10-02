@@ -11,6 +11,7 @@ const CAMERA_TOUCH_SENSITIVITY := 0.008
 const CAMERA_CONTROLLER_SPEED := 2.2
 const CAMERA_MIN_PITCH := deg_to_rad(20.0)
 const CAMERA_MAX_PITCH := deg_to_rad(70.0)
+const PLAYER_POSITION_SMOOTHING_SPEED := 18.0
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 
@@ -18,6 +19,7 @@ var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
 var peer_inputs: Dictionary = {}
 var player_nodes: Dictionary = {}
+var player_target_positions: Dictionary = {}
 var touch_directions: Dictionary = {}
 var local_token := ""
 var is_server := false
@@ -34,6 +36,7 @@ var camera_touch_index := -1
 var local_input_enabled := true
 
 var status_label: Label
+var quest_title_label: Label
 var objective_label: Label
 var dialogue_label: Label
 var progress_label: Label
@@ -46,13 +49,18 @@ var room_code_input: LineEdit
 var connect_button: Button
 var craft_button: Button
 var quest_card: PanelContainer
+var chronicle_panel: PanelContainer
+var chronicle_label: Label
 var connection_panel: PanelContainer
 var debug_panel: PanelContainer
 var collectible_mesh: MeshInstance3D
 var game_camera: Camera3D
+var mara_node: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
+var welcome_lantern_markers: Dictionary = {}
+var welcome_lantern_lights: Dictionary = {}
 var creature_node: MeshInstance3D
 var rumor_marker: MeshInstance3D
 
@@ -104,6 +112,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_interpolate_player_positions(delta)
 	if game_camera == null or not player_nodes.has(local_token):
 		return
 	_update_controller_camera(delta)
@@ -116,6 +125,15 @@ func _process(delta: float) -> void:
 	)
 	game_camera.position = game_camera.position.lerp(target_position, minf(delta * 6.0, 1.0))
 	game_camera.look_at(player_node.position + Vector3(0.0, 0.5, 0.0))
+
+
+func _interpolate_player_positions(delta: float) -> void:
+	var smoothing_weight := 1.0 - exp(-PLAYER_POSITION_SMOOTHING_SPEED * delta)
+	for token: String in player_target_positions:
+		if not player_nodes.has(token):
+			continue
+		var player_node: MeshInstance3D = player_nodes[token]
+		player_node.position = player_node.position.lerp(player_target_positions[token], smoothing_weight)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -247,36 +265,56 @@ func request_attack() -> void:
 func receive_snapshot(snapshot: Dictionary) -> void:
 	latest_snapshot = snapshot.duplicate(true)
 	if client_connected and status_label.text == "Joining room…":
-		_status("Connected — follow the road toward the lost supplies")
+		_status("Connected — welcome back to your shared world")
 	var seen_tokens := {}
 	var positions: Dictionary = snapshot.get("positions", {})
 	for token: String in positions:
 		seen_tokens[token] = true
 		var position: Vector3 = positions[token]
+		var is_new_player := not player_nodes.has(token)
 		var player_node := _get_or_create_player_node(token)
-		player_node.position = position
+		player_target_positions[token] = position
+		if is_new_player:
+			player_node.position = position
 		player_node.scale = Vector3(1.0, 0.35, 1.0) if bool(snapshot.get("downed_players", {}).get(token, false)) else Vector3.ONE
 	for token: String in player_nodes.keys():
 		if not seen_tokens.has(token):
 			player_nodes[token].queue_free()
 			player_nodes.erase(token)
+			player_target_positions.erase(token)
 	collectible_mesh.visible = not bool(snapshot.get("collectible_collected", false))
 	var gathered: Dictionary = snapshot.get("gathered_resources", {})
 	for resource_id: String in resource_nodes:
 		resource_nodes[resource_id].visible = not bool(gathered.get(resource_id, false))
 	var repairs: Dictionary = snapshot.get("repaired_parts", {})
 	var quest_stage := str(snapshot.get("quest_stage", "meet_mara"))
+	var event_stage := str(snapshot.get("neighborhood_event_stage", "locked"))
 	var materials: Dictionary = snapshot.get("materials", {})
 	var has_repair_kit := int(materials.get("repair_kit", 0)) > 0
 	for part_id: String in repair_nodes:
 		var is_repaired := bool(repairs.get(part_id, false))
 		repair_nodes[part_id].visible = quest_stage == "repair_cottage" and has_repair_kit and not is_repaired
 		repair_result_nodes[part_id].visible = is_repaired
-	_update_repair_prompt(quest_stage, has_repair_kit, repairs, positions.get(local_token, Vector3.INF))
+	var lit_lanterns: Dictionary = snapshot.get("lit_welcome_lanterns", {})
+	for lantern_id: String in welcome_lantern_markers:
+		var is_lit := bool(lit_lanterns.get(lantern_id, false))
+		welcome_lantern_markers[lantern_id].visible = event_stage == "lighting" and not is_lit
+		welcome_lantern_lights[lantern_id].visible = is_lit
+	mara_node.position = snapshot.get("mara_position", WorldStateModel.MARA_POSITION)
+	_update_interaction_prompt(
+		quest_stage,
+		has_repair_kit,
+		repairs,
+		event_stage,
+		lit_lanterns,
+		positions.get(local_token, Vector3.INF)
+	)
 	_update_quest_interface(
 		quest_stage,
 		materials,
-		repairs
+		repairs,
+		event_stage,
+		lit_lanterns
 	)
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
@@ -284,9 +322,17 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	_update_combat_interface(snapshot, creature_defeated)
 	var rumor_unlocked := bool(snapshot.get("map_rumor_unlocked", false))
 	rumor_marker.visible = rumor_unlocked
-	world_change_label.text = "Reputation: %d  Map rumor: %s" % [
+	var chronicle: Array = snapshot.get("chronicle", [])
+	chronicle_panel.visible = not chronicle.is_empty()
+	var chronicle_lines := PackedStringArray()
+	for entry in chronicle:
+		chronicle_lines.append(str(entry))
+	chronicle_label.text = "CHRONICLE\n• %s" % "\n• ".join(chronicle_lines) if not chronicle.is_empty() else ""
+	world_change_label.text = "Reputation: %d  Morale: %d  Map rumor: %s  Chronicle entries: %d" % [
 		int(snapshot.get("reputation", 0)),
+		int(snapshot.get("neighborhood_morale", 0)),
 		"Old Stone Ruins beyond the northern trail" if rumor_unlocked else "Locked",
+		chronicle.size(),
 	]
 	connection_panel.visible = false
 
@@ -382,6 +428,11 @@ func _snapshot_for_clients() -> Dictionary:
 		"creature_defeated": world_state.creature_defeated,
 		"reputation": world_state.reputation,
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
+		"mara_position": world_state.mara_position,
+		"neighborhood_event_stage": world_state.neighborhood_event_stage,
+		"lit_welcome_lanterns": world_state.lit_welcome_lanterns.duplicate(),
+		"neighborhood_morale": world_state.neighborhood_morale,
+		"chronicle": world_state.chronicle.duplicate(),
 		"room_code": server_room_code,
 	}
 
@@ -468,9 +519,12 @@ func _build_world() -> void:
 	var world_nodes := GrayboxWorldBuilder.build(self)
 	collectible_mesh = world_nodes["collectible"]
 	game_camera = world_nodes["camera"]
+	mara_node = world_nodes["mara"]
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
+	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
+	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
 	creature_node = world_nodes["creature"]
 	rumor_marker = world_nodes["rumor_marker"]
 
@@ -506,11 +560,11 @@ func _build_interface() -> void:
 	var quest_content := VBoxContainer.new()
 	quest_content.add_theme_constant_override("separation", 6)
 	quest_card.add_child(quest_content)
-	var title := Label.new()
-	title.text = "A NEW HOME"
-	title.add_theme_color_override("font_color", Color("7df4f7"))
-	title.add_theme_font_size_override("font_size", 16)
-	quest_content.add_child(title)
+	quest_title_label = Label.new()
+	quest_title_label.text = "A NEW HOME"
+	quest_title_label.add_theme_color_override("font_color", Color("7df4f7"))
+	quest_title_label.add_theme_font_size_override("font_size", 16)
+	quest_content.add_child(quest_title_label)
 	objective_label = Label.new()
 	objective_label.text = "Meet Mara beside the abandoned cottage."
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -533,6 +587,22 @@ func _build_interface() -> void:
 	craft_button.visible = false
 	craft_button.pressed.connect(_request_craft)
 	quest_content.add_child(craft_button)
+
+	chronicle_panel = PanelContainer.new()
+	chronicle_panel.name = "ChroniclePanel"
+	chronicle_panel.visible = false
+	var chronicle_style := StyleBoxFlat.new()
+	chronicle_style.bg_color = Color(0.12, 0.08, 0.04, 0.9)
+	chronicle_style.border_color = Color("e3bd68")
+	chronicle_style.set_border_width_all(2)
+	chronicle_style.set_corner_radius_all(10)
+	chronicle_style.set_content_margin_all(12)
+	chronicle_panel.add_theme_stylebox_override("panel", chronicle_style)
+	top_stack.add_child(chronicle_panel)
+	chronicle_label = Label.new()
+	chronicle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chronicle_label.add_theme_color_override("font_color", Color("f4dfae"))
+	chronicle_panel.add_child(chronicle_label)
 
 	connection_panel = PanelContainer.new()
 	connection_panel.name = "ConnectionPanel"
@@ -674,7 +744,13 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	]
 
 
-func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs: Dictionary) -> void:
+func _update_quest_interface(
+	quest_stage: String,
+	materials: Dictionary,
+	repairs: Dictionary,
+	event_stage: String,
+	lit_lanterns: Dictionary
+) -> void:
 	var wood_count := int(materials.get("wood", 0))
 	var herb_count := int(materials.get("herb", 0))
 	var kit_count := int(materials.get("repair_kit", 0))
@@ -682,6 +758,7 @@ func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs
 	craft_button.visible = quest_stage == "repair_cottage" and kit_count == 0
 	craft_button.disabled = wood_count < 2 or herb_count < 1
 	progress_label.visible = false
+	quest_title_label.text = "A NEW HOME"
 	match quest_stage:
 		"meet_mara":
 			objective_label.text = "Meet Mara beside the cottage"
@@ -708,29 +785,58 @@ func _update_quest_interface(quest_stage: String, materials: Dictionary, repairs
 				objective_label.text = "Repair the cottage"
 				dialogue_label.text = "Use E at each bright blue REPAIR marker in front of the cottage."
 		"home_repaired":
-			objective_label.text = "Cottage repaired — welcome home!"
-			progress_label.visible = true
-			progress_label.text = "Cottage repairs  3 / 3"
-			dialogue_label.text = "Mara: Welcome home. The neighborhood will remember what you did."
+			quest_title_label.text = "WELCOME LIGHTS"
+			match event_stage:
+				"invitation":
+					objective_label.text = "Talk to Mara about the neighborhood gathering"
+					dialogue_label.text = "Your repaired home has drawn attention. Mara is waiting by the cottage."
+				"lighting":
+					var lit_count := 0
+					for is_lit: bool in lit_lanterns.values():
+						if is_lit:
+							lit_count += 1
+					objective_label.text = "Light the neighborhood welcome lanterns"
+					progress_label.visible = true
+					progress_label.text = "Welcome lanterns  %d / 3" % lit_count
+					dialogue_label.text = "Mara moved to the gathering place. Use E at each amber marker."
+				"complete":
+					objective_label.text = "The neighborhood remembers you"
+					progress_label.visible = true
+					progress_label.text = "Welcome lanterns  3 / 3  ·  Morale improved"
+					dialogue_label.text = "Mara: This place feels different because you chose to stay."
+				_:
+					objective_label.text = "Cottage repaired — welcome home!"
+					dialogue_label.text = "Mara: Welcome home."
 
 
-func _update_repair_prompt(quest_stage: String, has_repair_kit: bool, repairs: Dictionary, player_position: Vector3) -> void:
+func _update_interaction_prompt(
+	quest_stage: String,
+	has_repair_kit: bool,
+	repairs: Dictionary,
+	event_stage: String,
+	lit_lanterns: Dictionary,
+	player_position: Vector3
+) -> void:
 	interaction_prompt.visible = false
-	if quest_stage != "repair_cottage" or not has_repair_kit or not player_position.is_finite():
+	if not player_position.is_finite():
 		return
-	var nearest_part := ""
-	var nearest_distance := INF
-	for part_id: String in WorldStateModel.REPAIR_POSITIONS:
-		if bool(repairs.get(part_id, false)):
-			continue
-		var distance := player_position.distance_to(WorldStateModel.REPAIR_POSITIONS[part_id])
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_part = part_id
-	if nearest_distance <= WorldStateModel.INTERACTION_RADIUS + 0.35:
-		var action_name := "USE" if OS.has_feature("mobile") else "E"
-		interaction_prompt.text = "%s  ·  Repair %s" % [action_name, WorldStateModel.REPAIR_LABELS[nearest_part].capitalize()]
-		interaction_prompt.visible = true
+	var action_name := "USE" if OS.has_feature("mobile") else "E"
+	if quest_stage == "repair_cottage" and has_repair_kit:
+		for part_id: String in WorldStateModel.REPAIR_POSITIONS:
+			if bool(repairs.get(part_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.REPAIR_POSITIONS[part_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Repair %s" % [action_name, WorldStateModel.REPAIR_LABELS[part_id].capitalize()]
+				interaction_prompt.visible = true
+				return
+	if event_stage == "lighting":
+		for lantern_id: String in WorldStateModel.WELCOME_LANTERN_POSITIONS:
+			if bool(lit_lanterns.get(lantern_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.WELCOME_LANTERN_POSITIONS[lantern_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Light %s" % [action_name, WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id].capitalize()]
+				interaction_prompt.visible = true
+				return
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

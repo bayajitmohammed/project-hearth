@@ -3,6 +3,7 @@ extends RefCounted
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
+const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
@@ -27,6 +28,16 @@ const REPAIR_POSITIONS := {
 	"garden": Vector3(-6.2, 0.6, 6.5),
 }
 const REPAIR_LABELS := {"door": "DOOR", "wall": "WALL", "garden": "GARDEN"}
+const WELCOME_LANTERN_POSITIONS := {
+	"cottage": Vector3(-4.0, 0.6, 1.0),
+	"road": Vector3(0.0, 0.6, 1.0),
+	"forest": Vector3(4.0, 0.6, 1.0),
+}
+const WELCOME_LANTERN_LABELS := {
+	"cottage": "COTTAGE LANTERN",
+	"road": "ROAD LANTERN",
+	"forest": "FOREST LANTERN",
+}
 const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3
@@ -45,6 +56,11 @@ var creature_defeated := false
 var creature_attack_cooldown := 0.0
 var reputation := 0
 var map_rumor_unlocked := false
+var mara_position := MARA_POSITION
+var neighborhood_event_stage := "locked"
+var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
+var neighborhood_morale := 0
+var chronicle: Array = []
 
 
 func register_player(player_token: String) -> Vector3:
@@ -82,7 +98,7 @@ func try_collect(player_token: String) -> bool:
 
 
 func interact_with_mara(player_token: String) -> bool:
-	if register_player(player_token).distance_to(MARA_POSITION) > INTERACTION_RADIUS:
+	if register_player(player_token).distance_to(mara_position) > INTERACTION_RADIUS:
 		return false
 	match quest_stage:
 		"meet_mara":
@@ -91,6 +107,11 @@ func interact_with_mara(player_token: String) -> bool:
 		"return_to_mara":
 			quest_stage = "repair_cottage"
 			return true
+		"home_repaired":
+			if neighborhood_event_stage == "invitation":
+				neighborhood_event_stage = "lighting"
+				mara_position = MARA_WELCOME_POSITION
+				return true
 	return false
 
 
@@ -134,6 +155,26 @@ func try_repair_cottage(player_token: String) -> bool:
 				quest_stage = "home_repaired"
 				reputation = 1
 				map_rumor_unlocked = true
+				neighborhood_event_stage = "invitation"
+				chronicle.append("The newcomers repaired the abandoned cottage and made it their home.")
+			return true
+	return false
+
+
+func try_light_welcome_lantern(player_token: String) -> bool:
+	if neighborhood_event_stage != "lighting":
+		return false
+	var player_position: Vector3 = register_player(player_token)
+	for lantern_id: String in WELCOME_LANTERN_POSITIONS:
+		if bool(lit_welcome_lanterns.get(lantern_id, false)):
+			continue
+		if player_position.distance_to(WELCOME_LANTERN_POSITIONS[lantern_id]) <= INTERACTION_RADIUS:
+			lit_welcome_lanterns[lantern_id] = true
+			if _all_welcome_lanterns_lit():
+				neighborhood_event_stage = "complete"
+				neighborhood_morale = 1
+				reputation += 1
+				chronicle.append("Together, the neighborhood lit welcome lanterns to celebrate its new residents.")
 			return true
 	return false
 
@@ -144,6 +185,7 @@ func interact(player_token: String) -> bool:
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
+		or try_light_welcome_lantern(player_token)
 	)
 
 
@@ -212,13 +254,20 @@ func _all_repairs_complete() -> bool:
 	return true
 
 
+func _all_welcome_lanterns_lit() -> bool:
+	for is_lit: bool in lit_welcome_lanterns.values():
+		if not is_lit:
+			return false
+	return true
+
+
 func to_dictionary() -> Dictionary:
 	var encoded_positions := {}
 	for player_token: String in positions:
 		var position: Vector3 = positions[player_token]
 		encoded_positions[player_token] = [position.x, position.y, position.z]
 	return {
-		"version": 3,
+		"version": 4,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
 		"materials": materials.duplicate(),
@@ -231,6 +280,10 @@ func to_dictionary() -> Dictionary:
 		"creature_defeated": creature_defeated,
 		"reputation": reputation,
 		"map_rumor_unlocked": map_rumor_unlocked,
+		"neighborhood_event_stage": neighborhood_event_stage,
+		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
+		"neighborhood_morale": neighborhood_morale,
+		"chronicle": chronicle.duplicate(),
 		"positions": encoded_positions,
 	}
 
@@ -262,6 +315,25 @@ func load_dictionary(data: Dictionary) -> void:
 	creature_defeated = bool(data.get("creature_defeated", false))
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
+	var save_version := int(data.get("version", 1))
+	if save_version >= 4:
+		neighborhood_event_stage = str(data.get("neighborhood_event_stage", "locked"))
+		var saved_lanterns: Dictionary = data.get("lit_welcome_lanterns", {})
+		lit_welcome_lanterns = {
+			"cottage": bool(saved_lanterns.get("cottage", false)),
+			"road": bool(saved_lanterns.get("road", false)),
+			"forest": bool(saved_lanterns.get("forest", false)),
+		}
+		neighborhood_morale = int(data.get("neighborhood_morale", 0))
+		chronicle = data.get("chronicle", []).duplicate()
+	else:
+		neighborhood_event_stage = "invitation" if quest_stage == "home_repaired" else "locked"
+		lit_welcome_lanterns = {"cottage": false, "road": false, "forest": false}
+		neighborhood_morale = 0
+		chronicle = []
+		if quest_stage == "home_repaired":
+			chronicle.append("The newcomers repaired the abandoned cottage and made it their home.")
+	mara_position = MARA_WELCOME_POSITION if neighborhood_event_stage in ["lighting", "complete"] else MARA_POSITION
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
 	for player_token: String in encoded_positions:

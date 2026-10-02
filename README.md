@@ -1,6 +1,6 @@
 # Project Hearth
 
-Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. Slice 1, **A New Home**, is now in development.
+Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. Slice 1, **A New Home**, is playable, and the first increment of Slice 2, **A Place That Remembers**, now extends it.
 
 ## Run locally on macOS
 
@@ -50,12 +50,14 @@ Orbit the camera by holding the **right mouse button** and dragging, using the c
 
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
-Completing all three repairs grants one reputation point, changes Mara's response, and reveals the Old Stone Ruins rumor at the forest boundary.
+Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
 
 ## Run the state test
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_world_state.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_living_world_readability.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_movement_smoothing.gd
 ```
 
 ## Build and run the browser client
@@ -166,5 +168,15 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Windows: exported build runs and connects to the Mac server over the private network; Mac and Windows players are mutually visible
 - Two-client networking: shared quest stage, resource duplication prevention, and revival verified simultaneously on macOS
 - Remaining gate: complete the full quest loop across the target clients as the final Slice 1 acceptance check
+
+## Slice 2 implementation status
+
+- Welcome Lights is a server-authoritative response to the completed cottage repair.
+- Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
+- Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
+- Automated state, migration, presentation, and legacy regression checks pass.
+- Two simultaneous macOS clients still pass the shared-state networking probe.
+- Desktop Web, Android, and Windows debug exports rebuild successfully.
+- Remaining gate for this increment: fresh multiplayer playtest and runtime checks on desktop Web, Android, and Windows.
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.
