@@ -4,7 +4,21 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
-Start the authoritative server:
+The easiest option is to double-click `run-server.command` in Finder. From Terminal, run:
+
+```sh
+./run-server.command
+```
+
+It starts room `HEARTH` on port `9080` using the normal persistent world. Press **Control-C** to stop it.
+
+For a separate clean playtest world:
+
+```sh
+./run-server.command --fresh --room=TEST42 --port=9090
+```
+
+To start the authoritative server without the launcher:
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9080
