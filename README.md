@@ -1,6 +1,6 @@
 # Project Hearth
 
-Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. The cumulative build now includes the minimum implementations of Slice 1, **A New Home**, Slice 2, **A Place That Remembers**, and Slice 3, **Beyond the Road**.
+Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. The cumulative build now includes the minimum implementations of Slice 1, **A New Home**, Slice 2, **A Place That Remembers**, Slice 3, **Beyond the Road**, and Slice 4, **Choose a Life**.
 
 ## Run locally on macOS
 
@@ -60,6 +60,7 @@ After Welcome Lights, follow the road north beyond the original forest boundary.
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_world_state.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_living_world_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_exploration_readability.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_livelihood_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_movement_smoothing.gd
 ```
 
@@ -190,5 +191,16 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Defeating the guardian allows the group to restore a persistent waystone route between home and the ruins. The discovery and restoration enter the shared chronicle and survive version-5 save/load; version-4 saves migrate into the new journey.
 - Automated state, migration, presentation, legacy-regression, and two-client networking checks pass.
 - Pending validation: play the complete new journey on Mac and check the expanded region, combat readability, waystone interaction, and camera presentation visually.
+
+## Slice 4 implementation status
+
+- Restoring the ruin waystone reveals a shared neighborhood food need.
+- Four persistent garden plots supply moonroot; the cottage cookfire turns pairs into hearth stew; the market crate accepts two deliveries.
+- Farming, Cooking, and Trade mastery belongs to the player who performs each action, while materials and settlement progress remain shared.
+- Completion opens a visible produce stall, improves morale and reputation, and adds a fourth chronicle entry.
+- Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.
+- State, migration, presentation, legacy regression, the original two-client probe, and a networked end-to-end livelihood probe pass.
+- Focused Mac inspection of the active need and completed stall passes after correcting garden-label overlap, chronicle height, and the home-waystone placement.
+- Pending validation: play the uninterrupted cumulative Slice 3–4 journey on Mac; fresh-player and full desktop Web, Android, and Windows runtime validation remain deferred.
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.

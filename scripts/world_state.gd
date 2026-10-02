@@ -17,10 +17,19 @@ const RUINS_POSITION := Vector3(0.0, 0.6, -40.0)
 const RUINS_REVEAL_RADIUS := 7.0
 const RUIN_GUARDIAN_SPAWN := Vector3(0.0, 0.65, -34.0)
 const RUIN_GUARDIAN_MAX_HEALTH := 5
-const HOME_WAYSTONE_POSITION := Vector3(3.0, 0.6, 9.0)
+const HOME_WAYSTONE_POSITION := Vector3(8.0, 0.6, 8.5)
 const RUIN_WAYSTONE_POSITION := Vector3(0.0, 0.6, -39.0)
-const HOME_WAYSTONE_ARRIVAL := Vector3(3.0, 0.6, 7.0)
+const HOME_WAYSTONE_ARRIVAL := Vector3(8.0, 0.6, 6.5)
 const RUIN_WAYSTONE_ARRIVAL := Vector3(0.0, 0.6, -37.0)
+const GARDEN_PLOT_POSITIONS := {
+	"moonroot_1": Vector3(-14.0, 0.35, 9.0),
+	"moonroot_2": Vector3(-11.0, 0.35, 9.0),
+	"moonroot_3": Vector3(-8.0, 0.35, 9.0),
+	"moonroot_4": Vector3(-5.0, 0.35, 9.0),
+}
+const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
+const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
+const REQUIRED_STEW_DELIVERIES := 2
 const RESOURCE_POSITIONS := {
 	"wood_1": Vector3(-8.0, 0.45, -8.5),
 	"wood_2": Vector3(7.0, 0.45, -10.0),
@@ -55,7 +64,7 @@ const PLAYER_MAX_HEALTH := 3
 var collectible_collected := false
 var positions: Dictionary = {}
 var quest_stage := "meet_mara"
-var materials := {"wood": 0, "herb": 0, "repair_kit": 0}
+var materials := {"wood": 0, "herb": 0, "repair_kit": 0, "moonroot": 0, "hearth_stew": 0}
 var gathered_resources: Dictionary = {}
 var repaired_parts := {"door": false, "wall": false, "garden": false}
 var player_health: Dictionary = {}
@@ -78,6 +87,16 @@ var ruin_guardian_health := RUIN_GUARDIAN_MAX_HEALTH
 var ruin_guardian_defeated := false
 var ruin_guardian_attack_cooldown := 0.0
 var ruin_waystone_activated := false
+var livelihood_stage := "locked"
+var harvested_garden_plots := {
+	"moonroot_1": false,
+	"moonroot_2": false,
+	"moonroot_3": false,
+	"moonroot_4": false,
+}
+var stews_delivered := 0
+var produce_stall_open := false
+var player_mastery: Dictionary = {}
 
 
 func register_player(player_token: String) -> Vector3:
@@ -87,6 +106,8 @@ func register_player(player_token: String) -> Vector3:
 		player_health[player_token] = PLAYER_MAX_HEALTH
 	if not downed_players.has(player_token):
 		downed_players[player_token] = false
+	if not player_mastery.has(player_token):
+		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0}
 	return positions[player_token]
 
 
@@ -221,6 +242,9 @@ func interact(player_token: String) -> bool:
 		try_revive_player(player_token)
 		or try_return_to_safety(player_token)
 		or try_use_waystone(player_token)
+		or try_harvest_garden(player_token)
+		or try_cook_hearth_stew(player_token)
+		or try_deliver_hearth_stew(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -356,6 +380,7 @@ func try_use_waystone(player_token: String) -> bool:
 		if not ruin_waystone_activated:
 			ruin_waystone_activated = true
 			exploration_stage = "complete"
+			livelihood_stage = "food_need"
 			reputation += 1
 			chronicle.append("The group found the Old Stone Ruins and restored its ancient waystone route.")
 		else:
@@ -368,6 +393,62 @@ func try_use_waystone(player_token: String) -> bool:
 		positions[player_token] = RUIN_WAYSTONE_ARRIVAL
 		return true
 	return false
+
+
+func try_harvest_garden(player_token: String) -> bool:
+	if livelihood_stage != "food_need":
+		return false
+	var player_position: Vector3 = register_player(player_token)
+	for plot_id: String in GARDEN_PLOT_POSITIONS:
+		if bool(harvested_garden_plots.get(plot_id, false)):
+			continue
+		if player_position.distance_to(GARDEN_PLOT_POSITIONS[plot_id]) <= INTERACTION_RADIUS:
+			harvested_garden_plots[plot_id] = true
+			materials["moonroot"] = int(materials.get("moonroot", 0)) + 1
+			_add_mastery(player_token, "farming")
+			return true
+	return false
+
+
+func try_cook_hearth_stew(player_token: String) -> bool:
+	if livelihood_stage != "food_need":
+		return false
+	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if int(materials.get("moonroot", 0)) < 2:
+		return false
+	if int(materials.get("hearth_stew", 0)) + stews_delivered >= REQUIRED_STEW_DELIVERIES:
+		return false
+	materials["moonroot"] = int(materials.get("moonroot", 0)) - 2
+	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) + 1
+	_add_mastery(player_token, "cooking")
+	return true
+
+
+func try_deliver_hearth_stew(player_token: String) -> bool:
+	if livelihood_stage != "food_need":
+		return false
+	if register_player(player_token).distance_to(MARKET_CRATE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if int(materials.get("hearth_stew", 0)) < 1:
+		return false
+	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) - 1
+	stews_delivered += 1
+	_add_mastery(player_token, "trade")
+	if stews_delivered >= REQUIRED_STEW_DELIVERIES:
+		livelihood_stage = "complete"
+		produce_stall_open = true
+		neighborhood_morale += 1
+		reputation += 1
+		chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
+	return true
+
+
+func _add_mastery(player_token: String, track: String) -> void:
+	register_player(player_token)
+	var mastery: Dictionary = player_mastery[player_token]
+	mastery[track] = int(mastery.get(track, 0)) + 1
+	player_mastery[player_token] = mastery
 
 
 func _all_repairs_complete() -> bool:
@@ -390,7 +471,7 @@ func to_dictionary() -> Dictionary:
 		var position: Vector3 = positions[player_token]
 		encoded_positions[player_token] = [position.x, position.y, position.z]
 	return {
-		"version": 5,
+		"version": 6,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -414,6 +495,11 @@ func to_dictionary() -> Dictionary:
 		"ruin_guardian_health": ruin_guardian_health,
 		"ruin_guardian_defeated": ruin_guardian_defeated,
 		"ruin_waystone_activated": ruin_waystone_activated,
+		"livelihood_stage": livelihood_stage,
+		"harvested_garden_plots": harvested_garden_plots.duplicate(),
+		"stews_delivered": stews_delivered,
+		"produce_stall_open": produce_stall_open,
+		"player_mastery": player_mastery.duplicate(true),
 		"positions": encoded_positions,
 	}
 
@@ -426,6 +512,8 @@ func load_dictionary(data: Dictionary) -> void:
 		"wood": int(saved_materials.get("wood", 0)),
 		"herb": int(saved_materials.get("herb", 0)),
 		"repair_kit": int(saved_materials.get("repair_kit", 0)),
+		"moonroot": int(saved_materials.get("moonroot", 0)),
+		"hearth_stew": int(saved_materials.get("hearth_stew", 0)),
 	}
 	gathered_resources = data.get("gathered_resources", {}).duplicate()
 	var saved_repairs: Dictionary = data.get("repaired_parts", {})
@@ -487,6 +575,29 @@ func load_dictionary(data: Dictionary) -> void:
 		ruin_guardian_health = RUIN_GUARDIAN_MAX_HEALTH
 		ruin_guardian_defeated = false
 		ruin_waystone_activated = false
+	if save_version >= 6:
+		livelihood_stage = str(data.get("livelihood_stage", "locked"))
+		var saved_garden: Dictionary = data.get("harvested_garden_plots", {})
+		harvested_garden_plots = {
+			"moonroot_1": bool(saved_garden.get("moonroot_1", false)),
+			"moonroot_2": bool(saved_garden.get("moonroot_2", false)),
+			"moonroot_3": bool(saved_garden.get("moonroot_3", false)),
+			"moonroot_4": bool(saved_garden.get("moonroot_4", false)),
+		}
+		stews_delivered = int(data.get("stews_delivered", 0))
+		produce_stall_open = bool(data.get("produce_stall_open", false))
+		player_mastery = data.get("player_mastery", {}).duplicate(true)
+	else:
+		livelihood_stage = "food_need" if ruin_waystone_activated else "locked"
+		harvested_garden_plots = {
+			"moonroot_1": false,
+			"moonroot_2": false,
+			"moonroot_3": false,
+			"moonroot_4": false,
+		}
+		stews_delivered = 0
+		produce_stall_open = false
+		player_mastery = {}
 	mara_position = MARA_WELCOME_POSITION if neighborhood_event_stage in ["lighting", "complete"] else MARA_POSITION
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})

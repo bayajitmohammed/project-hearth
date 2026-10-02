@@ -49,6 +49,7 @@ var interaction_prompt: Label
 var inventory_label: Label
 var combat_label: Label
 var world_change_label: Label
+var mastery_label: Label
 var address_input: LineEdit
 var room_code_input: LineEdit
 var connect_button: Button
@@ -75,6 +76,11 @@ var waystone_marker: Node3D
 var home_waystone: Node3D
 var ruin_waystone: Node3D
 var waystone_glows: Dictionary = {}
+var garden_plants: Dictionary = {}
+var garden_markers: Dictionary = {}
+var cookfire_marker: Node3D
+var market_marker: Node3D
+var produce_stall: Node3D
 
 
 func _ready() -> void:
@@ -356,7 +362,11 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		lit_lanterns,
 		str(snapshot.get("exploration_stage", "locked")),
 		snapshot.get("shared_map_discoveries", {}),
-		bool(snapshot.get("ruin_waystone_activated", false))
+		bool(snapshot.get("ruin_waystone_activated", false)),
+		str(snapshot.get("livelihood_stage", "locked")),
+		snapshot.get("harvested_garden_plots", {}),
+		int(snapshot.get("stews_delivered", 0)),
+		snapshot.get("player_mastery", {}).get(local_token, {})
 	)
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
@@ -367,6 +377,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var exploration_stage := str(snapshot.get("exploration_stage", "locked"))
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
 	var route_activated := bool(snapshot.get("ruin_waystone_activated", false))
+	var livelihood_stage := str(snapshot.get("livelihood_stage", "locked"))
+	var harvested_garden: Dictionary = snapshot.get("harvested_garden_plots", {})
 	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
 	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
 	ruin_guardian_node.position = snapshot.get("ruin_guardian_position", WorldStateModel.RUIN_GUARDIAN_SPAWN)
@@ -375,6 +387,20 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	ruin_waystone.visible = bool(discoveries.get("old_stone_ruins", false))
 	for glow: MeshInstance3D in waystone_glows.values():
 		glow.visible = route_activated
+	for plot_id: String in garden_plants:
+		var harvested := bool(harvested_garden.get(plot_id, false))
+		garden_plants[plot_id].visible = livelihood_stage == "food_need" and not harvested
+		garden_markers[plot_id].visible = livelihood_stage == "food_need" and not harvested
+	var moonroot_count := int(materials.get("moonroot", 0))
+	var stew_count := int(materials.get("hearth_stew", 0))
+	var stews_delivered := int(snapshot.get("stews_delivered", 0))
+	cookfire_marker.visible = (
+		livelihood_stage == "food_need"
+		and moonroot_count >= 2
+		and stew_count + stews_delivered < WorldStateModel.REQUIRED_STEW_DELIVERIES
+	)
+	market_marker.visible = livelihood_stage == "food_need" and stew_count > 0
+	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
 	map_panel.visible = rumor_unlocked
 	map_label.text = _shared_map_text(discoveries, route_activated)
 	var chronicle: Array = snapshot.get("chronicle", [])
@@ -382,13 +408,16 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var chronicle_lines := PackedStringArray()
 	for entry in chronicle:
 		chronicle_lines.append(str(entry))
-	chronicle_label.text = "CHRONICLE\n• %s" % "\n• ".join(chronicle_lines) if not chronicle.is_empty() else ""
-	world_change_label.text = "Reputation: %d  Morale: %d  Map rumor: %s  Chronicle entries: %d" % [
+	chronicle_label.text = "CHRONICLE (%d)\n• %s" % [chronicle.size(), "\n• ".join(chronicle_lines)] if not chronicle.is_empty() else ""
+	world_change_label.text = "Reputation: %d  Morale: %d  Food need: %d/%d  Chronicle entries: %d" % [
 		int(snapshot.get("reputation", 0)),
 		int(snapshot.get("neighborhood_morale", 0)),
-		"Old Stone Ruins beyond the northern trail" if rumor_unlocked else "Locked",
+		stews_delivered,
+		WorldStateModel.REQUIRED_STEW_DELIVERIES,
 		chronicle.size(),
 	]
+	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
+	mastery_label.text = _mastery_text(mastery)
 	connection_panel.visible = false
 
 
@@ -509,6 +538,11 @@ func _snapshot_for_clients() -> Dictionary:
 		"ruin_guardian_health": world_state.ruin_guardian_health,
 		"ruin_guardian_defeated": world_state.ruin_guardian_defeated,
 		"ruin_waystone_activated": world_state.ruin_waystone_activated,
+		"livelihood_stage": world_state.livelihood_stage,
+		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
+		"stews_delivered": world_state.stews_delivered,
+		"produce_stall_open": world_state.produce_stall_open,
+		"player_mastery": world_state.player_mastery.duplicate(true),
 		"room_code": server_room_code,
 	}
 
@@ -608,6 +642,11 @@ func _build_world() -> void:
 	home_waystone = world_nodes["home_waystone"]
 	ruin_waystone = world_nodes["ruin_waystone"]
 	waystone_glows = world_nodes["waystone_glows"]
+	garden_plants = world_nodes["garden_plants"]
+	garden_markers = world_nodes["garden_markers"]
+	cookfire_marker = world_nodes["cookfire_marker"]
+	market_marker = world_nodes["market_marker"]
+	produce_stall = world_nodes["produce_stall"]
 
 
 func _build_interface() -> void:
@@ -696,10 +735,15 @@ func _build_interface() -> void:
 	chronicle_style.set_content_margin_all(12)
 	chronicle_panel.add_theme_stylebox_override("panel", chronicle_style)
 	top_stack.add_child(chronicle_panel)
+	var chronicle_scroll := ScrollContainer.new()
+	chronicle_scroll.custom_minimum_size = Vector2(330.0, 150.0)
+	chronicle_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	chronicle_panel.add_child(chronicle_scroll)
 	chronicle_label = Label.new()
+	chronicle_label.custom_minimum_size.x = 330.0
 	chronicle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	chronicle_label.add_theme_color_override("font_color", Color("f4dfae"))
-	chronicle_panel.add_child(chronicle_label)
+	chronicle_scroll.add_child(chronicle_label)
 
 	connection_panel = PanelContainer.new()
 	connection_panel.name = "ConnectionPanel"
@@ -742,6 +786,10 @@ func _build_interface() -> void:
 	world_change_label.text = "Reputation: 0  Map rumor: Locked"
 	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(world_change_label)
+	mastery_label = Label.new()
+	mastery_label.text = "Mastery — Farming: 0  Cooking: 0  Trade: 0"
+	mastery_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	debug_content.add_child(mastery_label)
 	var controls_hint := Label.new()
 	controls_hint.text = "F3 closes debug · V changes view · E use · Space attack · C craft · mouse look · Esc cursor"
 	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -860,12 +908,20 @@ func _update_quest_interface(
 	lit_lanterns: Dictionary,
 	exploration_stage: String,
 	discoveries: Dictionary,
-	route_activated: bool
+	route_activated: bool,
+	livelihood_stage: String,
+	harvested_garden: Dictionary,
+	stews_delivered: int,
+	mastery: Dictionary
 ) -> void:
 	var wood_count := int(materials.get("wood", 0))
 	var herb_count := int(materials.get("herb", 0))
 	var kit_count := int(materials.get("repair_kit", 0))
-	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d" % [wood_count, herb_count, kit_count]
+	var moonroot_count := int(materials.get("moonroot", 0))
+	var stew_count := int(materials.get("hearth_stew", 0))
+	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d" % [
+		wood_count, herb_count, kit_count, moonroot_count, stew_count
+	]
 	craft_button.visible = quest_stage == "repair_cottage" and kit_count == 0
 	craft_button.disabled = wood_count < 2 or herb_count < 1
 	progress_label.visible = false
@@ -939,6 +995,39 @@ func _update_quest_interface(
 				_:
 					objective_label.text = "Cottage repaired — welcome home!"
 					dialogue_label.text = "Mara: Welcome home."
+	if route_activated and livelihood_stage in ["food_need", "complete"]:
+		quest_title_label.text = "CHOOSE A LIFE"
+		progress_label.visible = true
+		if livelihood_stage == "complete":
+			objective_label.text = "The neighborhood produce stall is open"
+			progress_label.text = "Settlement need fulfilled · Your %s" % _mastery_text(mastery).trim_prefix("Mastery — ")
+			dialogue_label.text = "The group's work in the garden, kitchen, and market changed the neighborhood."
+		else:
+			var harvest_count := 0
+			for is_harvested: bool in harvested_garden.values():
+				if is_harvested:
+					harvest_count += 1
+			if harvest_count < WorldStateModel.GARDEN_PLOT_POSITIONS.size():
+				objective_label.text = "Harvest moonroot for the neighborhood food need"
+				progress_label.text = "Garden plots %d/%d · Stew delivered %d/%d" % [
+					harvest_count,
+					WorldStateModel.GARDEN_PLOT_POSITIONS.size(),
+					stews_delivered,
+					WorldStateModel.REQUIRED_STEW_DELIVERIES,
+				]
+				dialogue_label.text = "Use E at the purple moonroot plots beside the cottage."
+			elif stew_count + stews_delivered < WorldStateModel.REQUIRED_STEW_DELIVERIES:
+				objective_label.text = "Cook hearth stew at the cottage fire"
+				progress_label.text = "Moonroot %d · Stew ready %d · Delivered %d/%d" % [
+					moonroot_count, stew_count, stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES
+				]
+				dialogue_label.text = "Two moonroot make one stew. Use E at the orange cookfire marker."
+			else:
+				objective_label.text = "Deliver hearth stew to the market crate"
+				progress_label.text = "Stew ready %d · Delivered %d/%d" % [
+					stew_count, stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES
+				]
+				dialogue_label.text = "Use E at the green market marker to supply the neighborhood."
 
 
 func _update_interaction_prompt(
@@ -968,6 +1057,31 @@ func _update_interaction_prompt(
 		interaction_prompt.text = "%s  ·  Travel to Old Stone Ruins" % action_name
 		interaction_prompt.visible = true
 		return
+	var livelihood_stage := str(latest_snapshot.get("livelihood_stage", "locked"))
+	if livelihood_stage == "food_need":
+		var harvested_garden: Dictionary = latest_snapshot.get("harvested_garden_plots", {})
+		for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
+			if bool(harvested_garden.get(plot_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Harvest moonroot" % action_name
+				interaction_prompt.visible = true
+				return
+		var livelihood_materials: Dictionary = latest_snapshot.get("materials", {})
+		if (
+			int(livelihood_materials.get("moonroot", 0)) >= 2
+			and player_position.distance_to(WorldStateModel.COOKFIRE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+		):
+			interaction_prompt.text = "%s  ·  Cook hearth stew" % action_name
+			interaction_prompt.visible = true
+			return
+		if (
+			int(livelihood_materials.get("hearth_stew", 0)) > 0
+			and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+		):
+			interaction_prompt.text = "%s  ·  Deliver hearth stew" % action_name
+			interaction_prompt.visible = true
+			return
 	if quest_stage == "repair_cottage" and has_repair_kit:
 		for part_id: String in WorldStateModel.REPAIR_POSITIONS:
 			if bool(repairs.get(part_id, false)):
@@ -991,6 +1105,17 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:
 	var ruins := "charted" if bool(discoveries.get("old_stone_ruins", false)) else "rumored"
 	var route := "waystone route active" if route_activated else "first journey required"
 	return "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
+
+
+func _mastery_text(mastery: Dictionary) -> String:
+	var farming := int(mastery.get("farming", 0))
+	var cooking := int(mastery.get("cooking", 0))
+	var trade := int(mastery.get("trade", 0))
+	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s" % [
+		farming, " (Gardener I)" if farming > 0 else "",
+		cooking, " (Cook I)" if cooking > 0 else "",
+		trade, " (Trader I)" if trade > 0 else "",
+	]
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

@@ -22,6 +22,7 @@ static func build(root: Node3D) -> Dictionary:
 	var rumor_marker := _add_rumor_marker(root)
 	var ruin_guardian := _add_ruin_guardian(root)
 	var waystones := _add_waystones(root)
+	var livelihood := _add_livelihood_stations(root)
 
 	var supplies := _add_box(
 		root,
@@ -57,6 +58,11 @@ static func build(root: Node3D) -> Dictionary:
 		"home_waystone": waystones["home"],
 		"ruin_waystone": waystones["ruin"],
 		"waystone_glows": waystones["glows"],
+		"garden_plants": livelihood["garden_plants"],
+		"garden_markers": livelihood["garden_markers"],
+		"cookfire_marker": livelihood["cookfire_marker"],
+		"market_marker": livelihood["market_marker"],
+		"produce_stall": livelihood["produce_stall"],
 	}
 
 
@@ -387,6 +393,88 @@ static func _add_waystone(root: Node3D, node_name: String, position: Vector3) ->
 	glow_material.emission_energy_multiplier = 3.0
 	glow.visible = false
 	return {"root": waystone, "glow": glow}
+
+
+static func _add_livelihood_stations(root: Node3D) -> Dictionary:
+	var garden_plants := {}
+	var garden_markers := {}
+	for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
+		var plot_position: Vector3 = WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]
+		_add_box(root, "GardenSoil_%s" % plot_id, Vector3(2.2, 0.18, 1.5), plot_position - Vector3(0.0, 0.32, 0.0), Color("60452f"))
+		var plant := _add_cylinder(root, "Moonroot_%s" % plot_id, 0.42, 0.7, plot_position, Color("9a74d6"), 7)
+		var plant_material := plant.material_override as StandardMaterial3D
+		plant_material.emission_enabled = true
+		plant_material.emission = Color("51377d")
+		garden_plants[plot_id] = plant
+		var marker_text := "MOONROOT GARDEN" if plot_id == "moonroot_3" else ""
+		var marker := _add_station_marker(root, "HarvestMarker_%s" % plot_id, plot_position, marker_text, Color("b997ef"))
+		garden_markers[plot_id] = marker
+
+	var cookfire := Node3D.new()
+	cookfire.name = "CottageCookfire"
+	cookfire.position = WorldStateModel.COOKFIRE_POSITION
+	root.add_child(cookfire)
+	_add_cylinder(cookfire, "FireRing", 0.75, 0.18, Vector3(0.0, -0.45, 0.0), Color("6c645e"), 12)
+	var flame := _add_cylinder(cookfire, "Flame", 0.28, 0.75, Vector3(0.0, 0.05, 0.0), Color("ffb83d"), 8)
+	var flame_material := flame.material_override as StandardMaterial3D
+	flame_material.emission_enabled = true
+	flame_material.emission = Color("ff7b25")
+	flame_material.emission_energy_multiplier = 2.4
+	var cookfire_marker := _add_station_marker(root, "CookfireMarker", WorldStateModel.COOKFIRE_POSITION, "COOK HEARTH STEW", Color("ffb83d"))
+
+	_add_box(root, "MarketCrate", Vector3(1.8, 0.9, 1.3), WorldStateModel.MARKET_CRATE_POSITION, Color("8c603e"))
+	var market_marker := _add_station_marker(root, "MarketDeliveryMarker", WorldStateModel.MARKET_CRATE_POSITION, "DELIVER STEW", Color("6ed9b5"))
+
+	var produce_stall := Node3D.new()
+	produce_stall.name = "ProduceStall"
+	produce_stall.position = WorldStateModel.MARKET_CRATE_POSITION + Vector3(2.6, 0.0, 0.0)
+	root.add_child(produce_stall)
+	_add_box(produce_stall, "Counter", Vector3(3.4, 1.0, 1.5), Vector3(0.0, 0.25, 0.0), Color("96623c"))
+	_add_box(produce_stall, "Canopy", Vector3(3.8, 0.25, 2.0), Vector3(0.0, 2.4, 0.0), Color("5fa66d"))
+	for x_position: float in [-1.5, 1.5]:
+		_add_box(produce_stall, "Post", Vector3(0.18, 2.4, 0.18), Vector3(x_position, 1.2, 0.0), Color("654632"))
+	var stall_label := Label3D.new()
+	stall_label.text = "NEIGHBORHOOD PRODUCE"
+	stall_label.position = Vector3(0.0, 2.9, 0.0)
+	stall_label.font_size = 42
+	stall_label.pixel_size = 0.008
+	stall_label.outline_size = 10
+	stall_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	produce_stall.add_child(stall_label)
+	produce_stall.visible = false
+
+	return {
+		"garden_plants": garden_plants,
+		"garden_markers": garden_markers,
+		"cookfire_marker": cookfire_marker,
+		"market_marker": market_marker,
+		"produce_stall": produce_stall,
+	}
+
+
+static func _add_station_marker(root: Node3D, node_name: String, position: Vector3, text: String, color: Color) -> Node3D:
+	var marker := Node3D.new()
+	marker.name = node_name
+	marker.position = position
+	root.add_child(marker)
+	var disc := _add_cylinder(marker, "Disc", 0.7, 0.1, Vector3(0.0, -0.48, 0.0), color, 20)
+	var disc_material := disc.material_override as StandardMaterial3D
+	disc_material.emission_enabled = true
+	disc_material.emission = color
+	disc_material.emission_energy_multiplier = 1.8
+	if not text.is_empty():
+		var label := Label3D.new()
+		label.name = "Label"
+		label.text = text
+		label.position = Vector3(0.0, 1.2, 0.0)
+		label.font_size = 42
+		label.pixel_size = 0.008
+		label.outline_size = 10
+		label.modulate = Color("f4efff")
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		marker.add_child(label)
+	marker.visible = false
+	return marker
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:

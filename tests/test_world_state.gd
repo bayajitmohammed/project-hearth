@@ -98,6 +98,7 @@ func _init() -> void:
 	assert(exploration_state.try_use_waystone("player-a"))
 	assert(exploration_state.ruin_waystone_activated)
 	assert(exploration_state.exploration_stage == "complete")
+	assert(exploration_state.livelihood_stage == "food_need")
 	assert(exploration_state.reputation == 3)
 	assert(exploration_state.chronicle.size() == 3)
 	assert(exploration_state.try_use_waystone("player-a"))
@@ -111,6 +112,40 @@ func _init() -> void:
 	assert(restored_exploration.ruin_guardian_defeated)
 	assert(restored_exploration.ruin_waystone_activated)
 	assert(restored_exploration.exploration_stage == "complete")
+	assert(restored_exploration.livelihood_stage == "food_need")
+
+	for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
+		var farmer := "player-a" if plot_id in ["moonroot_1", "moonroot_2"] else "player-b"
+		exploration_state.positions[farmer] = WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]
+		assert(exploration_state.try_harvest_garden(farmer))
+	assert(exploration_state.materials["moonroot"] == 4)
+	assert(exploration_state.player_mastery["player-a"]["farming"] == 2)
+	assert(exploration_state.player_mastery["player-b"]["farming"] == 2)
+	assert(not exploration_state.try_harvest_garden("player-a"), "A garden plot must not harvest twice.")
+	for cook_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
+		var cook := "player-a" if cook_index == 0 else "player-b"
+		exploration_state.positions[cook] = WorldStateModel.COOKFIRE_POSITION
+		assert(exploration_state.try_cook_hearth_stew(cook))
+	assert(exploration_state.materials["moonroot"] == 0)
+	assert(exploration_state.materials["hearth_stew"] == 2)
+	for delivery_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
+		var trader := "player-b" if delivery_index == 0 else "player-a"
+		exploration_state.positions[trader] = WorldStateModel.MARKET_CRATE_POSITION
+		assert(exploration_state.try_deliver_hearth_stew(trader))
+	assert(exploration_state.livelihood_stage == "complete")
+	assert(exploration_state.produce_stall_open)
+	assert(exploration_state.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
+	assert(exploration_state.neighborhood_morale == 2)
+	assert(exploration_state.reputation == 4)
+	assert(exploration_state.chronicle.size() == 4)
+	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1})
+	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1})
+	var restored_livelihood := WorldStateModel.new()
+	restored_livelihood.load_dictionary(exploration_state.to_dictionary())
+	assert(restored_livelihood.livelihood_stage == "complete")
+	assert(restored_livelihood.produce_stall_open)
+	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return value))
+	assert(restored_livelihood.player_mastery["player-a"]["farming"] == 2)
 
 	var migrated_slice_one := WorldStateModel.new()
 	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})
@@ -124,6 +159,16 @@ func _init() -> void:
 		"lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
 	})
 	assert(migrated_slice_two.exploration_stage == "follow_rumor")
+	var migrated_slice_three := WorldStateModel.new()
+	migrated_slice_three.load_dictionary({
+		"version": 5,
+		"quest_stage": "home_repaired",
+		"neighborhood_event_stage": "complete",
+		"exploration_stage": "complete",
+		"ruin_waystone_activated": true,
+	})
+	assert(migrated_slice_three.livelihood_stage == "food_need")
+	assert(migrated_slice_three.materials["moonroot"] == 0)
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")
