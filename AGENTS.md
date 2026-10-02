@@ -20,3 +20,17 @@ First-person and over-the-shoulder cameras, movement smoothing, two-client netwo
 - Run the headless state test documented in `README.md` after changing world rules or persistence.
 - Run a headless server plus at least two clients after changing networking.
 - A slice is complete only after it passes on Windows, desktop Web, and Android.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in this repository’s GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default triage labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context domain documentation layout. See `docs/agents/domain.md`.
