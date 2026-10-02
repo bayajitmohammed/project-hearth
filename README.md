@@ -1,6 +1,6 @@
 # Project Hearth
 
-Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. The cumulative build now includes the minimum implementations of Slice 1, **A New Home**, Slice 2, **A Place That Remembers**, Slice 3, **Beyond the Road**, and Slice 4, **Choose a Life**.
+Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. The cumulative build now includes the minimum implementations of Slice 1, **A New Home**, Slice 2, **A Place That Remembers**, Slice 3, **Beyond the Road**, Slice 4, **Choose a Life**, Slice 5, **Our Shared World**, and Slice 6, **Gather and Celebrate**.
 
 ## Run locally on macOS
 
@@ -24,7 +24,7 @@ To start the authoritative server without the launcher:
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9080
 ```
 
-The default room code is `HEARTH`, and rooms accept at most four registered players. To run an isolated fresh playtest without touching the normal save:
+The default room code is `HEARTH`, and rooms accept at most eight active players. To run an isolated fresh playtest without touching the normal save:
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9090 --room=TEST42 --save-file=/tmp/project-hearth-playtest.json
@@ -54,6 +54,10 @@ Completing all three repairs grants one reputation point, changes Mara's respons
 
 After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
 
+Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner.
+
+Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at the gold festival arch to opt into the Hearthlight Circuit; use it again when the entrants are ready to start. Follow the three numbered gold checkpoints in order. The server records the first finisher, every finisher earns one persistent cosmetic ribbon, and gear, mastery, and provisions give no advantage. The first completed circuit raises neighborhood morale and reputation, leaves festival decorations in the gathering place, and adds the celebration to the chronicle. Use the arch again after the results to replay the activity.
+
 ## Run the state test
 
 ```sh
@@ -61,6 +65,8 @@ After Welcome Lights, follow the road north beyond the original forest boundary.
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_living_world_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_exploration_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_livelihood_readability.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_shared_world_readability.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_festival_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_movement_smoothing.gd
 ```
 
@@ -156,6 +162,20 @@ In two more Terminal windows, run:
 
 The probe verifies that both clients see the same quest stage, one resource cannot be duplicated, and one player can revive the other.
 
+For the Slice 6 festival regression, copy `tests/fixtures/slice6_ready_world.json` to a temporary path, start an isolated room with that save, then run two festival probes simultaneously:
+
+```sh
+cp tests/fixtures/slice6_ready_world.json /tmp/project-hearth-slice6-network.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9298 --room=FESTIVAL --save-file=/tmp/project-hearth-slice6-network.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/festival_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9298 --room=FESTIVAL --player-token=festival-leader --probe-role=leader
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/festival_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9298 --room=FESTIVAL --player-token=festival-helper --probe-role=helper
+```
+
+The probes verify explicit enrollment, ordered checkpoints, the server-owned first finisher, shared results, and one persistent ribbon per finisher.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -181,7 +201,7 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.
 - Desktop Web, Android, and Windows debug exports rebuild successfully.
-- Fresh-player and full desktop Web, Android, and Windows runtime validation are intentionally deferred during the cumulative implementation pass. New work receives automated coverage and a developer-run Mac functionality/visual check; Windows may be used as the second multiplayer client.
+- Fresh-player and full desktop Web, Android, and Windows runtime validation are intentionally deferred during the cumulative implementation pass. New work receives automated coverage and a focused exported-Web functionality/visual check through Playwright CLI; Windows may be used as the second multiplayer client.
 
 ## Slice 3 implementation status
 
@@ -190,7 +210,7 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - A server-authoritative ruin guardian creates the first-journey combat obstacle; existing cooperative revive remains available, and a downed solo player can return safely to the cottage.
 - Defeating the guardian allows the group to restore a persistent waystone route between home and the ruins. The discovery and restoration enter the shared chronicle and survive version-5 save/load; version-4 saves migrate into the new journey.
 - Automated state, migration, presentation, legacy-regression, and two-client networking checks pass.
-- Pending validation: play the complete new journey on Mac and check the expanded region, combat readability, waystone interaction, and camera presentation visually.
+- Exported desktop Web: the complete fresh-world journey passes in Chromium, including shared discovery, repeated solo guardian failure/return, eventual combat success, and waystone restoration.
 
 ## Slice 4 implementation status
 
@@ -201,6 +221,29 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.
 - State, migration, presentation, legacy regression, the original two-client probe, and a networked end-to-end livelihood probe pass.
 - Focused Mac inspection of the active need and completed stall passes after correcting garden-label overlap, chronicle height, and the home-waystone placement.
-- Pending validation: play the uninterrupted cumulative Slice 3–4 journey on Mac; fresh-player and full desktop Web, Android, and Windows runtime validation remain deferred.
+- Exported desktop Web: the uninterrupted cumulative Slice 3–4 journey passes through garden harvesting, cooking, deliveries, mastery, and the persistent produce stall; broader fresh-player and all-target runtime validation remains deferred.
+
+## Slice 5 implementation status
+
+- Authoritative rooms accept up to eight distinct active player identities; reconnecting resumes persistent state and a second active copy of the same identity is rejected.
+- The HUD shows online capacity. Completed produce stalls gain at most three provisions after the room has been empty, using a short prototype interval for practical testing.
+- Trail provisions belong to individual players. Returning to safety while downed leaves a persistent recovery pack that a nearby friend can restore to its owner.
+- Version-7 persistence migrates version-6 worlds without granting retroactive stock, provisions, or packs.
+- Automated state, migration, presentation, legacy-regression, and eight-client capacity coverage pass.
+- Focused desktop Web verification passes in Chromium with no console errors: room connection, WASD movement, camera toggle, pantry interaction, downed return, and recovery-pack presentation all work through the exported build.
+- The uninterrupted fresh-world Slice 3–5 Chromium journey passes, including two solo guardian failures and returns, eventual route restoration, the full livelihood loop, empty-room sleep, reconnect catch-up, and pantry pickup. Playwright's persistent-profile harness emitted a non-blocking pointer-lock document message on reconnect; focused gameplay runs and the camera regression test remain clean.
+- Verification priority is browser first through the exported Web build, then Windows desktop and native Android. Linux deployment packaging is deferred.
+- Fresh-player usability and full desktop Web, Android, and Windows runtime validation remain deferred.
+
+## Slice 6 implementation status
+
+- The completed produce stall opens the Hearthlight Festival and its replayable three-checkpoint circuit at the neighborhood gathering place.
+- One to eight players explicitly opt in; the authoritative server owns enrollment, ordered progress, first-finisher results, disconnect cleanup, and replay state.
+- Standard movement is normalized for every entrant. Gear, mastery, provisions, and non-participants cannot affect the result, so the activity is opt-in competition without hostile open-world PvP.
+- Every finisher earns one persistent cosmetic festival ribbon. The first completed run raises morale and reputation, adds persistent festival decorations, and records a fifth chronicle entry.
+- Version-8 persistence migrates version-7 worlds, preserves completed festival history and ribbons, and safely reopens interrupted runs after restart.
+- State, migration, presentation, legacy regression, and simultaneous two-client festival coverage pass.
+- The exported desktop Web build completes the focused solo festival loop in Chromium: join, start, all three checkpoints, results, ribbon, decorations, and chronicle persistence are visible and functional.
+- Fresh-player usability and full desktop Web, Android, and Windows runtime validation remain deferred.
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.

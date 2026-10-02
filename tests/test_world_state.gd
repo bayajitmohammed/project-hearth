@@ -147,6 +147,73 @@ func _init() -> void:
 	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return value))
 	assert(restored_livelihood.player_mastery["player-a"]["farming"] == 2)
 
+	exploration_state.mark_world_empty(1000)
+	assert(exploration_state.apply_offline_catch_up(1300) == WorldStateModel.PANTRY_MAX_STOCK)
+	assert(exploration_state.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
+	exploration_state.positions["player-a"] = WorldStateModel.MARKET_CRATE_POSITION
+	assert(exploration_state.try_take_pantry_provision("player-a"))
+	assert(exploration_state.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK - 1)
+	assert(exploration_state.player_provisions["player-a"] == 1)
+	exploration_state.positions["player-a"] = WorldStateModel.RUINS_POSITION
+	exploration_state.downed_players["player-a"] = true
+	exploration_state.player_health["player-a"] = 0
+	assert(exploration_state.try_return_to_safety("player-a"))
+	assert(exploration_state.player_provisions["player-a"] == 0)
+	assert(exploration_state.recovery_packs["player-a"]["count"] == 1)
+	assert(exploration_state.recovery_packs["player-a"]["position"] == WorldStateModel.RUINS_POSITION)
+	var restored_shared_world := WorldStateModel.new()
+	restored_shared_world.load_dictionary(exploration_state.to_dictionary())
+	assert(restored_shared_world.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK - 1)
+	assert(restored_shared_world.recovery_packs["player-a"]["position"] == WorldStateModel.RUINS_POSITION)
+	restored_shared_world.positions["player-b"] = WorldStateModel.RUINS_POSITION
+	assert(restored_shared_world.try_recover_pack("player-b"))
+	assert(restored_shared_world.player_provisions["player-a"] == 1)
+	assert(restored_shared_world.recovery_packs.is_empty())
+	restored_shared_world.mark_world_empty(2000)
+	assert(restored_shared_world.apply_offline_catch_up(2030) == 0)
+	assert(restored_shared_world.apply_offline_catch_up(2120) == 0, "Catch-up runs only once per empty-room sleep.")
+
+	assert(restored_shared_world.festival_stage == "available")
+	restored_shared_world.positions["player-a"] = WorldStateModel.FESTIVAL_ARCH_POSITION
+	restored_shared_world.positions["player-b"] = WorldStateModel.FESTIVAL_ARCH_POSITION
+	assert(restored_shared_world.try_festival_interaction("player-a"))
+	assert(restored_shared_world.festival_stage == "signup")
+	assert(restored_shared_world.try_festival_interaction("player-b"))
+	assert(restored_shared_world.festival_participants.size() == 2)
+	assert(restored_shared_world.try_festival_interaction("player-a"))
+	assert(restored_shared_world.festival_stage == "racing")
+	for checkpoint_id: String in WorldStateModel.FESTIVAL_CHECKPOINT_ORDER:
+		restored_shared_world.positions["player-b"] = WorldStateModel.FESTIVAL_CHECKPOINT_POSITIONS[checkpoint_id]
+		assert(restored_shared_world.try_festival_interaction("player-b"))
+	assert(restored_shared_world.festival_last_winner == "player-b")
+	assert(restored_shared_world.festival_completed)
+	assert(restored_shared_world.festival_ribbons["player-b"] == 1)
+	assert(restored_shared_world.neighborhood_morale == 3)
+	assert(restored_shared_world.reputation == 5)
+	assert(restored_shared_world.festival_stage == "racing", "Remaining entrants may still finish and earn a ribbon.")
+	for checkpoint_id: String in WorldStateModel.FESTIVAL_CHECKPOINT_ORDER:
+		restored_shared_world.positions["player-a"] = WorldStateModel.FESTIVAL_CHECKPOINT_POSITIONS[checkpoint_id]
+		assert(restored_shared_world.try_festival_interaction("player-a"))
+	assert(restored_shared_world.festival_stage == "results")
+	assert(restored_shared_world.festival_ribbons["player-a"] == 1)
+	assert(restored_shared_world.chronicle.size() == 5)
+	var restored_festival := WorldStateModel.new()
+	restored_festival.load_dictionary(restored_shared_world.to_dictionary())
+	assert(restored_festival.festival_completed)
+	assert(restored_festival.festival_last_winner == "player-b")
+	assert(restored_festival.festival_ribbons["player-a"] == 1)
+	assert(restored_festival.festival_ribbons["player-b"] == 1)
+	assert(restored_festival.festival_stage == "available", "Interrupted or completed runs reopen safely after restart.")
+	assert(restored_festival.festival_participants.is_empty())
+	restored_festival.positions["player-a"] = WorldStateModel.FESTIVAL_ARCH_POSITION
+	assert(restored_festival.try_festival_interaction("player-a"))
+	assert(restored_festival.festival_stage == "signup")
+	assert(restored_festival.try_festival_interaction("player-a"))
+	assert(restored_festival.festival_stage == "racing")
+	assert(restored_festival.festival_ribbons["player-a"] == 1, "Starting a replay must not alter earned ribbons.")
+	assert(restored_festival.remove_festival_participant("player-a"))
+	assert(restored_festival.festival_stage == "available", "An empty interrupted run must reopen enrollment.")
+
 	var migrated_slice_one := WorldStateModel.new()
 	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})
 	assert(migrated_slice_one.neighborhood_event_stage == "invitation")
@@ -169,6 +236,24 @@ func _init() -> void:
 	})
 	assert(migrated_slice_three.livelihood_stage == "food_need")
 	assert(migrated_slice_three.materials["moonroot"] == 0)
+	var migrated_slice_four := WorldStateModel.new()
+	migrated_slice_four.load_dictionary({
+		"version": 6,
+		"livelihood_stage": "complete",
+		"produce_stall_open": true,
+	})
+	assert(migrated_slice_four.pantry_stock == 0)
+	assert(migrated_slice_four.player_provisions.is_empty())
+	assert(migrated_slice_four.recovery_packs.is_empty())
+	var migrated_slice_five := WorldStateModel.new()
+	migrated_slice_five.load_dictionary({
+		"version": 7,
+		"livelihood_stage": "complete",
+		"produce_stall_open": true,
+	})
+	assert(migrated_slice_five.festival_stage == "available")
+	assert(not migrated_slice_five.festival_completed)
+	assert(migrated_slice_five.festival_ribbons.is_empty())
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")

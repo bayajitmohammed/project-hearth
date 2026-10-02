@@ -23,6 +23,7 @@ static func build(root: Node3D) -> Dictionary:
 	var ruin_guardian := _add_ruin_guardian(root)
 	var waystones := _add_waystones(root)
 	var livelihood := _add_livelihood_stations(root)
+	var festival := _add_hearthlight_festival(root)
 
 	var supplies := _add_box(
 		root,
@@ -63,6 +64,9 @@ static func build(root: Node3D) -> Dictionary:
 		"cookfire_marker": livelihood["cookfire_marker"],
 		"market_marker": livelihood["market_marker"],
 		"produce_stall": livelihood["produce_stall"],
+		"festival_arch": festival["arch"],
+		"festival_decorations": festival["decorations"],
+		"festival_checkpoints": festival["checkpoints"],
 	}
 
 
@@ -450,6 +454,58 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 		"market_marker": market_marker,
 		"produce_stall": produce_stall,
 	}
+
+
+static func _add_hearthlight_festival(root: Node3D) -> Dictionary:
+	var arch := Node3D.new()
+	arch.name = "HearthlightFestivalArch"
+	arch.position = WorldStateModel.FESTIVAL_ARCH_POSITION
+	root.add_child(arch)
+	for x_position: float in [-1.5, 1.5]:
+		_add_box(arch, "ArchPost", Vector3(0.3, 3.2, 0.3), Vector3(x_position, 1.1, 0.0), Color("6d4934"))
+	_add_box(arch, "ArchBeam", Vector3(3.3, 0.35, 0.35), Vector3(0.0, 2.65, 0.0), Color("6d4934"))
+	var arch_glow := _add_cylinder(arch, "Hearthlight", 0.35, 0.7, Vector3(0.0, 2.55, 0.0), Color("ffd45e"), 12)
+	var arch_material := arch_glow.material_override as StandardMaterial3D
+	arch_material.emission_enabled = true
+	arch_material.emission = Color("f5a623")
+	arch_material.emission_energy_multiplier = 2.5
+	var arch_label := Label3D.new()
+	arch_label.text = "HEARTHLIGHT CIRCUIT"
+	arch_label.position = Vector3(0.0, 3.25, 0.0)
+	arch_label.font_size = 46
+	arch_label.pixel_size = 0.008
+	arch_label.outline_size = 10
+	arch_label.modulate = Color("fff0b8")
+	arch_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	arch.add_child(arch_label)
+	arch.visible = false
+
+	var checkpoints := {}
+	for checkpoint_index: int in WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size():
+		var checkpoint_id: String = WorldStateModel.FESTIVAL_CHECKPOINT_ORDER[checkpoint_index]
+		var checkpoint := _add_station_marker(
+			root,
+			"FestivalCheckpoint_%s" % checkpoint_id,
+			WorldStateModel.FESTIVAL_CHECKPOINT_POSITIONS[checkpoint_id],
+			"CIRCUIT %d" % (checkpoint_index + 1),
+			Color("ffd45e")
+		)
+		checkpoints[checkpoint_id] = checkpoint
+
+	var decorations := Node3D.new()
+	decorations.name = "HearthlightFestivalDecorations"
+	root.add_child(decorations)
+	for x_position: float in [-6.0, -3.0, 0.0, 3.0, 6.0]:
+		var color := Color("ef6f6c") if int(x_position) % 2 == 0 else Color("6ed9b5")
+		_add_box(decorations, "FestivalBanner", Vector3(1.2, 0.7, 0.12), Vector3(x_position, 3.0, 2.0), color)
+	for lantern_position: Vector3 in [Vector3(-6.0, 1.8, 2.0), Vector3(0.0, 1.8, 2.0), Vector3(6.0, 1.8, 2.0)]:
+		var lantern := _add_cylinder(decorations, "FestivalLantern", 0.22, 0.5, lantern_position, Color("ffd45e"), 10)
+		var lantern_material := lantern.material_override as StandardMaterial3D
+		lantern_material.emission_enabled = true
+		lantern_material.emission = Color("f5a623")
+		lantern_material.emission_energy_multiplier = 2.0
+	decorations.visible = false
+	return {"arch": arch, "decorations": decorations, "checkpoints": checkpoints}
 
 
 static func _add_station_marker(root: Node3D, node_name: String, position: Vector3, text: String, color: Color) -> Node3D:

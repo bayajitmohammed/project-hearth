@@ -48,8 +48,9 @@ func _init() -> void:
 	snapshot["player_mastery"]["artisan"] = {"farming": 4, "cooking": 2, "trade": 2}
 	main.receive_snapshot(snapshot)
 	assert(main.produce_stall.visible)
-	assert("produce stall is open" in main.objective_label.text)
-	assert("Gardener I" in main.progress_label.text)
+	assert(main.quest_title_label.text == "OUR SHARED WORLD")
+	assert("shared world is ready" in main.objective_label.text)
+	assert("Gardener I" in main.mastery_label.text)
 	assert("Cook I" in main.mastery_label.text)
 	assert("Trader I" in main.mastery_label.text)
 

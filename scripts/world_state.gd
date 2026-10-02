@@ -30,6 +30,15 @@ const GARDEN_PLOT_POSITIONS := {
 const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const REQUIRED_STEW_DELIVERIES := 2
+const PANTRY_CATCH_UP_INTERVAL_SECONDS := 60
+const PANTRY_MAX_STOCK := 3
+const FESTIVAL_ARCH_POSITION := Vector3(10.5, 0.6, 6.0)
+const FESTIVAL_CHECKPOINT_POSITIONS := {
+	"forest_turn": Vector3(12.0, 0.6, -6.0),
+	"road_lantern": Vector3(0.0, 0.6, 1.0),
+	"festival_finish": FESTIVAL_ARCH_POSITION,
+}
+const FESTIVAL_CHECKPOINT_ORDER := ["forest_turn", "road_lantern", "festival_finish"]
 const RESOURCE_POSITIONS := {
 	"wood_1": Vector3(-8.0, 0.45, -8.5),
 	"wood_2": Vector3(7.0, 0.45, -10.0),
@@ -97,6 +106,17 @@ var harvested_garden_plots := {
 var stews_delivered := 0
 var produce_stall_open := false
 var player_mastery: Dictionary = {}
+var pantry_stock := 0
+var last_world_empty_unix := 0
+var last_catch_up_units := 0
+var player_provisions: Dictionary = {}
+var recovery_packs: Dictionary = {}
+var festival_stage := "locked"
+var festival_completed := false
+var festival_ribbons: Dictionary = {}
+var festival_last_winner := ""
+var festival_participants: Dictionary = {}
+var festival_finishers: Array = []
 
 
 func register_player(player_token: String) -> Vector3:
@@ -108,6 +128,10 @@ func register_player(player_token: String) -> Vector3:
 		downed_players[player_token] = false
 	if not player_mastery.has(player_token):
 		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0}
+	if not player_provisions.has(player_token):
+		player_provisions[player_token] = 0
+	if not festival_ribbons.has(player_token):
+		festival_ribbons[player_token] = 0
 	return positions[player_token]
 
 
@@ -241,6 +265,9 @@ func interact(player_token: String) -> bool:
 	return (
 		try_revive_player(player_token)
 		or try_return_to_safety(player_token)
+		or try_recover_pack(player_token)
+		or try_festival_interaction(player_token)
+		or try_take_pantry_provision(player_token)
 		or try_use_waystone(player_token)
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
@@ -365,10 +392,76 @@ func try_return_to_safety(player_token: String) -> bool:
 	register_player(player_token)
 	if not bool(downed_players.get(player_token, false)):
 		return false
+	_drop_recovery_pack(player_token)
 	downed_players[player_token] = false
 	player_health[player_token] = PLAYER_MAX_HEALTH
 	positions[player_token] = SPAWN_POINT
 	return true
+
+
+func mark_world_empty(now_unix: int) -> void:
+	last_world_empty_unix = maxi(now_unix, 0)
+	last_catch_up_units = 0
+
+
+func apply_offline_catch_up(now_unix: int) -> int:
+	last_catch_up_units = 0
+	if last_world_empty_unix <= 0:
+		return 0
+	var elapsed_seconds := maxi(now_unix - last_world_empty_unix, 0)
+	last_world_empty_unix = 0
+	if livelihood_stage != "complete" or not produce_stall_open:
+		return 0
+	var available_space := PANTRY_MAX_STOCK - pantry_stock
+	if available_space <= 0:
+		return 0
+	last_catch_up_units = mini(
+		floori(float(elapsed_seconds) / float(PANTRY_CATCH_UP_INTERVAL_SECONDS)),
+		available_space
+	)
+	pantry_stock += last_catch_up_units
+	return last_catch_up_units
+
+
+func try_take_pantry_provision(player_token: String) -> bool:
+	if livelihood_stage != "complete" or not produce_stall_open or pantry_stock <= 0:
+		return false
+	if register_player(player_token).distance_to(MARKET_CRATE_POSITION) > INTERACTION_RADIUS:
+		return false
+	pantry_stock -= 1
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	return true
+
+
+func try_recover_pack(helper_token: String) -> bool:
+	var helper_position := register_player(helper_token)
+	for owner_token: String in recovery_packs.keys():
+		var pack: Dictionary = recovery_packs[owner_token]
+		var pack_position: Vector3 = pack.get("position", Vector3.INF)
+		if helper_position.distance_to(pack_position) > INTERACTION_RADIUS:
+			continue
+		register_player(owner_token)
+		player_provisions[owner_token] = (
+			int(player_provisions.get(owner_token, 0)) + int(pack.get("count", 0))
+		)
+		recovery_packs.erase(owner_token)
+		return true
+	return false
+
+
+func _drop_recovery_pack(player_token: String) -> void:
+	var carried := int(player_provisions.get(player_token, 0))
+	if carried <= 0:
+		return
+	var previous_count := 0
+	if recovery_packs.has(player_token):
+		previous_count = int(recovery_packs[player_token].get("count", 0))
+	recovery_packs[player_token] = {
+		"owner": player_token,
+		"count": previous_count + carried,
+		"position": positions[player_token],
+	}
+	player_provisions[player_token] = 0
 
 
 func try_use_waystone(player_token: String) -> bool:
@@ -438,9 +531,67 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 	if stews_delivered >= REQUIRED_STEW_DELIVERIES:
 		livelihood_stage = "complete"
 		produce_stall_open = true
+		festival_stage = "available"
 		neighborhood_morale += 1
 		reputation += 1
 		chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
+	return true
+
+
+func try_festival_interaction(player_token: String) -> bool:
+	if livelihood_stage != "complete" or not produce_stall_open or festival_stage == "locked":
+		return false
+	var player_position := register_player(player_token)
+	if festival_stage in ["available", "results"]:
+		if player_position.distance_to(FESTIVAL_ARCH_POSITION) > INTERACTION_RADIUS:
+			return false
+		festival_stage = "signup"
+		festival_participants = {player_token: 0}
+		festival_finishers.clear()
+		festival_last_winner = ""
+		return true
+	if festival_stage == "signup":
+		if player_position.distance_to(FESTIVAL_ARCH_POSITION) > INTERACTION_RADIUS:
+			return false
+		if festival_participants.has(player_token):
+			festival_stage = "racing"
+		else:
+			festival_participants[player_token] = 0
+		return true
+	if festival_stage != "racing" or not festival_participants.has(player_token):
+		return false
+	var progress := int(festival_participants[player_token])
+	if progress >= FESTIVAL_CHECKPOINT_ORDER.size():
+		return false
+	var checkpoint_id: String = FESTIVAL_CHECKPOINT_ORDER[progress]
+	if player_position.distance_to(FESTIVAL_CHECKPOINT_POSITIONS[checkpoint_id]) > INTERACTION_RADIUS:
+		return false
+	progress += 1
+	festival_participants[player_token] = progress
+	if progress == FESTIVAL_CHECKPOINT_ORDER.size():
+		festival_finishers.append(player_token)
+		festival_ribbons[player_token] = int(festival_ribbons.get(player_token, 0)) + 1
+		if festival_last_winner.is_empty():
+			festival_last_winner = player_token
+			if not festival_completed:
+				festival_completed = true
+				neighborhood_morale += 1
+				reputation += 1
+				chronicle.append("The neighborhood gathered for the first Hearthlight Circuit and made the festival its own.")
+		if festival_finishers.size() >= festival_participants.size():
+			festival_stage = "results"
+	return true
+
+
+func remove_festival_participant(player_token: String) -> bool:
+	if not festival_participants.has(player_token):
+		return false
+	festival_participants.erase(player_token)
+	festival_finishers.erase(player_token)
+	if festival_participants.is_empty():
+		festival_stage = "available"
+	elif festival_stage == "racing" and festival_finishers.size() >= festival_participants.size():
+		festival_stage = "results"
 	return true
 
 
@@ -470,8 +621,17 @@ func to_dictionary() -> Dictionary:
 	for player_token: String in positions:
 		var position: Vector3 = positions[player_token]
 		encoded_positions[player_token] = [position.x, position.y, position.z]
+	var encoded_recovery_packs := {}
+	for owner_token: String in recovery_packs:
+		var pack: Dictionary = recovery_packs[owner_token]
+		var pack_position: Vector3 = pack.get("position", SPAWN_POINT)
+		encoded_recovery_packs[owner_token] = {
+			"owner": owner_token,
+			"count": int(pack.get("count", 0)),
+			"position": [pack_position.x, pack_position.y, pack_position.z],
+		}
 	return {
-		"version": 6,
+		"version": 8,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -500,6 +660,13 @@ func to_dictionary() -> Dictionary:
 		"stews_delivered": stews_delivered,
 		"produce_stall_open": produce_stall_open,
 		"player_mastery": player_mastery.duplicate(true),
+		"pantry_stock": pantry_stock,
+		"last_world_empty_unix": last_world_empty_unix,
+		"player_provisions": player_provisions.duplicate(),
+		"recovery_packs": encoded_recovery_packs,
+		"festival_completed": festival_completed,
+		"festival_ribbons": festival_ribbons.duplicate(),
+		"festival_last_winner": festival_last_winner,
 		"positions": encoded_positions,
 	}
 
@@ -598,6 +765,43 @@ func load_dictionary(data: Dictionary) -> void:
 		stews_delivered = 0
 		produce_stall_open = false
 		player_mastery = {}
+	if save_version >= 7:
+		pantry_stock = clampi(int(data.get("pantry_stock", 0)), 0, PANTRY_MAX_STOCK)
+		last_world_empty_unix = maxi(int(data.get("last_world_empty_unix", 0)), 0)
+		player_provisions = data.get("player_provisions", {}).duplicate()
+		recovery_packs = {}
+		var saved_recovery_packs: Dictionary = data.get("recovery_packs", {})
+		for owner_token: String in saved_recovery_packs:
+			var saved_pack: Dictionary = saved_recovery_packs[owner_token]
+			var encoded_pack_position: Array = saved_pack.get("position", [])
+			if encoded_pack_position.size() != 3 or int(saved_pack.get("count", 0)) <= 0:
+				continue
+			recovery_packs[owner_token] = {
+				"owner": owner_token,
+				"count": int(saved_pack.get("count", 0)),
+				"position": Vector3(
+					float(encoded_pack_position[0]),
+					float(encoded_pack_position[1]),
+					float(encoded_pack_position[2])
+				),
+			}
+	else:
+		pantry_stock = 0
+		last_world_empty_unix = 0
+		player_provisions = {}
+		recovery_packs = {}
+	if save_version >= 8:
+		festival_completed = bool(data.get("festival_completed", false))
+		festival_ribbons = data.get("festival_ribbons", {}).duplicate()
+		festival_last_winner = str(data.get("festival_last_winner", ""))
+	else:
+		festival_completed = false
+		festival_ribbons = {}
+		festival_last_winner = ""
+	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
+	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"
+	festival_participants = {}
+	festival_finishers = []
 	mara_position = MARA_WELCOME_POSITION if neighborhood_event_stage in ["lighting", "complete"] else MARA_POSITION
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})

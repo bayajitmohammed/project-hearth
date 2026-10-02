@@ -3,7 +3,7 @@ extends Node3D
 const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
 const DEFAULT_ROOM_CODE := "HEARTH"
-const MAX_PLAYERS := 4
+const MAX_PLAYERS := 8
 const CAMERA_FIRST_PERSON := "first_person"
 const CAMERA_THIRD_PERSON := "third_person"
 const CAMERA_MIN_DISTANCE := 3.0
@@ -81,6 +81,10 @@ var garden_markers: Dictionary = {}
 var cookfire_marker: Node3D
 var market_marker: Node3D
 var produce_stall: Node3D
+var recovery_pack_nodes: Dictionary = {}
+var festival_arch: Node3D
+var festival_decorations: Node3D
+var festival_checkpoint_nodes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -253,6 +257,13 @@ func register_player(player_token: String, requested_room_code: String) -> void:
 	if not peer_to_token.has(sender_id) and peer_to_token.size() >= MAX_PLAYERS:
 		registration_rejected.rpc_id(sender_id, "Room is full (maximum %d players)" % MAX_PLAYERS)
 		return
+	var existing_peer = peer_to_token.find_key(player_token)
+	if existing_peer != null and int(existing_peer) != sender_id:
+		registration_rejected.rpc_id(sender_id, "That player is already active in this room")
+		return
+	var room_was_empty := peer_to_token.is_empty()
+	if room_was_empty:
+		world_state.apply_offline_catch_up(int(Time.get_unix_time_from_system()))
 	peer_to_token[sender_id] = player_token
 	peer_inputs[sender_id] = Vector2.ZERO
 	world_state.register_player(player_token)
@@ -366,8 +377,19 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		str(snapshot.get("livelihood_stage", "locked")),
 		snapshot.get("harvested_garden_plots", {}),
 		int(snapshot.get("stews_delivered", 0)),
-		snapshot.get("player_mastery", {}).get(local_token, {})
+		snapshot.get("player_mastery", {}).get(local_token, {}),
+		int(snapshot.get("active_player_count", 0)),
+		int(snapshot.get("max_players", MAX_PLAYERS)),
+		int(snapshot.get("pantry_stock", 0)),
+		int(snapshot.get("player_provisions", {}).get(local_token, 0)),
+		int(snapshot.get("last_catch_up_units", 0)),
+		str(snapshot.get("festival_stage", "locked")),
+		snapshot.get("festival_participants", {}),
+		snapshot.get("festival_finishers", []),
+		str(snapshot.get("festival_last_winner", "")),
+		int(snapshot.get("festival_ribbons", {}).get(local_token, 0))
 	)
+	_sync_recovery_packs(snapshot.get("recovery_packs", {}))
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
 	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
@@ -401,6 +423,11 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	)
 	market_marker.visible = livelihood_stage == "food_need" and stew_count > 0
 	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
+	var festival_stage := str(snapshot.get("festival_stage", "locked"))
+	festival_arch.visible = festival_stage != "locked"
+	festival_decorations.visible = bool(snapshot.get("festival_completed", false))
+	for checkpoint_id: String in festival_checkpoint_nodes:
+		festival_checkpoint_nodes[checkpoint_id].visible = festival_stage == "racing"
 	map_panel.visible = rumor_unlocked
 	map_label.text = _shared_map_text(discoveries, route_activated)
 	var chronicle: Array = snapshot.get("chronicle", [])
@@ -502,10 +529,13 @@ func _release_mouse() -> void:
 func _on_peer_disconnected(peer_id: int) -> void:
 	if not is_server:
 		return
+	if peer_to_token.has(peer_id):
+		world_state.remove_festival_participant(peer_to_token[peer_id])
 	peer_inputs.erase(peer_id)
 	peer_to_token.erase(peer_id)
+	if peer_to_token.is_empty():
+		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
 	_save_world()
-	receive_snapshot.rpc(_snapshot_for_clients())
 
 
 func _snapshot_for_clients() -> Dictionary:
@@ -543,6 +573,18 @@ func _snapshot_for_clients() -> Dictionary:
 		"stews_delivered": world_state.stews_delivered,
 		"produce_stall_open": world_state.produce_stall_open,
 		"player_mastery": world_state.player_mastery.duplicate(true),
+		"pantry_stock": world_state.pantry_stock,
+		"last_catch_up_units": world_state.last_catch_up_units,
+		"player_provisions": world_state.player_provisions.duplicate(),
+		"recovery_packs": world_state.recovery_packs.duplicate(true),
+		"festival_stage": world_state.festival_stage,
+		"festival_completed": world_state.festival_completed,
+		"festival_ribbons": world_state.festival_ribbons.duplicate(),
+		"festival_last_winner": world_state.festival_last_winner,
+		"festival_participants": world_state.festival_participants.duplicate(),
+		"festival_finishers": world_state.festival_finishers.duplicate(),
+		"active_player_count": peer_to_token.size(),
+		"max_players": MAX_PLAYERS,
 		"room_code": server_room_code,
 	}
 
@@ -647,6 +689,9 @@ func _build_world() -> void:
 	cookfire_marker = world_nodes["cookfire_marker"]
 	market_marker = world_nodes["market_marker"]
 	produce_stall = world_nodes["produce_stall"]
+	festival_arch = world_nodes["festival_arch"]
+	festival_decorations = world_nodes["festival_decorations"]
+	festival_checkpoint_nodes = world_nodes["festival_checkpoints"]
 
 
 func _build_interface() -> void:
@@ -912,7 +957,17 @@ func _update_quest_interface(
 	livelihood_stage: String,
 	harvested_garden: Dictionary,
 	stews_delivered: int,
-	mastery: Dictionary
+	mastery: Dictionary,
+	active_player_count: int,
+	max_players: int,
+	pantry_stock: int,
+	carried_provisions: int,
+	catch_up_units: int,
+	festival_stage: String,
+	festival_participants: Dictionary,
+	festival_finishers: Array,
+	festival_last_winner: String,
+	festival_ribbon_count: int
 ) -> void:
 	var wood_count := int(materials.get("wood", 0))
 	var herb_count := int(materials.get("herb", 0))
@@ -999,9 +1054,24 @@ func _update_quest_interface(
 		quest_title_label.text = "CHOOSE A LIFE"
 		progress_label.visible = true
 		if livelihood_stage == "complete":
-			objective_label.text = "The neighborhood produce stall is open"
-			progress_label.text = "Settlement need fulfilled · Your %s" % _mastery_text(mastery).trim_prefix("Mastery — ")
-			dialogue_label.text = "The group's work in the garden, kitchen, and market changed the neighborhood."
+			quest_title_label.text = "OUR SHARED WORLD"
+			objective_label.text = "The shared world is ready for friends"
+			progress_label.text = "Players %d/%d · Pantry %d/%d · Your trail provisions %d" % [
+				active_player_count,
+				max_players,
+				pantry_stock,
+				WorldStateModel.PANTRY_MAX_STOCK,
+				carried_provisions,
+			]
+			if catch_up_units > 0:
+				dialogue_label.text = "While the empty world slept, the produce stall prepared %d safe catch-up provision%s." % [
+					catch_up_units,
+					"" if catch_up_units == 1 else "s",
+				]
+			elif pantry_stock > 0:
+				dialogue_label.text = "Use E at the produce stall to take one personal trail provision. Friends can recover it if you fall."
+			else:
+				dialogue_label.text = "Players may come and go without resetting the world. An empty room sleeps safely."
 		else:
 			var harvest_count := 0
 			for is_harvested: bool in harvested_garden.values():
@@ -1028,6 +1098,76 @@ func _update_quest_interface(
 					stew_count, stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES
 				]
 				dialogue_label.text = "Use E at the green market marker to supply the neighborhood."
+	if livelihood_stage == "complete" and festival_stage != "locked":
+		_update_festival_interface(
+			festival_stage,
+			festival_participants,
+			festival_finishers,
+			festival_last_winner,
+			festival_ribbon_count,
+			active_player_count,
+			max_players,
+			pantry_stock
+		)
+
+
+func _update_festival_interface(
+	festival_stage: String,
+	participants: Dictionary,
+	finishers: Array,
+	last_winner: String,
+	ribbon_count: int,
+	active_player_count: int,
+	max_players: int,
+	pantry_stock: int
+) -> void:
+	quest_title_label.text = "GATHER AND CELEBRATE"
+	progress_label.visible = true
+	var shared_status := "Players %d/%d · Pantry %d/%d · Your ribbons %d" % [
+		active_player_count, max_players, pantry_stock, WorldStateModel.PANTRY_MAX_STOCK, ribbon_count
+	]
+	match festival_stage:
+		"available":
+			objective_label.text = "Join the Hearthlight Circuit at the festival arch"
+			progress_label.text = shared_status
+			dialogue_label.text = "The festival is open. Use E at the gold arch to opt into a fair checkpoint race."
+		"signup":
+			progress_label.text = "Entrants %d · %s" % [participants.size(), shared_status]
+			if participants.has(local_token):
+				objective_label.text = "Start the Hearthlight Circuit when your friends are ready"
+				dialogue_label.text = "Use E at the arch again to start. Standard movement is the same for every entrant."
+			else:
+				objective_label.text = "Join the Hearthlight Circuit before it starts"
+				dialogue_label.text = "Use E at the festival arch to opt in."
+		"racing":
+			if participants.has(local_token):
+				var checkpoint := int(participants.get(local_token, 0))
+				if checkpoint >= WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size():
+					objective_label.text = "Cheer on the remaining Hearthlight runners"
+				else:
+					objective_label.text = "Reach festival checkpoint %d of %d" % [
+						checkpoint + 1, WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size()
+					]
+				progress_label.text = "Checkpoint %d/%d · Finishers %d/%d · Your ribbons %d" % [
+					mini(checkpoint, WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size()),
+					WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size(),
+					finishers.size(),
+					participants.size(),
+					ribbon_count,
+				]
+				dialogue_label.text = "Use E at the next gold checkpoint. Gear, mastery, and provisions grant no advantage."
+			else:
+				objective_label.text = "The Hearthlight Circuit is underway"
+				progress_label.text = "Finishers %d/%d · %s" % [finishers.size(), participants.size(), shared_status]
+				dialogue_label.text = "Only players who opted in can advance the circuit."
+		"results":
+			objective_label.text = "Celebrate the Hearthlight Circuit"
+			progress_label.text = "Winner %s · %s" % [_festival_player_name(last_winner), shared_status]
+			dialogue_label.text = "Each finisher earned a cosmetic ribbon. Use E at the arch to gather for another run."
+		_:
+			objective_label.text = "The Hearthlight Festival is preparing"
+			progress_label.text = shared_status
+			dialogue_label.text = "The neighborhood gathering place is changing for the celebration."
 
 
 func _update_interaction_prompt(
@@ -1058,6 +1198,47 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var livelihood_stage := str(latest_snapshot.get("livelihood_stage", "locked"))
+	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
+	var festival_participants: Dictionary = latest_snapshot.get("festival_participants", {})
+	if festival_stage in ["available", "results"] and player_position.distance_to(WorldStateModel.FESTIVAL_ARCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+		interaction_prompt.text = "%s  ·  Join the Hearthlight Circuit" % action_name
+		interaction_prompt.visible = true
+		return
+	if festival_stage == "signup" and player_position.distance_to(WorldStateModel.FESTIVAL_ARCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+		interaction_prompt.text = "%s  ·  %s" % [
+			action_name,
+			"Start the circuit" if festival_participants.has(local_token) else "Join the circuit",
+		]
+		interaction_prompt.visible = true
+		return
+	if festival_stage == "racing" and festival_participants.has(local_token):
+		var checkpoint_index := int(festival_participants.get(local_token, 0))
+		if checkpoint_index < WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size():
+			var checkpoint_id: String = WorldStateModel.FESTIVAL_CHECKPOINT_ORDER[checkpoint_index]
+			var checkpoint_position: Vector3 = WorldStateModel.FESTIVAL_CHECKPOINT_POSITIONS[checkpoint_id]
+			if player_position.distance_to(checkpoint_position) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Claim checkpoint %d/%d" % [
+					action_name, checkpoint_index + 1, WorldStateModel.FESTIVAL_CHECKPOINT_ORDER.size()
+				]
+				interaction_prompt.visible = true
+				return
+	var recovery_packs: Dictionary = latest_snapshot.get("recovery_packs", {})
+	for owner_token: String in recovery_packs:
+		var pack: Dictionary = recovery_packs[owner_token]
+		var pack_position: Vector3 = pack.get("position", Vector3.INF)
+		if player_position.distance_to(pack_position) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+			var owner_label := "your" if owner_token == local_token else "a friend's"
+			interaction_prompt.text = "%s  ·  Recover %s trail pack" % [action_name, owner_label]
+			interaction_prompt.visible = true
+			return
+	if (
+		livelihood_stage == "complete"
+		and int(latest_snapshot.get("pantry_stock", 0)) > 0
+		and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Take a trail provision" % action_name
+		interaction_prompt.visible = true
+		return
 	if livelihood_stage == "food_need":
 		var harvested_garden: Dictionary = latest_snapshot.get("harvested_garden_plots", {})
 		for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
@@ -1107,6 +1288,14 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:
 	return "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
 
 
+func _festival_player_name(player_token: String) -> String:
+	if player_token.is_empty():
+		return "—"
+	if player_token == local_token:
+		return "you"
+	return "friend " + player_token.left(6)
+
+
 func _mastery_text(mastery: Dictionary) -> String:
 	var farming := int(mastery.get("farming", 0))
 	var cooking := int(mastery.get("cooking", 0))
@@ -1116,6 +1305,50 @@ func _mastery_text(mastery: Dictionary) -> String:
 		cooking, " (Cook I)" if cooking > 0 else "",
 		trade, " (Trader I)" if trade > 0 else "",
 	]
+
+
+func _sync_recovery_packs(packs: Dictionary) -> void:
+	for owner_token: String in recovery_pack_nodes.keys():
+		if packs.has(owner_token):
+			continue
+		recovery_pack_nodes[owner_token].queue_free()
+		recovery_pack_nodes.erase(owner_token)
+	for owner_token: String in packs:
+		var pack: Dictionary = packs[owner_token]
+		var pack_node: Node3D
+		if recovery_pack_nodes.has(owner_token):
+			pack_node = recovery_pack_nodes[owner_token]
+		else:
+			pack_node = _create_recovery_pack_node(owner_token)
+			recovery_pack_nodes[owner_token] = pack_node
+		pack_node.position = pack.get("position", WorldStateModel.SPAWN_POINT)
+		var label: Label3D = pack_node.get_node("Label")
+		label.text = "TRAIL PACK · %d" % int(pack.get("count", 0))
+
+
+func _create_recovery_pack_node(owner_token: String) -> Node3D:
+	var pack_node := Node3D.new()
+	pack_node.name = "RecoveryPack_%s" % owner_token.validate_node_name()
+	var mesh_instance := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.7, 0.45, 0.55)
+	mesh_instance.mesh = box
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("d7a94b")
+	material.emission_enabled = true
+	material.emission = Color("755516")
+	mesh_instance.material_override = material
+	pack_node.add_child(mesh_instance)
+	var label := Label3D.new()
+	label.name = "Label"
+	label.position = Vector3(0.0, 0.75, 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 34
+	label.outline_size = 8
+	label.modulate = Color("ffe6a6")
+	pack_node.add_child(label)
+	add_child(pack_node)
+	return pack_node
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:
