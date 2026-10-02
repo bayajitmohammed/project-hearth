@@ -54,6 +54,8 @@ var room_code_input: LineEdit
 var connect_button: Button
 var craft_button: Button
 var quest_card: PanelContainer
+var map_panel: PanelContainer
+var map_label: Label
 var chronicle_panel: PanelContainer
 var chronicle_label: Label
 var connection_panel: PanelContainer
@@ -68,6 +70,11 @@ var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
 var creature_node: MeshInstance3D
 var rumor_marker: MeshInstance3D
+var ruin_guardian_node: MeshInstance3D
+var waystone_marker: Node3D
+var home_waystone: Node3D
+var ruin_waystone: Node3D
+var waystone_glows: Dictionary = {}
 
 
 func _ready() -> void:
@@ -216,6 +223,8 @@ func _simulate_server(delta: float) -> void:
 		var token: String = peer_to_token[peer_id]
 		var pending_input: Vector2 = peer_inputs.get(peer_id, Vector2.ZERO)
 		world_state.move_player(token, pending_input, delta)
+		if world_state.update_exploration(token):
+			_save_world()
 		if world_state.try_collect(token):
 			_save_world()
 	if world_state.simulate_creature(delta, peer_to_token.values()):
@@ -304,9 +313,9 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		var is_new_player := not player_nodes.has(token)
 		var player_node := _get_or_create_player_node(token)
 		player_target_positions[token] = position
+		player_node.scale = Vector3(1.0, 0.35, 1.0) if bool(snapshot.get("downed_players", {}).get(token, false)) else Vector3.ONE
 		if is_new_player:
 			player_node.position = position
-		player_node.scale = Vector3(1.0, 0.35, 1.0) if bool(snapshot.get("downed_players", {}).get(token, false)) else Vector3.ONE
 	for token: String in player_nodes.keys():
 		if not seen_tokens.has(token):
 			player_nodes[token].queue_free()
@@ -344,14 +353,30 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		materials,
 		repairs,
 		event_stage,
-		lit_lanterns
+		lit_lanterns,
+		str(snapshot.get("exploration_stage", "locked")),
+		snapshot.get("shared_map_discoveries", {}),
+		bool(snapshot.get("ruin_waystone_activated", false))
 	)
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
 	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
 	_update_combat_interface(snapshot, creature_defeated)
 	var rumor_unlocked := bool(snapshot.get("map_rumor_unlocked", false))
-	rumor_marker.visible = rumor_unlocked
+	var discoveries: Dictionary = snapshot.get("shared_map_discoveries", {})
+	var exploration_stage := str(snapshot.get("exploration_stage", "locked"))
+	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
+	var route_activated := bool(snapshot.get("ruin_waystone_activated", false))
+	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
+	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
+	ruin_guardian_node.position = snapshot.get("ruin_guardian_position", WorldStateModel.RUIN_GUARDIAN_SPAWN)
+	waystone_marker.visible = exploration_stage == "restore_waystone" and not route_activated
+	home_waystone.visible = route_activated
+	ruin_waystone.visible = bool(discoveries.get("old_stone_ruins", false))
+	for glow: MeshInstance3D in waystone_glows.values():
+		glow.visible = route_activated
+	map_panel.visible = rumor_unlocked
+	map_label.text = _shared_map_text(discoveries, route_activated)
 	var chronicle: Array = snapshot.get("chronicle", [])
 	chronicle_panel.visible = not chronicle.is_empty()
 	var chronicle_lines := PackedStringArray()
@@ -478,6 +503,12 @@ func _snapshot_for_clients() -> Dictionary:
 		"lit_welcome_lanterns": world_state.lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": world_state.neighborhood_morale,
 		"chronicle": world_state.chronicle.duplicate(),
+		"shared_map_discoveries": world_state.shared_map_discoveries.duplicate(),
+		"exploration_stage": world_state.exploration_stage,
+		"ruin_guardian_position": world_state.ruin_guardian_position,
+		"ruin_guardian_health": world_state.ruin_guardian_health,
+		"ruin_guardian_defeated": world_state.ruin_guardian_defeated,
+		"ruin_waystone_activated": world_state.ruin_waystone_activated,
 		"room_code": server_room_code,
 	}
 
@@ -572,6 +603,11 @@ func _build_world() -> void:
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
 	creature_node = world_nodes["creature"]
 	rumor_marker = world_nodes["rumor_marker"]
+	ruin_guardian_node = world_nodes["ruin_guardian"]
+	waystone_marker = world_nodes["waystone_marker"]
+	home_waystone = world_nodes["home_waystone"]
+	ruin_waystone = world_nodes["ruin_waystone"]
+	waystone_glows = world_nodes["waystone_glows"]
 
 
 func _build_interface() -> void:
@@ -632,6 +668,22 @@ func _build_interface() -> void:
 	craft_button.visible = false
 	craft_button.pressed.connect(_request_craft)
 	quest_content.add_child(craft_button)
+
+	map_panel = PanelContainer.new()
+	map_panel.name = "SharedMapPanel"
+	map_panel.visible = false
+	var map_style := StyleBoxFlat.new()
+	map_style.bg_color = Color(0.04, 0.1, 0.09, 0.9)
+	map_style.border_color = Color("62c4d8")
+	map_style.set_border_width_all(2)
+	map_style.set_corner_radius_all(10)
+	map_style.set_content_margin_all(12)
+	map_panel.add_theme_stylebox_override("panel", map_style)
+	top_stack.add_child(map_panel)
+	map_label = Label.new()
+	map_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	map_label.add_theme_color_override("font_color", Color("cbeef1"))
+	map_panel.add_child(map_label)
 
 	chronicle_panel = PanelContainer.new()
 	chronicle_panel.name = "ChroniclePanel"
@@ -786,11 +838,17 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
 	var creature_text := "defeated" if creature_defeated else "%d/%d" % [int(snapshot.get("creature_health", 0)), WorldStateModel.CREATURE_MAX_HEALTH]
-	combat_label.text = "Health: %d/%d%s  Forest creature: %s" % [
+	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
+	var guardian_text := "defeated" if guardian_defeated else "%d/%d" % [
+		int(snapshot.get("ruin_guardian_health", WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH)),
+		WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,
+	]
+	combat_label.text = "Health: %d/%d%s  Forest creature: %s  Ruin guardian: %s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
-		" — DOWNED, another player must use E nearby" if is_downed else "",
+		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
 		creature_text,
+		guardian_text,
 	]
 
 
@@ -799,7 +857,10 @@ func _update_quest_interface(
 	materials: Dictionary,
 	repairs: Dictionary,
 	event_stage: String,
-	lit_lanterns: Dictionary
+	lit_lanterns: Dictionary,
+	exploration_stage: String,
+	discoveries: Dictionary,
+	route_activated: bool
 ) -> void:
 	var wood_count := int(materials.get("wood", 0))
 	var herb_count := int(materials.get("herb", 0))
@@ -835,7 +896,8 @@ func _update_quest_interface(
 				objective_label.text = "Repair the cottage"
 				dialogue_label.text = "Use E at each bright blue REPAIR marker in front of the cottage."
 		"home_repaired":
-			quest_title_label.text = "WELCOME LIGHTS"
+			if event_stage != "complete":
+				quest_title_label.text = "WELCOME LIGHTS"
 			match event_stage:
 				"invitation":
 					objective_label.text = "Talk to Mara about the neighborhood gathering"
@@ -850,10 +912,30 @@ func _update_quest_interface(
 					progress_label.text = "Welcome lanterns  %d / 3" % lit_count
 					dialogue_label.text = "Mara moved to the gathering place. Use E at each amber marker."
 				"complete":
-					objective_label.text = "The neighborhood remembers you"
-					progress_label.visible = true
-					progress_label.text = "Welcome lanterns  3 / 3  ·  Morale improved"
-					dialogue_label.text = "Mara: This place feels different because you chose to stay."
+					quest_title_label.text = "BEYOND THE ROAD"
+					match exploration_stage:
+						"follow_rumor":
+							objective_label.text = "Follow the northern road beyond the forest"
+							dialogue_label.text = "The shared map holds a rumor of the Old Stone Ruins."
+						"find_ruins":
+							objective_label.text = "Explore Northwood and find the Old Stone Ruins"
+							dialogue_label.text = "Northwood is now revealed for everyone in the room."
+						"defeat_guardian":
+							objective_label.text = "Overcome the guardian at the Old Stone Ruins"
+							progress_label.visible = true
+							progress_label.text = "Old Stone Ruins discovered · Guardian blocks the waystone"
+							dialogue_label.text = "Use Space or Attack nearby. Position together and revive fallen friends."
+						"restore_waystone":
+							objective_label.text = "Restore the ruin waystone"
+							dialogue_label.text = "Use E at the bright blue marker inside the ruins."
+						"complete":
+							objective_label.text = "The route to the Old Stone Ruins is restored"
+							progress_label.visible = true
+							progress_label.text = "Northwood and ruins mapped · Waystone route active"
+							dialogue_label.text = "Use E at either glowing waystone to travel between home and the ruins."
+						_:
+							objective_label.text = "The neighborhood remembers you"
+							dialogue_label.text = "Mara: This place feels different because you chose to stay."
 				_:
 					objective_label.text = "Cottage repaired — welcome home!"
 					dialogue_label.text = "Mara: Welcome home."
@@ -871,6 +953,21 @@ func _update_interaction_prompt(
 	if not player_position.is_finite():
 		return
 	var action_name := "USE" if OS.has_feature("mobile") else "E"
+	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
+	if is_downed:
+		interaction_prompt.text = "%s  ·  Return to the cottage" % action_name
+		interaction_prompt.visible = true
+		return
+	var guardian_defeated := bool(latest_snapshot.get("ruin_guardian_defeated", false))
+	var route_activated := bool(latest_snapshot.get("ruin_waystone_activated", false))
+	if guardian_defeated and player_position.distance_to(WorldStateModel.RUIN_WAYSTONE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+		interaction_prompt.text = "%s  ·  %s" % [action_name, "Travel home" if route_activated else "Restore waystone"]
+		interaction_prompt.visible = true
+		return
+	if route_activated and player_position.distance_to(WorldStateModel.HOME_WAYSTONE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+		interaction_prompt.text = "%s  ·  Travel to Old Stone Ruins" % action_name
+		interaction_prompt.visible = true
+		return
 	if quest_stage == "repair_cottage" and has_repair_kit:
 		for part_id: String in WorldStateModel.REPAIR_POSITIONS:
 			if bool(repairs.get(part_id, false)):
@@ -887,6 +984,13 @@ func _update_interaction_prompt(
 				interaction_prompt.text = "%s  ·  Light %s" % [action_name, WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id].capitalize()]
 				interaction_prompt.visible = true
 				return
+
+
+func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:
+	var northwood := "charted" if bool(discoveries.get("northwood", false)) else "unexplored"
+	var ruins := "charted" if bool(discoveries.get("old_stone_ruins", false)) else "rumored"
+	var route := "waystone route active" if route_activated else "first journey required"
+	return "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
 
 
 func _get_or_create_player_node(player_token: String) -> MeshInstance3D:

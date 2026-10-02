@@ -10,6 +10,8 @@ static func build(root: Node3D) -> Dictionary:
 	_add_road(root)
 	_add_cottage(root)
 	_add_forest_edge(root)
+	_add_northern_region(root)
+	_add_old_stone_ruins(root)
 	_add_landmark_signs(root)
 	var mara := _add_mara(root)
 	var resource_nodes := _add_resources(root)
@@ -18,6 +20,8 @@ static func build(root: Node3D) -> Dictionary:
 	var welcome_lanterns := _add_welcome_lanterns(root)
 	var creature := _add_creature(root)
 	var rumor_marker := _add_rumor_marker(root)
+	var ruin_guardian := _add_ruin_guardian(root)
+	var waystones := _add_waystones(root)
 
 	var supplies := _add_box(
 		root,
@@ -48,6 +52,11 @@ static func build(root: Node3D) -> Dictionary:
 		"welcome_lantern_lights": welcome_lanterns["lights"],
 		"creature": creature,
 		"rumor_marker": rumor_marker,
+		"ruin_guardian": ruin_guardian,
+		"waystone_marker": waystones["marker"],
+		"home_waystone": waystones["home"],
+		"ruin_waystone": waystones["ruin"],
+		"waystone_glows": waystones["glows"],
 	}
 
 
@@ -101,6 +110,52 @@ static func _add_forest_edge(root: Node3D) -> void:
 		var x_position := side * random.randf_range(4.5, 15.5)
 		var z_position := random.randf_range(-12.8, -8.7)
 		_add_tree(root, "Tree%d" % index, Vector3(x_position, 0.0, z_position))
+
+
+static func _add_northern_region(root: Node3D) -> void:
+	_add_box(root, "NorthwoodGround", Vector3(36.0, 0.2, 34.0), Vector3(0.0, -0.1, -31.0), Color("426d48"))
+	_add_box(root, "NorthernTrail", Vector3(4.2, 0.07, 36.0), Vector3(0.0, 0.045, -30.0), Color("786c5b"))
+	var random := RandomNumberGenerator.new()
+	random.seed = WorldStateModel.REGION_SEED
+	var generated := 0
+	var attempts := 0
+	while generated < 22 and attempts < 100:
+		attempts += 1
+		var position := Vector3(random.randf_range(-15.5, 15.5), 0.0, random.randf_range(-46.0, -16.0))
+		if absf(position.x) < 3.2 or position.distance_to(WorldStateModel.RUINS_POSITION) < 7.0:
+			continue
+		_add_tree(root, "NorthwoodTree%d" % generated, position)
+		generated += 1
+	for rock_index: int in 10:
+		var side := -1.0 if rock_index % 2 == 0 else 1.0
+		var rock_position := Vector3(side * random.randf_range(4.0, 14.0), 0.35, random.randf_range(-45.0, -18.0))
+		_add_box(
+			root,
+			"NorthwoodRock%d" % rock_index,
+			Vector3(random.randf_range(0.7, 1.8), random.randf_range(0.5, 1.2), random.randf_range(0.7, 1.6)),
+			rock_position,
+			Color("65706b"),
+			Vector3(0.0, random.randf_range(0.0, 90.0), random.randf_range(-8.0, 8.0))
+		)
+
+
+static func _add_old_stone_ruins(root: Node3D) -> void:
+	_add_box(root, "RuinsFloor", Vector3(13.0, 0.3, 9.0), Vector3(0.0, 0.05, -41.0), Color("66736e"))
+	for x_position: float in [-5.0, 5.0]:
+		_add_box(root, "RuinPillar", Vector3(1.4, 4.8, 1.4), Vector3(x_position, 2.4, -43.0), Color("87918a"))
+	_add_box(root, "RuinLintel", Vector3(11.4, 1.2, 1.4), Vector3(0.0, 4.65, -43.0), Color("7a857f"), Vector3(0.0, 0.0, 3.0))
+	_add_box(root, "BrokenRuinWallLeft", Vector3(4.2, 2.5, 0.8), Vector3(-4.3, 1.25, -45.0), Color("758079"), Vector3(0.0, 8.0, 0.0))
+	_add_box(root, "BrokenRuinWallRight", Vector3(3.2, 1.7, 0.8), Vector3(4.8, 0.85, -45.0), Color("758079"), Vector3(0.0, -12.0, 0.0))
+	var title := Label3D.new()
+	title.name = "OldStoneRuinsLabel"
+	title.text = "OLD STONE RUINS"
+	title.position = Vector3(0.0, 5.8, -43.0)
+	title.font_size = 56
+	title.pixel_size = 0.01
+	title.outline_size = 10
+	title.modulate = Color("d8e4dc")
+	title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	root.add_child(title)
 
 
 static func _add_tree(root: Node3D, tree_name: String, tree_position: Vector3) -> void:
@@ -267,6 +322,71 @@ static func _add_rumor_marker(root: Node3D) -> MeshInstance3D:
 	material.emission = Color("1a6675")
 	marker.visible = false
 	return marker
+
+
+static func _add_ruin_guardian(root: Node3D) -> MeshInstance3D:
+	var guardian := MeshInstance3D.new()
+	guardian.name = "RuinGuardian"
+	var mesh := CapsuleMesh.new()
+	mesh.radius = 0.8
+	mesh.height = 1.8
+	guardian.mesh = mesh
+	guardian.position = WorldStateModel.RUIN_GUARDIAN_SPAWN
+	var material := _material(Color("9c6654"))
+	material.emission_enabled = true
+	material.emission = Color("56251f")
+	material.emission_energy_multiplier = 1.4
+	guardian.material_override = material
+	guardian.visible = false
+	root.add_child(guardian)
+	return guardian
+
+
+static func _add_waystones(root: Node3D) -> Dictionary:
+	var home_data := _add_waystone(root, "HomeWaystone", WorldStateModel.HOME_WAYSTONE_POSITION)
+	var ruin_data := _add_waystone(root, "RuinWaystone", WorldStateModel.RUIN_WAYSTONE_POSITION)
+	var marker := Node3D.new()
+	marker.name = "RestoreWaystoneMarker"
+	marker.position = WorldStateModel.RUIN_WAYSTONE_POSITION
+	root.add_child(marker)
+	var disc := _add_cylinder(marker, "Disc", 0.9, 0.12, Vector3(0.0, -0.48, 0.0), Color("8bf0ff"), 20)
+	var disc_material := disc.material_override as StandardMaterial3D
+	disc_material.emission_enabled = true
+	disc_material.emission = Color("35bfd6")
+	disc_material.emission_energy_multiplier = 2.2
+	var label := Label3D.new()
+	label.name = "Label"
+	label.text = "RESTORE WAYSTONE"
+	label.position = Vector3(0.0, 2.7, 0.0)
+	label.font_size = 46
+	label.pixel_size = 0.008
+	label.outline_size = 10
+	label.modulate = Color("dffcff")
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	marker.add_child(label)
+	marker.visible = false
+	return {
+		"home": home_data["root"],
+		"ruin": ruin_data["root"],
+		"marker": marker,
+		"glows": {"home": home_data["glow"], "ruin": ruin_data["glow"]},
+	}
+
+
+static func _add_waystone(root: Node3D, node_name: String, position: Vector3) -> Dictionary:
+	var waystone := Node3D.new()
+	waystone.name = node_name
+	waystone.position = position
+	root.add_child(waystone)
+	_add_cylinder(waystone, "Base", 0.9, 0.35, Vector3(0.0, -0.35, 0.0), Color("58645f"), 8)
+	_add_box(waystone, "Stone", Vector3(0.8, 2.6, 0.65), Vector3(0.0, 0.9, 0.0), Color("71817a"), Vector3(0.0, 12.0, -3.0))
+	var glow := _add_cylinder(waystone, "Glow", 0.22, 1.25, Vector3(0.0, 0.95, 0.35), Color("8bf0ff"), 12)
+	var glow_material := glow.material_override as StandardMaterial3D
+	glow_material.emission_enabled = true
+	glow_material.emission = Color("35bfd6")
+	glow_material.emission_energy_multiplier = 3.0
+	glow.visible = false
+	return {"root": waystone, "glow": glow}
 
 
 static func _add_sign(root: Node3D, sign_name: String, sign_position: Vector3, color: Color) -> void:

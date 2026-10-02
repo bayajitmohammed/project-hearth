@@ -37,6 +37,7 @@ func _init() -> void:
 	complete_snapshot["lit_welcome_lanterns"] = {"cottage": true, "road": true, "forest": true}
 	complete_snapshot["neighborhood_morale"] = 1
 	complete_snapshot["reputation"] = 2
+	complete_snapshot["exploration_stage"] = "follow_rumor"
 	complete_snapshot["chronicle"] = [
 		"The newcomers repaired the abandoned cottage and made it their home.",
 		"Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
@@ -44,7 +45,8 @@ func _init() -> void:
 	main.receive_snapshot(complete_snapshot)
 	assert(main.welcome_lantern_lights.values().all(func(node: Node3D) -> bool: return node.visible))
 	assert(not main.welcome_lantern_markers.values().any(func(node: Node3D) -> bool: return node.visible))
-	assert("Morale improved" in main.progress_label.text)
+	assert(main.quest_title_label.text == "BEYOND THE ROAD")
+	assert("northern road" in main.objective_label.text)
 	assert("Chronicle entries: 2" in main.world_change_label.text)
 	assert("repaired the abandoned cottage" in main.chronicle_label.text)
 	assert("lit welcome lanterns" in main.chronicle_label.text)
@@ -73,4 +75,10 @@ func _base_snapshot() -> Dictionary:
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,
 		"chronicle": [],
+		"shared_map_discoveries": {"northwood": false, "old_stone_ruins": false},
+		"exploration_stage": "locked",
+		"ruin_guardian_position": WorldStateModel.RUIN_GUARDIAN_SPAWN,
+		"ruin_guardian_health": WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,
+		"ruin_guardian_defeated": false,
+		"ruin_waystone_activated": false,
 	}

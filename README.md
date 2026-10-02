@@ -1,6 +1,6 @@
 # Project Hearth
 
-Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. Slice 1, **A New Home**, is playable, and the first increment of Slice 2, **A Place That Remembers**, now extends it.
+Godot prototype for the multiplayer world game. Slice 0 proves authoritative networking and persistent shared state across Windows, desktop Web, and Android clients. The cumulative build now includes the minimum implementations of Slice 1, **A New Home**, Slice 2, **A Place That Remembers**, and Slice 3, **Beyond the Road**.
 
 ## Run locally on macOS
 
@@ -52,11 +52,14 @@ During normal play the compact quest card shows only the current objective and p
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
 
+After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
+
 ## Run the state test
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_world_state.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_living_world_readability.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_exploration_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_movement_smoothing.gd
 ```
 
@@ -178,5 +181,14 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Two simultaneous macOS clients still pass the shared-state networking probe.
 - Desktop Web, Android, and Windows debug exports rebuild successfully.
 - Fresh-player and full desktop Web, Android, and Windows runtime validation are intentionally deferred during the cumulative implementation pass. New work receives automated coverage and a developer-run Mac functionality/visual check; Windows may be used as the second multiplayer client.
+
+## Slice 3 implementation status
+
+- A deterministic seed-derived Northwood extends the playable world beyond the original forest boundary and leads to the authored Old Stone Ruins landmark.
+- Northwood and the ruins reveal for the entire room through a visible shared map.
+- A server-authoritative ruin guardian creates the first-journey combat obstacle; existing cooperative revive remains available, and a downed solo player can return safely to the cottage.
+- Defeating the guardian allows the group to restore a persistent waystone route between home and the ruins. The discovery and restoration enter the shared chronicle and survive version-5 save/load; version-4 saves migrate into the new journey.
+- Automated state, migration, presentation, legacy-regression, and two-client networking checks pass.
+- Pending validation: play the complete new journey on Mac and check the expanded region, combat readability, waystone interaction, and camera presentation visually.
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.

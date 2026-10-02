@@ -9,8 +9,18 @@ const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
 const WORLD_MIN_X := -17.0
 const WORLD_MAX_X := 17.0
-const WORLD_MIN_Z := -14.0
+const WORLD_MIN_Z := -48.0
 const WORLD_MAX_Z := 14.0
+const REGION_SEED := 73021
+const NORTHWOOD_REVEAL_Z := -16.0
+const RUINS_POSITION := Vector3(0.0, 0.6, -40.0)
+const RUINS_REVEAL_RADIUS := 7.0
+const RUIN_GUARDIAN_SPAWN := Vector3(0.0, 0.65, -34.0)
+const RUIN_GUARDIAN_MAX_HEALTH := 5
+const HOME_WAYSTONE_POSITION := Vector3(3.0, 0.6, 9.0)
+const RUIN_WAYSTONE_POSITION := Vector3(0.0, 0.6, -39.0)
+const HOME_WAYSTONE_ARRIVAL := Vector3(3.0, 0.6, 7.0)
+const RUIN_WAYSTONE_ARRIVAL := Vector3(0.0, 0.6, -37.0)
 const RESOURCE_POSITIONS := {
 	"wood_1": Vector3(-8.0, 0.45, -8.5),
 	"wood_2": Vector3(7.0, 0.45, -10.0),
@@ -61,6 +71,13 @@ var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
 var chronicle: Array = []
+var shared_map_discoveries := {"northwood": false, "old_stone_ruins": false}
+var exploration_stage := "locked"
+var ruin_guardian_position := RUIN_GUARDIAN_SPAWN
+var ruin_guardian_health := RUIN_GUARDIAN_MAX_HEALTH
+var ruin_guardian_defeated := false
+var ruin_guardian_attack_cooldown := 0.0
+var ruin_waystone_activated := false
 
 
 func register_player(player_token: String) -> Vector3:
@@ -85,6 +102,25 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	next_position.z = clampf(next_position.z, WORLD_MIN_Z, WORLD_MAX_Z)
 	positions[player_token] = next_position
 	return next_position
+
+
+func update_exploration(player_token: String) -> bool:
+	if exploration_stage == "locked" or not positions.has(player_token):
+		return false
+	var changed := false
+	var player_position: Vector3 = positions[player_token]
+	if player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
+		shared_map_discoveries["northwood"] = true
+		exploration_stage = "find_ruins"
+		changed = true
+	if (
+		player_position.distance_to(RUINS_POSITION) <= RUINS_REVEAL_RADIUS
+		and not bool(shared_map_discoveries["old_stone_ruins"])
+	):
+		shared_map_discoveries["old_stone_ruins"] = true
+		exploration_stage = "defeat_guardian"
+		changed = true
+	return changed
 
 
 func try_collect(player_token: String) -> bool:
@@ -174,6 +210,7 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 				neighborhood_event_stage = "complete"
 				neighborhood_morale = 1
 				reputation += 1
+				exploration_stage = "follow_rumor"
 				chronicle.append("Together, the neighborhood lit welcome lanterns to celebrate its new residents.")
 			return true
 	return false
@@ -182,6 +219,8 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 func interact(player_token: String) -> bool:
 	return (
 		try_revive_player(player_token)
+		or try_return_to_safety(player_token)
+		or try_use_waystone(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -191,7 +230,20 @@ func interact(player_token: String) -> bool:
 
 func attack_creature(player_token: String) -> bool:
 	register_player(player_token)
-	if creature_defeated or bool(downed_players.get(player_token, false)):
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if (
+		exploration_stage in ["defeat_guardian", "restore_waystone"]
+		and not ruin_guardian_defeated
+		and positions[player_token].distance_to(ruin_guardian_position) <= 2.0
+	):
+		ruin_guardian_health -= 1
+		if ruin_guardian_health <= 0:
+			ruin_guardian_health = 0
+			ruin_guardian_defeated = true
+			exploration_stage = "restore_waystone"
+		return true
+	if creature_defeated:
 		return false
 	if positions[player_token].distance_to(creature_position) > 2.0:
 		return false
@@ -203,6 +255,13 @@ func attack_creature(player_token: String) -> bool:
 
 
 func simulate_creature(delta: float, active_tokens: Array) -> bool:
+	var changed := _simulate_forest_creature(delta, active_tokens)
+	if _simulate_ruin_guardian(delta, active_tokens):
+		changed = true
+	return changed
+
+
+func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 	if creature_defeated:
 		return false
 	creature_attack_cooldown = maxf(creature_attack_cooldown - delta, 0.0)
@@ -233,6 +292,37 @@ func simulate_creature(delta: float, active_tokens: Array) -> bool:
 	return true
 
 
+func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
+	if ruin_guardian_defeated or exploration_stage != "defeat_guardian":
+		return false
+	ruin_guardian_attack_cooldown = maxf(ruin_guardian_attack_cooldown - delta, 0.0)
+	var target_token := ""
+	var target_distance := INF
+	for player_token: String in active_tokens:
+		register_player(player_token)
+		if bool(downed_players.get(player_token, false)):
+			continue
+		var distance := ruin_guardian_position.distance_to(positions[player_token])
+		if distance < target_distance:
+			target_distance = distance
+			target_token = player_token
+	if target_token.is_empty() or target_distance > 7.0:
+		return false
+	var target_position: Vector3 = positions[target_token]
+	if target_distance > 1.3:
+		var direction := (target_position - ruin_guardian_position).normalized()
+		ruin_guardian_position += direction * minf(1.8 * delta, target_distance - 1.1)
+		ruin_guardian_position.y = RUIN_GUARDIAN_SPAWN.y
+		return false
+	if ruin_guardian_attack_cooldown > 0.0:
+		return false
+	ruin_guardian_attack_cooldown = 1.1
+	player_health[target_token] = maxi(int(player_health[target_token]) - 1, 0)
+	if int(player_health[target_token]) == 0:
+		downed_players[target_token] = true
+	return true
+
+
 func try_revive_player(helper_token: String) -> bool:
 	register_player(helper_token)
 	if bool(downed_players.get(helper_token, false)):
@@ -244,6 +334,39 @@ func try_revive_player(helper_token: String) -> bool:
 			downed_players[player_token] = false
 			player_health[player_token] = 2
 			return true
+	return false
+
+
+func try_return_to_safety(player_token: String) -> bool:
+	register_player(player_token)
+	if not bool(downed_players.get(player_token, false)):
+		return false
+	downed_players[player_token] = false
+	player_health[player_token] = PLAYER_MAX_HEALTH
+	positions[player_token] = SPAWN_POINT
+	return true
+
+
+func try_use_waystone(player_token: String) -> bool:
+	register_player(player_token)
+	if bool(downed_players.get(player_token, false)) or not ruin_guardian_defeated:
+		return false
+	var player_position: Vector3 = positions[player_token]
+	if player_position.distance_to(RUIN_WAYSTONE_POSITION) <= INTERACTION_RADIUS:
+		if not ruin_waystone_activated:
+			ruin_waystone_activated = true
+			exploration_stage = "complete"
+			reputation += 1
+			chronicle.append("The group found the Old Stone Ruins and restored its ancient waystone route.")
+		else:
+			positions[player_token] = HOME_WAYSTONE_ARRIVAL
+		return true
+	if (
+		ruin_waystone_activated
+		and player_position.distance_to(HOME_WAYSTONE_POSITION) <= INTERACTION_RADIUS
+	):
+		positions[player_token] = RUIN_WAYSTONE_ARRIVAL
+		return true
 	return false
 
 
@@ -267,7 +390,8 @@ func to_dictionary() -> Dictionary:
 		var position: Vector3 = positions[player_token]
 		encoded_positions[player_token] = [position.x, position.y, position.z]
 	return {
-		"version": 4,
+		"version": 5,
+		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
 		"materials": materials.duplicate(),
@@ -284,6 +408,12 @@ func to_dictionary() -> Dictionary:
 		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": neighborhood_morale,
 		"chronicle": chronicle.duplicate(),
+		"shared_map_discoveries": shared_map_discoveries.duplicate(),
+		"exploration_stage": exploration_stage,
+		"ruin_guardian_position": [ruin_guardian_position.x, ruin_guardian_position.y, ruin_guardian_position.z],
+		"ruin_guardian_health": ruin_guardian_health,
+		"ruin_guardian_defeated": ruin_guardian_defeated,
+		"ruin_waystone_activated": ruin_waystone_activated,
 		"positions": encoded_positions,
 	}
 
@@ -333,6 +463,30 @@ func load_dictionary(data: Dictionary) -> void:
 		chronicle = []
 		if quest_stage == "home_repaired":
 			chronicle.append("The newcomers repaired the abandoned cottage and made it their home.")
+	if save_version >= 5:
+		var saved_discoveries: Dictionary = data.get("shared_map_discoveries", {})
+		shared_map_discoveries = {
+			"northwood": bool(saved_discoveries.get("northwood", false)),
+			"old_stone_ruins": bool(saved_discoveries.get("old_stone_ruins", false)),
+		}
+		exploration_stage = str(data.get("exploration_stage", "locked"))
+		var encoded_guardian: Array = data.get("ruin_guardian_position", [])
+		if encoded_guardian.size() == 3:
+			ruin_guardian_position = Vector3(
+				float(encoded_guardian[0]), float(encoded_guardian[1]), float(encoded_guardian[2])
+			)
+		else:
+			ruin_guardian_position = RUIN_GUARDIAN_SPAWN
+		ruin_guardian_health = int(data.get("ruin_guardian_health", RUIN_GUARDIAN_MAX_HEALTH))
+		ruin_guardian_defeated = bool(data.get("ruin_guardian_defeated", false))
+		ruin_waystone_activated = bool(data.get("ruin_waystone_activated", false))
+	else:
+		shared_map_discoveries = {"northwood": false, "old_stone_ruins": false}
+		exploration_stage = "follow_rumor" if neighborhood_event_stage == "complete" else "locked"
+		ruin_guardian_position = RUIN_GUARDIAN_SPAWN
+		ruin_guardian_health = RUIN_GUARDIAN_MAX_HEALTH
+		ruin_guardian_defeated = false
+		ruin_waystone_activated = false
 	mara_position = MARA_WELCOME_POSITION if neighborhood_event_stage in ["lighting", "complete"] else MARA_POSITION
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
