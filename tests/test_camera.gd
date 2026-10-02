@@ -25,6 +25,15 @@ func _init() -> void:
 	assert(not is_equal_approx(main.camera_yaw, 0.0), "Right-drag must orbit the camera.")
 	assert(not main.game_camera.position.is_equal_approx(initial_position), "Orbit must move the camera around the player.")
 
+	var pitch_before_downward_drag: float = main.camera_pitch
+	var downward_motion := InputEventMouseMotion.new()
+	downward_motion.relative = Vector2(0.0, 40.0)
+	main._unhandled_input(downward_motion)
+	assert(
+		main.camera_pitch > pitch_before_downward_drag,
+		"Dragging downward must raise the camera so the view tilts downward."
+	)
+
 	var original_distance: float = main.camera_distance
 	var zoom := InputEventMouseButton.new()
 	zoom.button_index = MOUSE_BUTTON_WHEEL_UP

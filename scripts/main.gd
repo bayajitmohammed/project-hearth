@@ -146,7 +146,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _orbit_camera(relative_motion: Vector2, sensitivity: float) -> void:
 	camera_yaw = wrapf(camera_yaw - relative_motion.x * sensitivity, -PI, PI)
 	camera_pitch = clampf(
-		camera_pitch - relative_motion.y * sensitivity,
+		camera_pitch + relative_motion.y * sensitivity,
 		CAMERA_MIN_PITCH,
 		CAMERA_MAX_PITCH
 	)

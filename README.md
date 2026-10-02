@@ -163,8 +163,8 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - macOS development build: parsing and rendered-scene smoke test pass
 - Desktop Web: rebuilt, rendered, connected, and accepted movement with no console errors
 - Android: rebuilt, installed, rendered, connected, and accepted touch movement on the Pixel 7a emulator
-- Windows: rebuilt successfully on macOS; runtime test still requires the Windows computer
+- Windows: exported build runs and connects to the Mac server over the private network; Mac and Windows players are mutually visible
 - Two-client networking: shared quest stage, resource duplication prevention, and revival verified simultaneously on macOS
-- Remaining gate: complete the runtime check with the Windows build connected over the private network
+- Remaining gate: complete the full quest loop across the target clients as the final Slice 1 acceptance check
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.
