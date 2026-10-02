@@ -46,7 +46,7 @@ Add `--room=TEST42` when connecting to a server that uses a non-default room cod
 
 Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, repair, or revive. Press **Space** (or controller X) near the forest creature to attack. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, creature, health, and cottage repairs remain changed.
 
-Orbit the camera by holding the **right mouse button** and dragging, using the controller **right stick**, or dragging on the right side of a touch screen. Use the mouse wheel to zoom. Movement follows the camera direction.
+On desktop, the mouse is captured after connecting and ordinary mouse movement looks around—no button needs to be held. Press **Escape** to release the cursor and click the game to capture it again. Controller uses the **right stick**, and touch uses a drag on the right side of the screen. The game starts in first person. Press **V**, click the controller's right stick, or use the touch **View** button to switch to a close over-the-shoulder third-person camera. Use the mouse wheel to adjust its distance. Movement follows the camera direction.
 
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 

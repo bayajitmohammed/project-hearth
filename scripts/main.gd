@@ -4,13 +4,18 @@ const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
 const DEFAULT_ROOM_CODE := "HEARTH"
 const MAX_PLAYERS := 4
-const CAMERA_MIN_DISTANCE := 7.0
-const CAMERA_MAX_DISTANCE := 22.0
-const CAMERA_MOUSE_SENSITIVITY := 0.006
-const CAMERA_TOUCH_SENSITIVITY := 0.008
+const CAMERA_FIRST_PERSON := "first_person"
+const CAMERA_THIRD_PERSON := "third_person"
+const CAMERA_MIN_DISTANCE := 3.0
+const CAMERA_MAX_DISTANCE := 8.0
+const CAMERA_MOUSE_SENSITIVITY := 0.004
+const CAMERA_TOUCH_SENSITIVITY := 0.006
 const CAMERA_CONTROLLER_SPEED := 2.2
-const CAMERA_MIN_PITCH := deg_to_rad(20.0)
-const CAMERA_MAX_PITCH := deg_to_rad(70.0)
+const CAMERA_MIN_PITCH := deg_to_rad(-65.0)
+const CAMERA_MAX_PITCH := deg_to_rad(65.0)
+const FIRST_PERSON_EYE_OFFSET := Vector3(0.0, 0.62, 0.0)
+const THIRD_PERSON_SHOULDER_HEIGHT := 0.35
+const THIRD_PERSON_SHOULDER_OFFSET := 0.75
 const PLAYER_POSITION_SMOOTHING_SPEED := 18.0
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
@@ -29,9 +34,9 @@ var save_path := SAVE_PATH
 var server_room_code := DEFAULT_ROOM_CODE
 var latest_snapshot: Dictionary = {}
 var camera_yaw := 0.0
-var camera_pitch := deg_to_rad(48.0)
-var camera_distance := 17.0
-var camera_dragging := false
+var camera_pitch := 0.0
+var camera_distance := 5.5
+var camera_mode := CAMERA_FIRST_PERSON
 var camera_touch_index := -1
 var local_input_enabled := true
 
@@ -109,6 +114,8 @@ func _physics_process(delta: float) -> void:
 		_request_attack()
 	if Input.is_action_just_pressed("toggle_debug"):
 		debug_panel.visible = not debug_panel.visible
+	if Input.is_action_just_pressed("toggle_camera"):
+		_toggle_camera_mode()
 
 
 func _process(delta: float) -> void:
@@ -117,14 +124,25 @@ func _process(delta: float) -> void:
 		return
 	_update_controller_camera(delta)
 	var player_node: MeshInstance3D = player_nodes[local_token]
-	var horizontal_distance := camera_distance * cos(camera_pitch)
-	var target_position := player_node.position + Vector3(
-		sin(camera_yaw) * horizontal_distance,
-		sin(camera_pitch) * camera_distance,
-		cos(camera_yaw) * horizontal_distance
-	)
-	game_camera.position = game_camera.position.lerp(target_position, minf(delta * 6.0, 1.0))
-	game_camera.look_at(player_node.position + Vector3(0.0, 0.5, 0.0))
+	var eye_position := player_node.position + FIRST_PERSON_EYE_OFFSET
+	var horizontal_forward := Vector3(-sin(camera_yaw), 0.0, -cos(camera_yaw))
+	var right_direction := Vector3(cos(camera_yaw), 0.0, -sin(camera_yaw))
+	var look_direction := Vector3(
+		horizontal_forward.x * cos(camera_pitch),
+		-sin(camera_pitch),
+		horizontal_forward.z * cos(camera_pitch)
+	).normalized()
+	if camera_mode == CAMERA_FIRST_PERSON:
+		game_camera.position = eye_position
+	else:
+		var target_position := (
+			eye_position
+			- horizontal_forward * camera_distance
+			+ right_direction * THIRD_PERSON_SHOULDER_OFFSET
+			+ Vector3.UP * THIRD_PERSON_SHOULDER_HEIGHT
+		)
+		game_camera.position = game_camera.position.lerp(target_position, minf(delta * 10.0, 1.0))
+	game_camera.look_at(eye_position + look_direction * 10.0)
 
 
 func _interpolate_player_positions(delta: float) -> void:
@@ -140,17 +158,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_server:
 		return
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			camera_dragging = event.pressed
-			get_viewport().set_input_as_handled()
-		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		if event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			camera_distance = maxf(camera_distance - 1.5, CAMERA_MIN_DISTANCE)
 			get_viewport().set_input_as_handled()
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			camera_distance = minf(camera_distance + 1.5, CAMERA_MAX_DISTANCE)
 			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseMotion and camera_dragging:
+		elif event.pressed and client_connected:
+			_capture_mouse()
+	elif event is InputEventMouseMotion:
 		_orbit_camera(event.relative, CAMERA_MOUSE_SENSITIVITY)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_release_mouse()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.45:
@@ -179,6 +199,16 @@ func _update_controller_camera(delta: float) -> void:
 		if look.length() > 0.18:
 			_orbit_camera(look * delta, CAMERA_CONTROLLER_SPEED)
 			return
+
+
+func _toggle_camera_mode() -> void:
+	camera_mode = CAMERA_THIRD_PERSON if camera_mode == CAMERA_FIRST_PERSON else CAMERA_FIRST_PERSON
+	_update_local_player_visibility()
+
+
+func _update_local_player_visibility() -> void:
+	if player_nodes.has(local_token):
+		player_nodes[local_token].visible = camera_mode == CAMERA_THIRD_PERSON
 
 
 func _simulate_server(delta: float) -> void:
@@ -340,6 +370,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 @rpc("authority", "call_remote", "reliable")
 func registration_rejected(reason: String) -> void:
 	client_connected = false
+	_release_mouse()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	connect_button.disabled = false
 	room_code_input.editable = true
@@ -365,9 +396,11 @@ func _start_server(port: int, bind_address: String = "*") -> void:
 func _connect_to_server() -> void:
 	connect_button.disabled = true
 	_status("Connecting…")
+	_capture_mouse()
 	var web_socket_peer := WebSocketMultiplayerPeer.new()
 	var error := web_socket_peer.create_client(address_input.text.strip_edges())
 	if error != OK:
+		_release_mouse()
 		connect_button.disabled = false
 		_status("Connection failed: %s" % error_string(error))
 		return
@@ -384,6 +417,7 @@ func _on_connected_to_server() -> void:
 
 func _on_connection_failed() -> void:
 	client_connected = false
+	_release_mouse()
 	_status("Could not connect")
 	connect_button.disabled = false
 	connection_panel.visible = true
@@ -391,6 +425,7 @@ func _on_connection_failed() -> void:
 
 func _on_server_disconnected() -> void:
 	client_connected = false
+	_release_mouse()
 	_status("Server disconnected")
 	connect_button.disabled = false
 	connection_panel.visible = true
@@ -398,6 +433,16 @@ func _on_server_disconnected() -> void:
 
 func _on_peer_connected(_peer_id: int) -> void:
 	pass
+
+
+func _capture_mouse() -> void:
+	if not OS.has_feature("mobile"):
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _release_mouse() -> void:
+	if not OS.has_feature("mobile"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -646,7 +691,7 @@ func _build_interface() -> void:
 	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(world_change_label)
 	var controls_hint := Label.new()
-	controls_hint.text = "F3 closes debug · E use · Space attack · C craft · RMB drag camera · wheel zoom"
+	controls_hint.text = "F3 closes debug · V changes view · E use · Space attack · C craft · mouse look · Esc cursor"
 	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(controls_hint)
 
@@ -695,6 +740,11 @@ func _build_touch_controls(layer: CanvasLayer) -> void:
 	attack_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
 	attack_touch_button.pressed.connect(_request_attack)
 	controls.add_child(attack_touch_button)
+	var camera_touch_button := Button.new()
+	camera_touch_button.text = "View"
+	camera_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
+	camera_touch_button.pressed.connect(_toggle_camera_mode)
+	controls.add_child(camera_touch_button)
 
 
 func _add_touch_button(parent: Control, label: String, direction: String) -> void:
@@ -850,6 +900,7 @@ func _get_or_create_player_node(player_token: String) -> MeshInstance3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color("4c77d6") if player_token == local_token else Color("d66d4c")
 	player_mesh.material_override = material
+	player_mesh.visible = player_token != local_token or camera_mode == CAMERA_THIRD_PERSON
 	add_child(player_mesh)
 	player_nodes[player_token] = player_mesh
 	return player_mesh
