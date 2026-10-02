@@ -167,7 +167,7 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Android: rebuilt, installed, rendered, connected, and accepted touch movement on the Pixel 7a emulator
 - Windows: exported build runs and connects to the Mac server over the private network; Mac and Windows players are mutually visible
 - Two-client networking: shared quest stage, resource duplication prevention, and revival verified simultaneously on macOS
-- Remaining gate: complete the full quest loop across the target clients as the final Slice 1 acceptance check
+- Deferred release validation: repeat the cumulative loop with fresh players and complete a full runtime pass on every target platform once the game has taken more shape
 
 ## Slice 2 implementation status
 
@@ -177,6 +177,6 @@ The probe verifies that both clients see the same quest stage, one resource cann
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.
 - Desktop Web, Android, and Windows debug exports rebuild successfully.
-- Remaining gate for this increment: fresh multiplayer playtest and runtime checks on desktop Web, Android, and Windows.
+- Fresh-player and full desktop Web, Android, and Windows runtime validation are intentionally deferred during the cumulative implementation pass. New work receives automated coverage and a developer-run Mac functionality/visual check; Windows may be used as the second multiplayer client.
 
 Restart any older running server before connecting a current client. Godot rejects clients and servers with different RPC definitions, which is expected after multiplayer code changes.

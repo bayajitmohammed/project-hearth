@@ -11,9 +11,9 @@ This repository contains the Godot game. The design source of truth is the Obsid
 
 ## Current build target
 
-Slice 0 is complete and Slice 1, **A New Home**, is playable. The active target is Slice 2, **A Place That Remembers**. Its first cumulative increment begins after the cottage repair: Mara invites the players to light three shared welcome lanterns, moves to the gathering place, neighborhood morale improves, and the cottage repair and celebration enter the shared chronicle.
+Slices 0 and 1 are playable, and the minimum cumulative Slice 2 promise, **A Place That Remembers**, is implemented. Welcome Lights begins after the cottage repair: Mara invites the players to light three shared welcome lanterns, moves to the gathering place, neighborhood morale improves, and the cottage repair and celebration enter the shared chronicle. The active implementation target is Slice 3, **Beyond the Road**.
 
-The adjustable third-person camera, fresh-player playtest, two-client networking probe, and Mac-to-Windows private-network runtime check pass. Retain the remaining Slice 1 full-loop cross-platform acceptance check as a regression item while building Slice 2. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
+First-person and over-the-shoulder cameras, movement smoothing, two-client networking, persistence, and Mac-to-Windows private-network runtime checks pass. During the cumulative implementation pass, use automated coverage plus a developer-run Mac functionality and visual check for each feature; Windows may serve as the second player. Fresh-player and full Web/Android/Windows runtime validation are deferred until the game has taken more shape. Use Godot 4.x, GDScript, the Compatibility renderer, and WebSockets shared by all clients. Keep all shared-world rules server-authoritative.
 
 ## Verification
 
