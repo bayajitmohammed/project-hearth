@@ -217,6 +217,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 
 - Welcome Lights is a server-authoritative response to the completed cottage repair.
 - Version-10 persistence stores the authoritative neighborhood clock and renewable food-order state. The clock performs bounded safe calendar catch-up and drives Mara's post-event daily routine without overriding required quest appearances.
+- The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light, while this first weather layer remains atmospheric and never punishes absence or changes movement, combat, or objectives.
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.

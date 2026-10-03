@@ -83,6 +83,9 @@ var connection_panel: PanelContainer
 var debug_panel: PanelContainer
 var collectible_mesh: MeshInstance3D
 var game_camera: Camera3D
+var world_environment: WorldEnvironment
+var sun_light: DirectionalLight3D
+var rain_particles: CPUParticles3D
 var mara_node: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
@@ -443,13 +446,17 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		welcome_lantern_markers[lantern_id].visible = event_stage == "lighting" and not is_lit
 		welcome_lantern_lights[lantern_id].visible = is_lit
 	mara_node.position = snapshot.get("mara_position", WorldStateModel.MARA_POSITION)
+	var world_minute := int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE))
+	var weather := str(snapshot.get("world_weather", "clear"))
 	world_time_label.text = _world_time_text(
 		int(snapshot.get("world_day", 1)),
-		int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE)),
+		world_minute,
 		str(snapshot.get("world_time_period", "Afternoon")),
+		str(snapshot.get("world_weather_label", "Clear skies")),
 		str(snapshot.get("mara_activity", "waiting by the cottage"))
 	)
 	world_time_label.visible = true
+	_apply_world_atmosphere(world_minute, weather)
 	_update_interaction_prompt(
 		quest_stage,
 		has_repair_kit,
@@ -774,6 +781,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
+		"world_weather": world_state.world_weather(),
+		"world_weather_label": world_state.world_weather_label(),
 		"neighborhood_event_stage": world_state.neighborhood_event_stage,
 		"lit_welcome_lanterns": world_state.lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": world_state.neighborhood_morale,
@@ -925,6 +934,9 @@ func _read_save_path_argument(default_path: String = SAVE_PATH) -> String:
 
 func _build_world() -> void:
 	var world_nodes := GrayboxWorldBuilder.build(self)
+	world_environment = world_nodes["world_environment"]
+	sun_light = world_nodes["sun_light"]
+	rain_particles = world_nodes["rain_particles"]
 	collectible_mesh = world_nodes["collectible"]
 	game_camera = world_nodes["camera"]
 	mara_node = world_nodes["mara"]
@@ -1811,10 +1823,41 @@ func _mastery_text(mastery: Dictionary) -> String:
 	]
 
 
-func _world_time_text(day: int, minute_of_day: int, period: String, activity: String) -> String:
+func _world_time_text(day: int, minute_of_day: int, period: String, weather: String, activity: String) -> String:
 	var hour := floori(float(minute_of_day) / 60.0)
 	var minute := minute_of_day % 60
-	return "Day %d · %s %02d:%02d · Mara: %s" % [day, period, hour, minute, activity]
+	return "Day %d · %s %02d:%02d · %s · Mara: %s" % [day, period, hour, minute, weather, activity]
+
+
+func _apply_world_atmosphere(minute_of_day: int, weather: String) -> void:
+	if world_environment == null or world_environment.environment == null or sun_light == null:
+		return
+	var daylight := clampf(
+		(sin((float(minute_of_day) - 360.0) / float(WorldStateModel.WORLD_MINUTES_PER_DAY) * TAU) + 0.25) / 1.25,
+		0.0,
+		1.0
+	)
+	var night_sky := Color("17263f")
+	var day_sky := Color("91c8dd")
+	var day_ambient := Color("fff4dc")
+	var weather_energy := 1.0
+	match weather:
+		"overcast":
+			day_sky = Color("7895a3")
+			day_ambient = Color("dce4df")
+			weather_energy = 0.78
+		"gentle_rain":
+			day_sky = Color("617b8e")
+			day_ambient = Color("c5d4d6")
+			weather_energy = 0.62
+	world_environment.environment.background_color = night_sky.lerp(day_sky, daylight)
+	world_environment.environment.ambient_light_color = Color("7686a5").lerp(day_ambient, daylight)
+	world_environment.environment.ambient_light_energy = lerpf(0.38, 0.74 * weather_energy, daylight)
+	sun_light.light_color = Color("9eb8df").lerp(Color("fff1cf"), daylight)
+	sun_light.light_energy = lerpf(0.12, 1.0 * weather_energy, daylight)
+	sun_light.rotation_degrees = Vector3(lerpf(-18.0, -58.0, daylight), -25.0, 0.0)
+	if rain_particles != null:
+		rain_particles.emitting = weather == "gentle_rain"
 
 
 func _sync_recovery_packs(packs: Dictionary) -> void:

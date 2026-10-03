@@ -256,6 +256,8 @@ func _init() -> void:
 		"world_minute": 11 * 60 + 59,
 	})
 	assert(clock_state.world_time_period() == "Morning")
+	assert(clock_state.world_weather() == "clear")
+	assert(clock_state.world_weather_label() == "Clear skies")
 	assert(clock_state.mara_position == WorldStateModel.MARA_POSITION)
 	assert(clock_state.mara_activity == "tending the cottage")
 	assert(clock_state.simulate_world_clock(1.0), "Crossing a routine boundary must request a save.")
@@ -284,6 +286,10 @@ func _init() -> void:
 	})
 	assert(not steady_clock.simulate_world_clock(1.0), "Ordinary clock minutes must not save every second.")
 	assert(steady_clock.world_minute == 13 * 60 + 2)
+	var rainy_day := WorldStateModel.new()
+	rainy_day.load_dictionary({"version": 10, "world_day": 4})
+	assert(rainy_day.world_weather() == "gentle_rain")
+	assert(rainy_day.world_weather_label() == "Gentle rain")
 
 	var migrated_slice_one := WorldStateModel.new()
 	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})

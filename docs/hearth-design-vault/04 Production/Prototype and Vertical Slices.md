@@ -46,6 +46,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Post-slice foundation: the startup flow now offers separate offline, native LAN-hosted, and join-room paths. Offline and LAN saves remain separate, while all modes use the same authoritative world rules. A focused headless test, a native host-plus-guest probe, and exported-Web offline movement pass verify the foundation; broader device validation remains deferred.
 - Persistence hardening: every world mode now writes through a temporary file, retains one previous valid checkpoint, and automatically falls back to that backup when the primary save is missing or unreadable.
 - Slice 4 depth: after the produce stall opens, each new world day regrows the shared moonroot garden and posts one repeatable two-stew order. Contributions retain personal mastery credit, while completion adds one bounded pantry provision without replaying milestone rewards.
+- Living-world atmosphere: the authoritative day selects one deterministic safe forecast shared by every mode, while clients render the clock as readable day/night ambience. Weather has no punitive gameplay effect in this first layer.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
 - Mac and Windows have been used together for the multiplayer quest loop, reconnection, persistence, movement, and camera checks.
@@ -182,6 +183,7 @@ This is the minimum cumulative Slice 2 implementation, not the final production-
 - [x] Two-client Slice 1 networking regression
 - [x] Desktop Web, Android, and Windows debug exports rebuild successfully
 - [x] First depth increment: persistent neighborhood clock, bounded calendar catch-up, and Mara's readable post-event routine
+- [x] Second depth increment: shared daily forecast, readable daylight, and non-punitive weather ambience
 - [ ] Deferred validation: fresh-player playtest of the cumulative game
 - [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
 

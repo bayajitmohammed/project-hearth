@@ -5,7 +5,7 @@ const WorldStateModel = preload("res://scripts/world_state.gd")
 
 
 static func build(root: Node3D) -> Dictionary:
-	_add_environment(root)
+	var atmosphere := _add_environment(root)
 	_add_ground(root)
 	_add_road(root)
 	_add_cottage(root)
@@ -44,6 +44,9 @@ static func build(root: Node3D) -> Dictionary:
 	root.add_child(camera)
 
 	return {
+		"world_environment": atmosphere["environment"],
+		"sun_light": atmosphere["sun_light"],
+		"rain_particles": atmosphere["rain_particles"],
 		"collectible": supplies,
 		"camera": camera,
 		"mara": mara,
@@ -70,8 +73,9 @@ static func build(root: Node3D) -> Dictionary:
 	}
 
 
-static func _add_environment(root: Node3D) -> void:
+static func _add_environment(root: Node3D) -> Dictionary:
 	var environment := WorldEnvironment.new()
+	environment.name = "WorldAtmosphere"
 	var resource := Environment.new()
 	resource.background_mode = Environment.BG_COLOR
 	resource.background_color = Color("91c8dd")
@@ -82,9 +86,33 @@ static func _add_environment(root: Node3D) -> void:
 	root.add_child(environment)
 
 	var light := DirectionalLight3D.new()
+	light.name = "SunLight"
 	light.rotation_degrees = Vector3(-55.0, -25.0, 0.0)
 	light.shadow_enabled = true
 	root.add_child(light)
+
+	var rain := CPUParticles3D.new()
+	rain.name = "GentleRain"
+	rain.amount = 360
+	rain.lifetime = 1.5
+	rain.position = Vector3(0.0, 12.0, -17.0)
+	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	rain.emission_box_extents = Vector3(18.0, 1.0, 32.0)
+	rain.direction = Vector3.DOWN
+	rain.spread = 4.0
+	rain.initial_velocity_min = 11.0
+	rain.initial_velocity_max = 14.0
+	rain.gravity = Vector3.ZERO
+	var rain_drop := BoxMesh.new()
+	rain_drop.size = Vector3(0.025, 0.55, 0.025)
+	var rain_material := _material(Color(0.62, 0.82, 0.94, 0.58))
+	rain_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rain_drop.material = rain_material
+	rain.mesh = rain_drop
+	rain.emitting = false
+	root.add_child(rain)
+
+	return {"environment": environment, "sun_light": light, "rain_particles": rain}
 
 
 static func _add_ground(root: Node3D) -> void:

@@ -75,6 +75,11 @@ const WORLD_MINUTES_PER_REAL_SECOND := 1.0
 const WORLD_START_MINUTE := 13 * 60
 const OFFLINE_CALENDAR_MAX_MINUTES := 6 * 60
 const WORLD_SAVE_INTERVAL_MINUTES := 30
+const WEATHER_LABELS := {
+	"clear": "Clear skies",
+	"overcast": "Overcast",
+	"gentle_rain": "Gentle rain",
+}
 
 var collectible_collected := false
 var positions: Dictionary = {}
@@ -382,6 +387,19 @@ func world_time_period() -> String:
 	if world_minute >= 18 * 60 and world_minute < 22 * 60:
 		return "Evening"
 	return "Night"
+
+
+func world_weather() -> String:
+	var forecast_roll := posmod(REGION_SEED + world_day * 37, 10)
+	if forecast_roll <= 5:
+		return "clear"
+	if forecast_roll <= 8:
+		return "overcast"
+	return "gentle_rain"
+
+
+func world_weather_label() -> String:
+	return str(WEATHER_LABELS.get(world_weather(), "Clear skies"))
 
 
 func _update_mara_routine() -> void:

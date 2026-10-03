@@ -33,3 +33,9 @@ Required story appearances override routines so an NPC can never wander away fro
 - **Night, 22:00–05:59:** rests at the cottage.
 
 The HUD names the day, time of day, and Mara's current activity. This is a small proof of a reusable clock and NPC schedule, not a commitment to simulating every NPC continuously.
+
+## First weather and daylight depth
+
+Each world day has one deterministic forecast derived from the region seed and authoritative day number: clear, overcast, or gentle rain. Every client receives the same named weather in the world snapshot, while daylight color and brightness follow the shared clock. Night remains navigable and inviting through cool ambient light and warm authored landmarks rather than becoming black.
+
+This first weather layer is atmospheric. It does not slow movement, damage crops, change combat, hide required objectives, or make absence costly. Empty-world calendar catch-up may advance to a different day's forecast, but it cannot stack weather consequences. Later events and settlement needs may read weather only after they have their own readable warnings, player choices, and safe offline rules.

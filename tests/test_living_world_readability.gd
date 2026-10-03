@@ -12,6 +12,9 @@ func _init() -> void:
 	assert(main.mara_node != null, "Mara's routine needs a movable world node.")
 	assert(main.chronicle_panel != null, "Remembered changes need a visible chronicle panel.")
 	assert(main.world_time_label != null, "The authoritative calendar needs a readable HUD label.")
+	assert(main.world_environment != null, "The shared clock needs a client atmosphere target.")
+	assert(main.sun_light != null, "Daylight needs a readable directional light.")
+	assert(main.rain_particles != null, "Gentle rain needs a lightweight presentation layer.")
 	for lantern_id: String in WorldStateModel.WELCOME_LANTERN_POSITIONS:
 		assert(main.welcome_lantern_markers.has(lantern_id))
 		assert(main.welcome_lantern_lights.has(lantern_id))
@@ -53,7 +56,20 @@ func _init() -> void:
 	assert("lit welcome lanterns" in main.chronicle_label.text)
 	assert(main.world_time_label.visible)
 	assert("Day 1" in main.world_time_label.text)
+	assert("Overcast" in main.world_time_label.text)
 	assert("Mara:" in main.world_time_label.text)
+	assert(not main.rain_particles.emitting)
+	var daytime_energy: float = main.world_environment.environment.ambient_light_energy
+
+	complete_snapshot["world_day"] = 4
+	complete_snapshot["world_minute"] = 0
+	complete_snapshot["world_time_period"] = "Night"
+	complete_snapshot["world_weather"] = "gentle_rain"
+	complete_snapshot["world_weather_label"] = "Gentle rain"
+	main.receive_snapshot(complete_snapshot)
+	assert("Gentle rain" in main.world_time_label.text)
+	assert(main.rain_particles.emitting)
+	assert(main.world_environment.environment.ambient_light_energy < daytime_energy)
 
 	print("PASS: Living-world response is readable")
 	quit()
@@ -79,6 +95,8 @@ func _base_snapshot() -> Dictionary:
 		"world_day": 1,
 		"world_minute": WorldStateModel.WORLD_START_MINUTE,
 		"world_time_period": "Afternoon",
+		"world_weather": "overcast",
+		"world_weather_label": "Overcast",
 		"neighborhood_event_stage": "invitation",
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,
