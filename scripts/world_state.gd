@@ -503,9 +503,23 @@ func _advance_world_minutes(elapsed_minutes: int) -> void:
 	)
 	world_day = floori(float(total_minutes) / float(WORLD_MINUTES_PER_DAY)) + 1
 	world_minute = posmod(total_minutes, WORLD_MINUTES_PER_DAY)
-	if world_day > previous_day and livelihood_stage == "complete" and produce_stall_open:
-		_begin_daily_food_order()
+	if world_day > previous_day:
+		_renew_daily_forest_encounter()
+		if livelihood_stage == "complete" and produce_stall_open:
+			_begin_daily_food_order()
 	_update_mara_routine()
+
+
+func _renew_daily_forest_encounter() -> void:
+	if not creature_defeated:
+		return
+	creature_defeated = false
+	creature_position = CREATURE_SPAWN
+	creature_health = CREATURE_MAX_HEALTH
+	creature_attack_cooldown = 0.0
+	creature_attack_windup = 0.0
+	creature_attack_target = ""
+	creature_returning = false
 
 
 func _begin_daily_food_order() -> void:

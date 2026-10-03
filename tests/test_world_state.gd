@@ -511,6 +511,40 @@ func _init() -> void:
 	assert(power_state.attack_creature("striker"))
 	assert(power_state.creature_defeated)
 	assert(power_state.player_mastery["striker"]["combat"] == 2)
+	var daily_combat := WorldStateModel.new()
+	daily_combat.creature_defeated = true
+	daily_combat.creature_health = 0
+	daily_combat.creature_position = WorldStateModel.CREATURE_SPAWN + Vector3(2.0, 0.0, 0.0)
+	daily_combat.creature_attack_cooldown = 1.0
+	daily_combat.creature_attack_windup = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
+	daily_combat.creature_attack_target = "departed-fighter"
+	daily_combat.creature_returning = true
+	daily_combat.ruin_guardian_defeated = true
+	daily_combat.ruin_guardian_health = 0
+	daily_combat.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
+	assert(daily_combat.simulate_world_clock(1.0), "The next world day must be a persistent clock change.")
+	assert(daily_combat.world_day == 2)
+	assert(not daily_combat.creature_defeated, "The ordinary forest encounter must renew on the next day.")
+	assert(daily_combat.creature_health == WorldStateModel.CREATURE_MAX_HEALTH)
+	assert(daily_combat.creature_position == WorldStateModel.CREATURE_SPAWN)
+	assert(is_zero_approx(daily_combat.creature_attack_cooldown))
+	assert(is_zero_approx(daily_combat.creature_attack_windup))
+	assert(daily_combat.creature_attack_target.is_empty())
+	assert(not daily_combat.creature_returning)
+	assert(daily_combat.ruin_guardian_defeated, "The authored ruin guardian must remain permanently defeated.")
+	assert(daily_combat.ruin_guardian_health == 0)
+	var restored_daily_combat := WorldStateModel.new()
+	restored_daily_combat.load_dictionary(daily_combat.to_dictionary())
+	assert(not restored_daily_combat.creature_defeated)
+	assert(restored_daily_combat.creature_health == WorldStateModel.CREATURE_MAX_HEALTH)
+	var catch_up_combat := WorldStateModel.new()
+	catch_up_combat.creature_defeated = true
+	catch_up_combat.creature_health = 0
+	catch_up_combat.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 2
+	catch_up_combat.mark_world_empty(1000)
+	catch_up_combat.apply_offline_catch_up(1003)
+	assert(catch_up_combat.world_day == 2)
+	assert(not catch_up_combat.creature_defeated, "Bounded empty-room calendar catch-up must use the same daily renewal.")
 	var guardian_power := WorldStateModel.new()
 	guardian_power.exploration_stage = "defeat_guardian"
 	guardian_power.register_player("striker")
