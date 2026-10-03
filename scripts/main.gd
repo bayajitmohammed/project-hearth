@@ -158,6 +158,8 @@ func _physics_process(delta: float) -> void:
 		_request_craft()
 	if Input.is_action_just_pressed("attack"):
 		_request_attack()
+	if Input.is_action_just_pressed("use_provision"):
+		_request_use_provision()
 	if Input.is_action_just_pressed("toggle_debug"):
 		debug_panel.visible = not debug_panel.visible
 	if Input.is_action_just_pressed("toggle_camera"):
@@ -174,6 +176,8 @@ func _update_local_authority_input() -> void:
 		_try_craft_repair_kit()
 	if Input.is_action_just_pressed("attack"):
 		_try_attack(local_token)
+	if Input.is_action_just_pressed("use_provision"):
+		_try_use_trail_provision(local_token)
 	if Input.is_action_just_pressed("toggle_debug"):
 		debug_panel.visible = not debug_panel.visible
 	if Input.is_action_just_pressed("toggle_camera"):
@@ -374,6 +378,16 @@ func request_attack() -> void:
 	_try_attack(peer_to_token[sender_id])
 
 
+@rpc("any_peer", "call_remote", "reliable")
+func request_use_trail_provision() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	_try_use_trail_provision(peer_to_token[sender_id])
+
+
 func _try_interaction(player_token: String) -> void:
 	if world_state.interact(player_token):
 		_save_world()
@@ -394,6 +408,12 @@ func _try_craft_repair_kit() -> void:
 
 func _try_attack(player_token: String) -> void:
 	if world_state.attack_creature(player_token):
+		_save_world()
+		_publish_snapshot()
+
+
+func _try_use_trail_provision(player_token: String) -> void:
+	if world_state.try_use_trail_provision(player_token):
 		_save_world()
 		_publish_snapshot()
 
@@ -1299,6 +1319,12 @@ func _update_mobile_targeting() -> void:
 	mobile_context_target = _select_mobile_target(
 		_mobile_target_candidates(), center, MOBILE_AIM_RADIUS * _touch_control_scale()
 	)
+	if mobile_context_target.is_empty() and _local_can_use_trail_provision():
+		mobile_context_target = {
+			"kind": "provision",
+			"label": "Use provision",
+			"screen_position": center,
+		}
 	if mobile_context_target.is_empty():
 		mobile_crosshair.add_theme_color_override("font_color", Color(0.92, 1.0, 1.0, 0.72))
 		mobile_context_button.visible = false
@@ -1431,6 +1457,8 @@ func _activate_mobile_context_target() -> void:
 	match str(mobile_context_target.get("kind", "")):
 		"collect":
 			_request_collect()
+		"provision":
+			_request_use_provision()
 		_:
 			_request_interaction()
 
@@ -1463,6 +1491,20 @@ func _request_attack() -> void:
 		request_attack.rpc_id(1)
 
 
+func _request_use_provision() -> void:
+	if local_authority_player:
+		_try_use_trail_provision(local_token)
+	elif client_connected:
+		request_use_trail_provision.rpc_id(1)
+
+
+func _local_can_use_trail_provision() -> bool:
+	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
+	var health := int(latest_snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
+	var provisions := int(latest_snapshot.get("player_provisions", {}).get(local_token, 0))
+	return not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and provisions > 0
+
+
 func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
 	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
@@ -1472,10 +1514,14 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 		int(snapshot.get("ruin_guardian_health", WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH)),
 		WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,
 	]
-	combat_label.text = "Health: %d/%d%s  Forest creature: %s  Ruin guardian: %s" % [
+	var provision_hint := ""
+	if not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and int(snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
+		provision_hint = " — Q / controller B uses a trail provision"
+	combat_label.text = "Health: %d/%d%s%s  Forest creature: %s  Ruin guardian: %s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
 		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
+		provision_hint,
 		creature_text,
 		guardian_text,
 	]
@@ -1858,6 +1904,9 @@ func _update_interaction_prompt(
 				interaction_prompt.text = "%s  ·  Light %s" % [action_name, WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id].capitalize()]
 				interaction_prompt.visible = true
 				return
+	if _local_can_use_trail_provision():
+		interaction_prompt.text = "Q  ·  Use a trail provision"
+		interaction_prompt.visible = true
 
 
 func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:

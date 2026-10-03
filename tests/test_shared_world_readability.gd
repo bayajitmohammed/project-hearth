@@ -31,6 +31,14 @@ func _init() -> void:
 	assert(main.recovery_pack_nodes["friend"].get_node("Label").text == "TRAIL PACK · 2")
 	assert("Recover a friend's trail pack" in main.interaction_prompt.text)
 
+	snapshot["positions"]["scout"] = WorldStateModel.SPAWN_POINT
+	snapshot["recovery_packs"] = {}
+	snapshot["player_health"]["scout"] = WorldStateModel.PLAYER_MAX_HEALTH - 1
+	main.receive_snapshot(snapshot)
+	assert("Q  ·  Use a trail provision" in main.interaction_prompt.text)
+	assert("Q / controller B uses a trail provision" in main.combat_label.text)
+	assert(main._local_can_use_trail_provision())
+
 	var main_source := FileAccess.get_file_as_string("res://scripts/main.gd")
 	var state_source := FileAccess.get_file_as_string("res://scripts/world_state.gd")
 	assert(main_source.contains("const MAX_PLAYERS := 8"), "Slice 5 rooms must admit eight players.")
@@ -38,9 +46,12 @@ func _init() -> void:
 	assert(main_source.contains("Players %d/%d · Pantry %d/%d · Your trail provisions %d"), "The shared-world HUD must expose room and recovery state.")
 	assert(main_source.contains("Recover %s trail pack"), "Recovery packs need a nearby interaction prompt.")
 	assert(main_source.contains("Take a trail provision"), "The pantry catch-up result needs a nearby interaction prompt.")
+	assert(main_source.contains("request_use_trail_provision"), "Clients need a server-authoritative provision-use request.")
 	assert(state_source.contains("PANTRY_MAX_STOCK := 3"), "Offline catch-up must remain bounded.")
 	assert(state_source.contains("func apply_offline_catch_up"), "Empty-world return needs an explicit catch-up rule.")
 	assert(state_source.contains("func try_recover_pack"), "Friends need a recovery action.")
+	assert(state_source.contains("func try_use_trail_provision"), "Trail provisions need an actual expedition use.")
+	assert(InputMap.has_action("use_provision"), "Keyboard, controller, and Web builds need one shared provision action.")
 	print("PASS: Project Hearth shared-world readability")
 	quit()
 

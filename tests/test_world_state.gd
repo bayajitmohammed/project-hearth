@@ -235,16 +235,24 @@ func _init() -> void:
 	assert(exploration_state.try_take_pantry_provision("player-a"))
 	assert(exploration_state.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK - 1)
 	assert(exploration_state.player_provisions["player-a"] == 1)
+	assert(not exploration_state.try_use_trail_provision("player-a"), "A full-health player must not waste a provision.")
+	exploration_state.player_health["player-a"] = WorldStateModel.PLAYER_MAX_HEALTH - 1
+	assert(exploration_state.try_use_trail_provision("player-a"))
+	assert(exploration_state.player_health["player-a"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(exploration_state.player_provisions["player-a"] == 0)
+	assert(exploration_state.try_take_pantry_provision("player-a"))
+	assert(exploration_state.player_provisions["player-a"] == 1)
 	exploration_state.positions["player-a"] = WorldStateModel.RUINS_POSITION
 	exploration_state.downed_players["player-a"] = true
 	exploration_state.player_health["player-a"] = 0
+	assert(not exploration_state.try_use_trail_provision("player-a"), "A provision must not self-revive a downed player.")
 	assert(exploration_state.try_return_to_safety("player-a"))
 	assert(exploration_state.player_provisions["player-a"] == 0)
 	assert(exploration_state.recovery_packs["player-a"]["count"] == 1)
 	assert(exploration_state.recovery_packs["player-a"]["position"] == WorldStateModel.RUINS_POSITION)
 	var restored_shared_world := WorldStateModel.new()
 	restored_shared_world.load_dictionary(exploration_state.to_dictionary())
-	assert(restored_shared_world.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK - 1)
+	assert(restored_shared_world.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK - 2)
 	assert(restored_shared_world.recovery_packs["player-a"]["position"] == WorldStateModel.RUINS_POSITION)
 	restored_shared_world.positions["player-b"] = WorldStateModel.RUINS_POSITION
 	assert(restored_shared_world.try_recover_pack("player-b"))

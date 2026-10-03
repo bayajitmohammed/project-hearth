@@ -576,6 +576,18 @@ func try_take_pantry_provision(player_token: String) -> bool:
 	return true
 
 
+func try_use_trail_provision(player_token: String) -> bool:
+	register_player(player_token)
+	if bool(downed_players.get(player_token, false)):
+		return false
+	var health := int(player_health.get(player_token, PLAYER_MAX_HEALTH))
+	if health >= PLAYER_MAX_HEALTH or int(player_provisions.get(player_token, 0)) <= 0:
+		return false
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) - 1
+	player_health[player_token] = mini(health + 1, PLAYER_MAX_HEALTH)
+	return true
+
+
 func try_recover_pack(helper_token: String) -> bool:
 	var helper_position := register_player(helper_token)
 	for owner_token: String in recovery_packs.keys():

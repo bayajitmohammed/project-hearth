@@ -46,6 +46,13 @@ func _init() -> void:
 	]
 	var selected: Dictionary = main._select_mobile_target(tap_candidates, Vector2(500.0, 300.0), 80.0)
 	assert(selected.get("kind") == "attack", "World taps must choose the target nearest the touched point.")
+	main.local_token = "touch-player"
+	main.latest_snapshot = {
+		"player_health": {"touch-player": 2},
+		"downed_players": {"touch-player": false},
+		"player_provisions": {"touch-player": 1},
+	}
+	assert(main._local_can_use_trail_provision(), "An injured touch player must qualify for the contextual provision action.")
 
 	print("PASS: Split-screen Minecraft-style Android touch controls")
 	quit()

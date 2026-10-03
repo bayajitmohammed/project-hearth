@@ -66,6 +66,7 @@ The smallest proof of **Our Shared World** begins after the neighborhood produce
 2. The active player count is visible, while existing shared-project rules continue to credit the player who performs individual mastery work.
 3. When the room becomes empty, the world records that it went to sleep. On the first return, elapsed real time produces at most three pantry provisions at the completed produce stall. This catch-up is deliberately bounded and can never damage or decay the world.
 4. A player can take one personal trail provision from the pantry. These provisions are gathered expedition materials, not gear or permanent progression.
+   A standing injured player may consume one provision to restore one health; it cannot self-revive or exceed maximum health.
 5. Returning to safety while downed leaves carried trail provisions in one persistent recovery pack at the defeat location. The owner or a friend can recover the pack for its owner, and the pack survives disconnects and server restarts.
 6. The existing headless authoritative room remains the server proof. Linux deployment packaging, multi-room process management, and hosting infrastructure are deferred while browser, Windows desktop, and Android client quality take priority.
 
@@ -76,6 +77,7 @@ The prototype uses a short catch-up interval so the behavior can be tested durin
 - [x] Eight-player room capacity, distinct active identities, and visible online count
 - [x] Persistent bounded pantry catch-up after an empty-room sleep
 - [x] Personal trail provisions and persistent friend-recoverable packs
+- [x] Server-authoritative provision use on keyboard, controller, and touch
 - [x] Version-7 persistence and version-6 migration
 - [x] Automated state, migration, presentation, two-client regression, and eight-client capacity coverage
 - [x] Focused exported desktop Web functionality and visual check in Chromium
