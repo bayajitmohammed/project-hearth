@@ -1,6 +1,6 @@
 # Project Guide
 
-This Obsidian vault explores a commercial 2–8 player game for friends and family. The current direction is a persistent, procedurally generated world with Minecraft-like freedom but a more inhabited, eventful, and responsive world. The aesthetic, camera, combat, progression, and technology are undecided.
+This Obsidian vault explores a commercial 2–8 player game for friends and family. The current direction is a persistent, procedurally generated world with Minecraft-like freedom but a more inhabited, eventful, and responsive world. Current working decisions—including the visual direction—live in `04 Production/Design Questions.md` and its linked subject notes.
 
 ## Source of truth
 
