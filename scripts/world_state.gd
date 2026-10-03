@@ -34,6 +34,9 @@ const REQUIRED_STEW_DELIVERIES := 2
 const DAILY_FRESH_MOONROOT_DELIVERIES := 3
 const DAILY_ORDER_FRESH_MOONROOT := "fresh_moonroot"
 const DAILY_ORDER_HEARTH_STEW := "hearth_stew"
+const FARMING_TIER_TWO_MASTERY := 8
+const COOKING_TIER_TWO_MASTERY := 4
+const TRADE_TIER_TWO_MASTERY := 4
 const PANTRY_CATCH_UP_INTERVAL_SECONDS := 60
 const PANTRY_MAX_STOCK := 3
 const FESTIVAL_ARCH_POSITION := Vector3(10.5, 0.6, 6.0)
@@ -632,15 +635,28 @@ func try_harvest_garden(player_token: String) -> bool:
 	if not has_active_food_order():
 		return false
 	var player_position: Vector3 = register_player(player_token)
+	var target_plot := ""
 	for plot_id: String in GARDEN_PLOT_POSITIONS:
 		if bool(harvested_garden_plots.get(plot_id, false)):
 			continue
 		if player_position.distance_to(GARDEN_PLOT_POSITIONS[plot_id]) <= INTERACTION_RADIUS:
-			harvested_garden_plots[plot_id] = true
-			materials["moonroot"] = int(materials.get("moonroot", 0)) + 1
-			_add_mastery(player_token, "farming")
-			return true
-	return false
+			target_plot = plot_id
+			break
+	if target_plot.is_empty():
+		return false
+	var harvested_count := 1
+	harvested_garden_plots[target_plot] = true
+	if _mastery_level(player_token, "farming") >= FARMING_TIER_TWO_MASTERY:
+		for adjacent_plot: String in GARDEN_PLOT_POSITIONS:
+			if bool(harvested_garden_plots.get(adjacent_plot, false)):
+				continue
+			if GARDEN_PLOT_POSITIONS[target_plot].distance_to(GARDEN_PLOT_POSITIONS[adjacent_plot]) <= 3.1:
+				harvested_garden_plots[adjacent_plot] = true
+				harvested_count += 1
+				break
+	materials["moonroot"] = int(materials.get("moonroot", 0)) + harvested_count
+	_add_mastery(player_token, "farming", harvested_count)
+	return true
 
 
 func try_cook_hearth_stew(player_token: String) -> bool:
@@ -653,11 +669,15 @@ func try_cook_hearth_stew(player_token: String) -> bool:
 	if int(materials.get("moonroot", 0)) < 2:
 		return false
 	var delivered_count := daily_food_deliveries if daily_food_order_active else stews_delivered
-	if int(materials.get("hearth_stew", 0)) + delivered_count >= REQUIRED_STEW_DELIVERIES:
+	var remaining_capacity := REQUIRED_STEW_DELIVERIES - int(materials.get("hearth_stew", 0)) - delivered_count
+	if remaining_capacity <= 0:
 		return false
-	materials["moonroot"] = int(materials.get("moonroot", 0)) - 2
-	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) + 1
-	_add_mastery(player_token, "cooking")
+	var cook_count := 1
+	if _mastery_level(player_token, "cooking") >= COOKING_TIER_TWO_MASTERY:
+		cook_count = mini(remaining_capacity, floori(float(materials.get("moonroot", 0)) / 2.0))
+	materials["moonroot"] = int(materials.get("moonroot", 0)) - 2 * cook_count
+	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) + cook_count
+	_add_mastery(player_token, "cooking", cook_count)
 	return true
 
 
@@ -670,14 +690,22 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 		return false
 	if int(materials.get("hearth_stew", 0)) < 1:
 		return false
-	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) - 1
-	_add_mastery(player_token, "trade")
+	var remaining_deliveries := (
+		REQUIRED_STEW_DELIVERIES - daily_food_deliveries
+		if daily_food_order_active
+		else REQUIRED_STEW_DELIVERIES - stews_delivered
+	)
+	var delivery_count := 1
+	if _mastery_level(player_token, "trade") >= TRADE_TIER_TWO_MASTERY:
+		delivery_count = mini(int(materials.get("hearth_stew", 0)), remaining_deliveries)
+	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) - delivery_count
+	_add_mastery(player_token, "trade", delivery_count)
 	if daily_food_order_active:
-		daily_food_deliveries += 1
+		daily_food_deliveries += delivery_count
 		if daily_food_deliveries >= REQUIRED_STEW_DELIVERIES:
 			_complete_daily_food_order()
 	else:
-		stews_delivered += 1
+		stews_delivered += delivery_count
 		if stews_delivered >= REQUIRED_STEW_DELIVERIES:
 			livelihood_stage = "complete"
 			produce_stall_open = true
@@ -696,9 +724,15 @@ func try_deliver_fresh_moonroot(player_token: String) -> bool:
 		return false
 	if int(materials.get("moonroot", 0)) < 1:
 		return false
-	materials["moonroot"] = int(materials.get("moonroot", 0)) - 1
-	daily_food_deliveries += 1
-	_add_mastery(player_token, "trade")
+	var delivery_count := 1
+	if _mastery_level(player_token, "trade") >= TRADE_TIER_TWO_MASTERY:
+		delivery_count = mini(
+			int(materials.get("moonroot", 0)),
+			DAILY_FRESH_MOONROOT_DELIVERIES - daily_food_deliveries
+		)
+	materials["moonroot"] = int(materials.get("moonroot", 0)) - delivery_count
+	daily_food_deliveries += delivery_count
+	_add_mastery(player_token, "trade", delivery_count)
 	if daily_food_deliveries >= DAILY_FRESH_MOONROOT_DELIVERIES:
 		_complete_daily_food_order()
 	return true
@@ -766,10 +800,15 @@ func remove_festival_participant(player_token: String) -> bool:
 	return true
 
 
-func _add_mastery(player_token: String, track: String) -> void:
+func _mastery_level(player_token: String, track: String) -> int:
+	register_player(player_token)
+	return int(player_mastery[player_token].get(track, 0))
+
+
+func _add_mastery(player_token: String, track: String, amount: int = 1) -> void:
 	register_player(player_token)
 	var mastery: Dictionary = player_mastery[player_token]
-	mastery[track] = int(mastery.get(track, 0)) + 1
+	mastery[track] = int(mastery.get(track, 0)) + maxi(amount, 0)
 	player_mastery[player_token] = mastery
 
 

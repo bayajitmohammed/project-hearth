@@ -178,15 +178,15 @@ func _init() -> void:
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
 	assert(restored_livelihood.daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
-	for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
+	for plot_id: String in ["moonroot_1", "moonroot_2", "moonroot_3"]:
 		restored_livelihood.positions["player-a"] = WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]
 		assert(restored_livelihood.try_harvest_garden("player-a"))
+	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return value))
 	for cook_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
 		restored_livelihood.positions["player-a"] = WorldStateModel.COOKFIRE_POSITION
 		assert(restored_livelihood.try_cook_hearth_stew("player-a"), "Daily stew %d should cook." % cook_index)
-	for delivery_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
-		restored_livelihood.positions["player-a"] = WorldStateModel.MARKET_CRATE_POSITION
-		assert(restored_livelihood.interact("player-a"), "Daily stew %d should deliver." % delivery_index)
+	restored_livelihood.positions["player-a"] = WorldStateModel.MARKET_CRATE_POSITION
+	assert(restored_livelihood.interact("player-a"), "Trade II should bulk-deliver both daily stews.")
 	assert(not restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
 	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6})
@@ -198,6 +198,35 @@ func _init() -> void:
 	assert(persisted_daily_order.daily_food_deliveries == WorldStateModel.REQUIRED_STEW_DELIVERIES)
 	assert(not persisted_daily_order.daily_food_order_active)
 	assert(persisted_daily_order.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
+
+	var technique_state := WorldStateModel.new()
+	technique_state.load_dictionary({
+		"version": 11,
+		"livelihood_stage": "complete",
+		"produce_stall_open": true,
+		"world_day": 3,
+		"daily_food_order_active": true,
+		"daily_food_order_day": 3,
+		"daily_food_order_kind": WorldStateModel.DAILY_ORDER_HEARTH_STEW,
+		"daily_food_deliveries": 0,
+		"player_mastery": {"specialist": {"farming": 8, "cooking": 4, "trade": 4}},
+	})
+	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]
+	assert(technique_state.try_harvest_garden("specialist"))
+	assert(technique_state.harvested_garden_plots["moonroot_1"])
+	assert(technique_state.harvested_garden_plots["moonroot_2"])
+	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_3"]
+	assert(technique_state.try_harvest_garden("specialist"))
+	assert(technique_state.materials["moonroot"] == 4)
+	technique_state.positions["specialist"] = WorldStateModel.COOKFIRE_POSITION
+	assert(technique_state.try_cook_hearth_stew("specialist"))
+	assert(technique_state.materials["hearth_stew"] == 2)
+	assert(technique_state.player_mastery["specialist"]["cooking"] == 6)
+	technique_state.positions["specialist"] = WorldStateModel.MARKET_CRATE_POSITION
+	assert(technique_state.try_deliver_hearth_stew("specialist"))
+	assert(not technique_state.daily_food_order_active)
+	assert(technique_state.daily_food_deliveries == 2)
+	assert(technique_state.player_mastery["specialist"]["trade"] == 6)
 
 	exploration_state.mark_world_empty(1000)
 	assert(exploration_state.apply_offline_catch_up(1300) == WorldStateModel.PANTRY_MAX_STOCK)

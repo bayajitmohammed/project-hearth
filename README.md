@@ -240,6 +240,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 - Restoring the ruin waystone reveals a shared neighborhood food need.
 - Four persistent garden plots supply moonroot; the cottage cookfire turns pairs into hearth stew; the market crate accepts two deliveries.
 - Farming, Cooking, and Trade mastery belongs to the player who performs each action, while materials and settlement progress remain shared.
+- Tier-II mastery adds convenience rather than exclusive power: experienced farmers can tend one adjacent plot, cooks can batch prepared stew work, and traders can bulk-deliver matching goods. New players retain every base action, and mastery credit remains per unit.
 - Completion opens a visible produce stall, improves morale and reputation, and adds a fourth chronicle entry.
 - Beginning with the next in-game day, all four moonroot plots regrow and the market rotates between a three-root fresh-produce request and a two-stew request. Completing either awards normal personal mastery and adds one bounded pantry provision without repeating milestone reputation, morale, or chronicle rewards.
 - Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.

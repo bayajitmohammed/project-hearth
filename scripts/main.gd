@@ -1739,6 +1739,7 @@ func _update_interaction_prompt(
 	var daily_food_order_active := bool(latest_snapshot.get("daily_food_order_active", false))
 	var daily_food_order_kind := str(latest_snapshot.get("daily_food_order_kind", ""))
 	var food_order_active := livelihood_stage == "food_need" or daily_food_order_active
+	var local_mastery: Dictionary = latest_snapshot.get("player_mastery", {}).get(local_token, {})
 	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
 	var festival_participants: Dictionary = latest_snapshot.get("festival_participants", {})
 	if festival_stage in ["available", "results"] and player_position.distance_to(WorldStateModel.FESTIVAL_ARCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
@@ -1778,7 +1779,12 @@ func _update_interaction_prompt(
 			if bool(harvested_garden.get(plot_id, false)):
 				continue
 			if player_position.distance_to(WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
-				interaction_prompt.text = "%s  ·  Harvest moonroot" % action_name
+				interaction_prompt.text = "%s  ·  %s" % [
+					action_name,
+					"Carefully tend moonroot pair"
+					if int(local_mastery.get("farming", 0)) >= WorldStateModel.FARMING_TIER_TWO_MASTERY
+					else "Harvest moonroot",
+				]
 				interaction_prompt.visible = true
 				return
 		var livelihood_materials: Dictionary = latest_snapshot.get("materials", {})
@@ -1790,7 +1796,12 @@ func _update_interaction_prompt(
 			)
 			and player_position.distance_to(WorldStateModel.COOKFIRE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 		):
-			interaction_prompt.text = "%s  ·  Cook hearth stew" % action_name
+			interaction_prompt.text = "%s  ·  %s" % [
+				action_name,
+				"Batch cook hearth stew"
+				if int(local_mastery.get("cooking", 0)) >= WorldStateModel.COOKING_TIER_TWO_MASTERY
+				else "Cook hearth stew",
+			]
 			interaction_prompt.visible = true
 			return
 		if (
@@ -1799,7 +1810,12 @@ func _update_interaction_prompt(
 			and int(livelihood_materials.get("moonroot", 0)) > 0
 			and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 		):
-			interaction_prompt.text = "%s  ·  Deliver fresh moonroot" % action_name
+			interaction_prompt.text = "%s  ·  %s" % [
+				action_name,
+				"Bulk deliver fresh moonroot"
+				if int(local_mastery.get("trade", 0)) >= WorldStateModel.TRADE_TIER_TWO_MASTERY
+				else "Deliver fresh moonroot",
+			]
 			interaction_prompt.visible = true
 			return
 		if (
@@ -1810,7 +1826,12 @@ func _update_interaction_prompt(
 			)
 			and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 		):
-			interaction_prompt.text = "%s  ·  Deliver hearth stew" % action_name
+			interaction_prompt.text = "%s  ·  %s" % [
+				action_name,
+				"Bulk deliver hearth stew"
+				if int(local_mastery.get("trade", 0)) >= WorldStateModel.TRADE_TIER_TWO_MASTERY
+				else "Deliver hearth stew",
+			]
 			interaction_prompt.visible = true
 			return
 	if (
@@ -1858,10 +1879,25 @@ func _mastery_text(mastery: Dictionary) -> String:
 	var farming := int(mastery.get("farming", 0))
 	var cooking := int(mastery.get("cooking", 0))
 	var trade := int(mastery.get("trade", 0))
+	var farming_title := ""
+	if farming >= WorldStateModel.FARMING_TIER_TWO_MASTERY:
+		farming_title = " (Gardener II · Careful Tending)"
+	elif farming > 0:
+		farming_title = " (Gardener I)"
+	var cooking_title := ""
+	if cooking >= WorldStateModel.COOKING_TIER_TWO_MASTERY:
+		cooking_title = " (Cook II · Batch Cooking)"
+	elif cooking > 0:
+		cooking_title = " (Cook I)"
+	var trade_title := ""
+	if trade >= WorldStateModel.TRADE_TIER_TWO_MASTERY:
+		trade_title = " (Trader II · Bulk Delivery)"
+	elif trade > 0:
+		trade_title = " (Trader I)"
 	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s" % [
-		farming, " (Gardener I)" if farming > 0 else "",
-		cooking, " (Cook I)" if cooking > 0 else "",
-		trade, " (Trader I)" if trade > 0 else "",
+		farming, farming_title,
+		cooking, cooking_title,
+		trade, trade_title,
 	]
 
 

@@ -74,6 +74,27 @@ func _init() -> void:
 	assert(main.market_marker.visible)
 	assert("Deliver fresh moonroot" in main.interaction_prompt.text)
 
+	snapshot["player_mastery"]["artisan"] = {"farming": 8, "cooking": 4, "trade": 4}
+	snapshot["materials"]["moonroot"] = 0
+	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
+	main.receive_snapshot(snapshot)
+	assert("Carefully tend moonroot pair" in main.interaction_prompt.text)
+	assert("Gardener II · Careful Tending" in main.mastery_label.text)
+	snapshot["daily_food_order_kind"] = WorldStateModel.DAILY_ORDER_HEARTH_STEW
+	snapshot["daily_food_order_label"] = "Hearth stew"
+	snapshot["daily_food_order_required"] = WorldStateModel.REQUIRED_STEW_DELIVERIES
+	snapshot["materials"]["moonroot"] = 4
+	snapshot["positions"] = {"artisan": WorldStateModel.COOKFIRE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("Batch cook hearth stew" in main.interaction_prompt.text)
+	assert("Cook II · Batch Cooking" in main.mastery_label.text)
+	snapshot["materials"]["moonroot"] = 0
+	snapshot["materials"]["hearth_stew"] = 2
+	snapshot["positions"] = {"artisan": WorldStateModel.MARKET_CRATE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("Bulk deliver hearth stew" in main.interaction_prompt.text)
+	assert("Trader II · Bulk Delivery" in main.mastery_label.text)
+
 	print("PASS: Choose a Life is readable")
 	quit()
 
