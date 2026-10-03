@@ -50,6 +50,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Home recovery depth: the repaired cottage is a personal safe recovery point. Standing injured players may rest to recover fully without advancing time or affecting companions; downed and field recovery rules remain distinct.
 - Cooperative recovery depth: a prepared standing player may spend one carried trail provision to restore one health to a nearby injured friend; downed friends still require revival.
 - Combat pacing depth: each successful basic attack begins a short per-player authoritative recovery, preventing input spam without coupling companions or granting progression power.
+- Alternate combat depth: every newcomer can trade speed for impact with a two-damage Power Strike whose longer personal recovery keeps its sustained damage below repeated basic attacks.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.
 - Combat readability depth: forest-creature and ruin-guardian strikes name a target during a short authoritative wind-up, giving that player time to brace or leave range while companions keep acting.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.

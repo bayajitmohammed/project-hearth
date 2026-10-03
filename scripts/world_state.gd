@@ -78,6 +78,7 @@ const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3
 const PLAYER_ATTACK_RECOVERY_SECONDS := 0.45
+const PLAYER_POWER_STRIKE_RECOVERY_SECONDS := 1.1
 const PLAYER_BRACE_WINDOW_SECONDS := 0.7
 const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
 const ENEMY_ATTACK_WINDUP_SECONDS := 0.6
@@ -376,6 +377,14 @@ func try_rest_at_cottage(player_token: String) -> bool:
 
 
 func attack_creature(player_token: String) -> bool:
+	return _damage_creature(player_token, 1, PLAYER_ATTACK_RECOVERY_SECONDS)
+
+
+func power_strike_creature(player_token: String) -> bool:
+	return _damage_creature(player_token, 2, PLAYER_POWER_STRIKE_RECOVERY_SECONDS)
+
+
+func _damage_creature(player_token: String, damage: int, recovery_seconds: float) -> bool:
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
 		return false
@@ -386,8 +395,8 @@ func attack_creature(player_token: String) -> bool:
 		and not ruin_guardian_defeated
 		and positions[player_token].distance_to(ruin_guardian_position) <= 2.0
 	):
-		player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
-		ruin_guardian_health -= 1
+		player_attack_recovery[player_token] = recovery_seconds
+		ruin_guardian_health -= damage
 		_add_mastery(player_token, "combat")
 		if ruin_guardian_health <= 0:
 			ruin_guardian_health = 0
@@ -400,8 +409,8 @@ func attack_creature(player_token: String) -> bool:
 		return false
 	if positions[player_token].distance_to(creature_position) > 2.0:
 		return false
-	player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
-	creature_health -= 1
+	player_attack_recovery[player_token] = recovery_seconds
+	creature_health -= damage
 	_add_mastery(player_token, "combat")
 	if creature_health <= 0:
 		creature_health = 0

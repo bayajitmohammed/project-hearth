@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MainScene = preload("res://main.tscn")
+const WorldStateModel = preload("res://scripts/world_state.gd")
 
 
 func _init() -> void:
@@ -56,10 +57,17 @@ func _init() -> void:
 	}
 	assert(main._local_can_use_trail_provision(), "An injured touch player must qualify for the contextual provision action.")
 	assert(main._local_can_brace(), "A standing touch player must qualify for the contextual brace action.")
+	assert(main._local_can_attack(), "A standing touch player without recovery must qualify for Power Strike.")
+	main.latest_snapshot["creature_attack_windup"] = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
+	main.latest_snapshot["creature_attack_target"] = "touch-player"
+	assert(main._local_is_targeted_by_attack(), "Touch targeting must reserve Brace for an incoming local attack.")
 	assert(InputMap.has_action("brace"), "Desktop, controller, and Web builds need one shared brace action.")
+	assert(InputMap.has_action("power_strike"), "Desktop, controller, and Web builds need one shared Power Strike action.")
 	var main_source := FileAccess.get_file_as_string("res://scripts/main.gd")
 	assert(main_source.contains("request_brace"), "Remote clients need a server-authoritative brace request.")
 	assert(main_source.contains("\"kind\": \"brace\""), "Touch combat targeting needs a contextual brace action.")
+	assert(main_source.contains("request_power_strike"), "Remote clients need a server-authoritative Power Strike request.")
+	assert(main_source.contains("\"kind\": \"power_strike\""), "Touch combat targeting needs a contextual Power Strike action.")
 
 	print("PASS: Split-screen Minecraft-style Android touch controls")
 	quit()

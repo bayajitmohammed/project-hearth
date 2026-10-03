@@ -160,6 +160,8 @@ func _physics_process(delta: float) -> void:
 		_request_craft()
 	if Input.is_action_just_pressed("attack"):
 		_request_attack()
+	if Input.is_action_just_pressed("power_strike"):
+		_request_power_strike()
 	if Input.is_action_just_pressed("brace"):
 		_request_brace()
 	if Input.is_action_just_pressed("use_provision"):
@@ -180,6 +182,8 @@ func _update_local_authority_input() -> void:
 		_try_craft_repair_kit()
 	if Input.is_action_just_pressed("attack"):
 		_try_attack(local_token)
+	if Input.is_action_just_pressed("power_strike"):
+		_try_power_strike(local_token)
 	if Input.is_action_just_pressed("brace"):
 		_try_brace(local_token)
 	if Input.is_action_just_pressed("use_provision"):
@@ -386,6 +390,16 @@ func request_attack() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
+func request_power_strike() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	_try_power_strike(peer_to_token[sender_id])
+
+
+@rpc("any_peer", "call_remote", "reliable")
 func request_brace() -> void:
 	if not is_server:
 		return
@@ -425,6 +439,12 @@ func _try_craft_repair_kit() -> void:
 
 func _try_attack(player_token: String) -> void:
 	if world_state.attack_creature(player_token):
+		_save_world()
+		_publish_snapshot()
+
+
+func _try_power_strike(player_token: String) -> void:
+	if world_state.power_strike_creature(player_token):
 		_save_world()
 		_publish_snapshot()
 
@@ -1222,7 +1242,7 @@ func _build_interface() -> void:
 	mastery_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(mastery_label)
 	var controls_hint := Label.new()
-	controls_hint.text = "F3 closes debug · V view · E use · Space attack · F brace · C craft · mouse look · Esc cursor"
+	controls_hint.text = "F3 closes debug · V view · E use · Space attack · R power · F brace · C craft · mouse look · Esc cursor"
 	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(controls_hint)
 
@@ -1391,14 +1411,21 @@ func _update_mobile_targeting() -> void:
 		"font_color", Color(1.0, 0.72, 0.48, 0.92) if is_attack else Color(0.65, 1.0, 0.9, 0.92)
 	)
 	if is_attack:
-		if not _local_can_brace():
+		if _local_is_targeted_by_attack() and _local_can_brace():
+			mobile_context_target = {
+				"kind": "brace",
+				"label": "Brace",
+				"screen_position": mobile_context_target.get("screen_position", center),
+			}
+		elif _local_can_attack():
+			mobile_context_target = {
+				"kind": "power_strike",
+				"label": "Power strike",
+				"screen_position": mobile_context_target.get("screen_position", center),
+			}
+		else:
 			mobile_context_button.visible = false
 			return
-		mobile_context_target = {
-			"kind": "brace",
-			"label": "Brace",
-			"screen_position": mobile_context_target.get("screen_position", center),
-		}
 	mobile_context_button.text = str(mobile_context_target.get("label", "Use"))
 	mobile_context_button.visible = true
 	var viewport_size := get_viewport().get_visible_rect().size
@@ -1527,6 +1554,8 @@ func _activate_mobile_context_target() -> void:
 	match str(mobile_context_target.get("kind", "")):
 		"brace":
 			_request_brace()
+		"power_strike":
+			_request_power_strike()
 		"collect":
 			_request_collect()
 		"provision":
@@ -1563,6 +1592,13 @@ func _request_attack() -> void:
 		request_attack.rpc_id(1)
 
 
+func _request_power_strike() -> void:
+	if local_authority_player:
+		_try_power_strike(local_token)
+	elif client_connected:
+		request_power_strike.rpc_id(1)
+
+
 func _request_brace() -> void:
 	if local_authority_player:
 		_try_brace(local_token)
@@ -1589,6 +1625,22 @@ func _local_can_brace() -> bool:
 	var brace_time := float(latest_snapshot.get("player_brace_time", {}).get(local_token, 0.0))
 	var brace_cooldown := float(latest_snapshot.get("player_brace_cooldown", {}).get(local_token, 0.0))
 	return not is_downed and brace_time <= 0.0 and brace_cooldown <= 0.0
+
+
+func _local_can_attack() -> bool:
+	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
+	var attack_recovery := float(latest_snapshot.get("player_attack_recovery", {}).get(local_token, 0.0))
+	return not is_downed and attack_recovery <= 0.0
+
+
+func _local_is_targeted_by_attack() -> bool:
+	return (
+		float(latest_snapshot.get("creature_attack_windup", 0.0)) > 0.0
+		and str(latest_snapshot.get("creature_attack_target", "")) == local_token
+	) or (
+		float(latest_snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0
+		and str(latest_snapshot.get("ruin_guardian_attack_target", "")) == local_token
+	)
 
 
 func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
