@@ -14,9 +14,9 @@ Each step should make a visible difference; the game avoids long processing chai
 
 ## Renewable neighborhood food orders
 
-Opening the produce stall remains a one-time shared milestone. Beginning with the next in-game day, the authoritative world posts one repeatable neighborhood food order and regrows the four shared moonroot plots. The order reuses the readable garden → cookfire → market loop and asks for two hearth stews.
+Opening the produce stall remains a one-time shared milestone. Beginning with the next in-game day, the authoritative world posts one repeatable neighborhood market request and regrows the four shared moonroot plots. A deterministic daily rotation requests either three fresh moonroot or two hearth stews. Fresh-produce days emphasize farming and trade; stew days use the full garden → cookfire → market loop and create a reason to cook.
 
-Farming, Cooking, and Trade mastery still belongs to the player who performs each step. Completing the daily order adds one provision to the bounded shared pantry, but does not repeatedly grant reputation, morale, or chronicle entries. If several days pass while the room is empty, only the current day's order is available; unattended time never completes orders or multiplies rewards. Festival activities remain available alongside the order rather than being replaced by it.
+Farming, Cooking, and Trade mastery still belongs to the player who performs each step. Completing the daily request adds one provision to the bounded shared pantry, but does not repeatedly grant reputation, morale, or chronicle entries. If several days pass while the room is empty, only the current day's request is available; unattended time never completes requests or multiplies rewards. Festival activities remain available alongside the request rather than being replaced by it.
 
 ## Loot, trade, and currency
 

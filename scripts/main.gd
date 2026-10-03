@@ -500,7 +500,9 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
 	var route_activated := bool(snapshot.get("ruin_waystone_activated", false))
 	var livelihood_stage := str(snapshot.get("livelihood_stage", "locked"))
-	var food_order_active := livelihood_stage == "food_need" or bool(snapshot.get("daily_food_order_active", false))
+	var daily_food_order_active := bool(snapshot.get("daily_food_order_active", false))
+	var daily_food_order_kind := str(snapshot.get("daily_food_order_kind", ""))
+	var food_order_active := livelihood_stage == "food_need" or daily_food_order_active
 	var harvested_garden: Dictionary = snapshot.get("harvested_garden_plots", {})
 	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
 	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
@@ -517,12 +519,28 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
 	var stews_delivered := int(snapshot.get("stews_delivered", 0))
+	var active_stew_deliveries := (
+		int(snapshot.get("daily_food_deliveries", 0)) if daily_food_order_active else stews_delivered
+	)
 	cookfire_marker.visible = (
 		food_order_active
+		and (livelihood_stage == "food_need" or daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
 		and moonroot_count >= 2
-		and stew_count + stews_delivered < WorldStateModel.REQUIRED_STEW_DELIVERIES
+		and stew_count + active_stew_deliveries < WorldStateModel.REQUIRED_STEW_DELIVERIES
 	)
-	market_marker.visible = food_order_active and stew_count > 0
+	market_marker.visible = (
+		(livelihood_stage == "food_need" and stew_count > 0)
+		or (
+			daily_food_order_active
+			and daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW
+			and stew_count > 0
+		)
+		or (
+			daily_food_order_active
+			and daily_food_order_kind == WorldStateModel.DAILY_ORDER_FRESH_MOONROOT
+			and moonroot_count > 0
+		)
+	)
 	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
 	var festival_stage := str(snapshot.get("festival_stage", "locked"))
 	festival_arch.visible = festival_stage != "locked"
@@ -539,14 +557,15 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	chronicle_label.text = "CHRONICLE (%d)\n• %s" % [chronicle.size(), "\n• ".join(chronicle_lines)] if not chronicle.is_empty() else ""
 	var food_status := "Food need %d/%d" % [stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES]
 	if livelihood_stage == "complete":
-		food_status = "Daily order D%d %d/%d" % [
+		food_status = "Daily request D%d · %s %d/%d" % [
 			int(snapshot.get("daily_food_order_day", 0)),
-			stews_delivered,
-			WorldStateModel.REQUIRED_STEW_DELIVERIES,
+			str(snapshot.get("daily_food_order_label", "Hearth stew")),
+			int(snapshot.get("daily_food_deliveries", 0)),
+			int(snapshot.get("daily_food_order_required", WorldStateModel.REQUIRED_STEW_DELIVERIES)),
 		] if food_order_active else (
-			"Daily order begins next day"
+			"Daily request begins next day"
 			if int(snapshot.get("daily_food_order_day", 0)) == 0
-			else "Daily order complete — next day"
+			else "Daily request complete — next day"
 		)
 	world_change_label.text = "Reputation: %d  Morale: %d  %s  Chronicle entries: %d" % [
 		int(snapshot.get("reputation", 0)),
@@ -799,6 +818,10 @@ func _snapshot_for_clients() -> Dictionary:
 		"produce_stall_open": world_state.produce_stall_open,
 		"daily_food_order_active": world_state.daily_food_order_active,
 		"daily_food_order_day": world_state.daily_food_order_day,
+		"daily_food_order_kind": world_state.daily_food_order_kind,
+		"daily_food_deliveries": world_state.daily_food_deliveries,
+		"daily_food_order_label": world_state.daily_food_order_label(),
+		"daily_food_order_required": world_state.daily_food_order_required(),
 		"player_mastery": world_state.player_mastery.duplicate(true),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
@@ -1713,7 +1736,9 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var livelihood_stage := str(latest_snapshot.get("livelihood_stage", "locked"))
-	var food_order_active := livelihood_stage == "food_need" or bool(latest_snapshot.get("daily_food_order_active", false))
+	var daily_food_order_active := bool(latest_snapshot.get("daily_food_order_active", false))
+	var daily_food_order_kind := str(latest_snapshot.get("daily_food_order_kind", ""))
+	var food_order_active := livelihood_stage == "food_need" or daily_food_order_active
 	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
 	var festival_participants: Dictionary = latest_snapshot.get("festival_participants", {})
 	if festival_stage in ["available", "results"] and player_position.distance_to(WorldStateModel.FESTIVAL_ARCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
@@ -1759,13 +1784,30 @@ func _update_interaction_prompt(
 		var livelihood_materials: Dictionary = latest_snapshot.get("materials", {})
 		if (
 			int(livelihood_materials.get("moonroot", 0)) >= 2
+			and (
+				livelihood_stage == "food_need"
+				or daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW
+			)
 			and player_position.distance_to(WorldStateModel.COOKFIRE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 		):
 			interaction_prompt.text = "%s  ·  Cook hearth stew" % action_name
 			interaction_prompt.visible = true
 			return
 		if (
+			daily_food_order_active
+			and daily_food_order_kind == WorldStateModel.DAILY_ORDER_FRESH_MOONROOT
+			and int(livelihood_materials.get("moonroot", 0)) > 0
+			and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+		):
+			interaction_prompt.text = "%s  ·  Deliver fresh moonroot" % action_name
+			interaction_prompt.visible = true
+			return
+		if (
 			int(livelihood_materials.get("hearth_stew", 0)) > 0
+			and (
+				livelihood_stage == "food_need"
+				or daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW
+			)
 			and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 		):
 			interaction_prompt.text = "%s  ·  Deliver hearth stew" % action_name

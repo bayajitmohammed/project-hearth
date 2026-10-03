@@ -56,15 +56,23 @@ func _init() -> void:
 
 	snapshot["daily_food_order_active"] = true
 	snapshot["daily_food_order_day"] = 2
+	snapshot["daily_food_order_kind"] = WorldStateModel.DAILY_ORDER_FRESH_MOONROOT
+	snapshot["daily_food_deliveries"] = 0
+	snapshot["daily_food_order_label"] = "Fresh moonroot"
+	snapshot["daily_food_order_required"] = WorldStateModel.DAILY_FRESH_MOONROOT_DELIVERIES
 	snapshot["world_day"] = 2
-	snapshot["stews_delivered"] = 0
 	snapshot["harvested_garden_plots"]["moonroot_1"] = false
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)
 	assert(main.garden_markers["moonroot_1"].visible)
-	assert("Daily order D2 0/2" in main.world_change_label.text)
+	assert("Daily request D2 · Fresh moonroot 0/3" in main.world_change_label.text)
 	assert(main.interaction_prompt.visible)
 	assert("Harvest moonroot" in main.interaction_prompt.text)
+	snapshot["materials"]["moonroot"] = 3
+	snapshot["positions"] = {"artisan": WorldStateModel.MARKET_CRATE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.market_marker.visible)
+	assert("Deliver fresh moonroot" in main.interaction_prompt.text)
 
 	print("PASS: Choose a Life is readable")
 	quit()
@@ -107,5 +115,7 @@ func _snapshot() -> Dictionary:
 		"produce_stall_open": false,
 		"daily_food_order_active": false,
 		"daily_food_order_day": 0,
+		"daily_food_order_kind": "",
+		"daily_food_deliveries": 0,
 		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0}},
 	}

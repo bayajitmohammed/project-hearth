@@ -31,6 +31,9 @@ const GARDEN_PLOT_POSITIONS := {
 const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const REQUIRED_STEW_DELIVERIES := 2
+const DAILY_FRESH_MOONROOT_DELIVERIES := 3
+const DAILY_ORDER_FRESH_MOONROOT := "fresh_moonroot"
+const DAILY_ORDER_HEARTH_STEW := "hearth_stew"
 const PANTRY_CATCH_UP_INTERVAL_SECONDS := 60
 const PANTRY_MAX_STOCK := 3
 const FESTIVAL_ARCH_POSITION := Vector3(10.5, 0.6, 6.0)
@@ -118,6 +121,8 @@ var stews_delivered := 0
 var produce_stall_open := false
 var daily_food_order_active := false
 var daily_food_order_day := 0
+var daily_food_order_kind := ""
+var daily_food_deliveries := 0
 var player_mastery: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
@@ -288,6 +293,7 @@ func interact(player_token: String) -> bool:
 		or try_use_waystone(player_token)
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
+		or try_deliver_fresh_moonroot(player_token)
 		or try_deliver_hearth_stew(player_token)
 		or try_take_pantry_provision(player_token)
 		or interact_with_mara(player_token)
@@ -370,13 +376,28 @@ func _begin_daily_food_order() -> void:
 		return
 	daily_food_order_day = world_day
 	daily_food_order_active = true
-	stews_delivered = 0
+	daily_food_order_kind = (
+		DAILY_ORDER_FRESH_MOONROOT if world_day % 2 == 0 else DAILY_ORDER_HEARTH_STEW
+	)
+	daily_food_deliveries = 0
 	for plot_id: String in harvested_garden_plots:
 		harvested_garden_plots[plot_id] = false
 
 
 func has_active_food_order() -> bool:
 	return livelihood_stage == "food_need" or daily_food_order_active
+
+
+func daily_food_order_required() -> int:
+	if daily_food_order_kind == DAILY_ORDER_FRESH_MOONROOT:
+		return DAILY_FRESH_MOONROOT_DELIVERIES
+	return REQUIRED_STEW_DELIVERIES
+
+
+func daily_food_order_label() -> String:
+	if daily_food_order_kind == DAILY_ORDER_FRESH_MOONROOT:
+		return "Fresh moonroot"
+	return "Hearth stew"
 
 
 func world_time_period() -> String:
@@ -625,11 +646,14 @@ func try_harvest_garden(player_token: String) -> bool:
 func try_cook_hearth_stew(player_token: String) -> bool:
 	if not has_active_food_order():
 		return false
+	if daily_food_order_active and daily_food_order_kind != DAILY_ORDER_HEARTH_STEW:
+		return false
 	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
 		return false
 	if int(materials.get("moonroot", 0)) < 2:
 		return false
-	if int(materials.get("hearth_stew", 0)) + stews_delivered >= REQUIRED_STEW_DELIVERIES:
+	var delivered_count := daily_food_deliveries if daily_food_order_active else stews_delivered
+	if int(materials.get("hearth_stew", 0)) + delivered_count >= REQUIRED_STEW_DELIVERIES:
 		return false
 	materials["moonroot"] = int(materials.get("moonroot", 0)) - 2
 	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) + 1
@@ -640,15 +664,21 @@ func try_cook_hearth_stew(player_token: String) -> bool:
 func try_deliver_hearth_stew(player_token: String) -> bool:
 	if not has_active_food_order():
 		return false
+	if daily_food_order_active and daily_food_order_kind != DAILY_ORDER_HEARTH_STEW:
+		return false
 	if register_player(player_token).distance_to(MARKET_CRATE_POSITION) > INTERACTION_RADIUS:
 		return false
 	if int(materials.get("hearth_stew", 0)) < 1:
 		return false
 	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) - 1
-	stews_delivered += 1
 	_add_mastery(player_token, "trade")
-	if stews_delivered >= REQUIRED_STEW_DELIVERIES:
-		if livelihood_stage == "food_need":
+	if daily_food_order_active:
+		daily_food_deliveries += 1
+		if daily_food_deliveries >= REQUIRED_STEW_DELIVERIES:
+			_complete_daily_food_order()
+	else:
+		stews_delivered += 1
+		if stews_delivered >= REQUIRED_STEW_DELIVERIES:
 			livelihood_stage = "complete"
 			produce_stall_open = true
 			festival_stage = "available"
@@ -656,10 +686,27 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 			reputation += 1
 			chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
 			_update_mara_routine()
-		else:
-			daily_food_order_active = false
-			pantry_stock = mini(pantry_stock + 1, PANTRY_MAX_STOCK)
 	return true
+
+
+func try_deliver_fresh_moonroot(player_token: String) -> bool:
+	if not daily_food_order_active or daily_food_order_kind != DAILY_ORDER_FRESH_MOONROOT:
+		return false
+	if register_player(player_token).distance_to(MARKET_CRATE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if int(materials.get("moonroot", 0)) < 1:
+		return false
+	materials["moonroot"] = int(materials.get("moonroot", 0)) - 1
+	daily_food_deliveries += 1
+	_add_mastery(player_token, "trade")
+	if daily_food_deliveries >= DAILY_FRESH_MOONROOT_DELIVERIES:
+		_complete_daily_food_order()
+	return true
+
+
+func _complete_daily_food_order() -> void:
+	daily_food_order_active = false
+	pantry_stock = mini(pantry_stock + 1, PANTRY_MAX_STOCK)
 
 
 func try_festival_interaction(player_token: String) -> bool:
@@ -755,7 +802,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 10,
+		"version": 11,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -785,6 +832,8 @@ func to_dictionary() -> Dictionary:
 		"produce_stall_open": produce_stall_open,
 		"daily_food_order_active": daily_food_order_active,
 		"daily_food_order_day": daily_food_order_day,
+		"daily_food_order_kind": daily_food_order_kind,
+		"daily_food_deliveries": daily_food_deliveries,
 		"player_mastery": player_mastery.duplicate(true),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
@@ -932,12 +981,27 @@ func load_dictionary(data: Dictionary) -> void:
 	else:
 		world_day = 1
 		world_minute = WORLD_START_MINUTE
-	if save_version >= 10:
+	if save_version >= 11:
 		daily_food_order_active = bool(data.get("daily_food_order_active", false))
 		daily_food_order_day = clampi(int(data.get("daily_food_order_day", 0)), 0, world_day)
+		daily_food_order_kind = str(data.get("daily_food_order_kind", ""))
+		if daily_food_order_kind not in [DAILY_ORDER_FRESH_MOONROOT, DAILY_ORDER_HEARTH_STEW]:
+			daily_food_order_kind = DAILY_ORDER_HEARTH_STEW if daily_food_order_active else ""
+		daily_food_deliveries = clampi(
+			int(data.get("daily_food_deliveries", 0)), 0, daily_food_order_required()
+		)
+	elif save_version >= 10:
+		daily_food_order_active = bool(data.get("daily_food_order_active", false))
+		daily_food_order_day = clampi(int(data.get("daily_food_order_day", 0)), 0, world_day)
+		daily_food_order_kind = DAILY_ORDER_HEARTH_STEW if daily_food_order_active else ""
+		daily_food_deliveries = clampi(stews_delivered, 0, REQUIRED_STEW_DELIVERIES) if daily_food_order_active else 0
+		if livelihood_stage == "complete":
+			stews_delivered = REQUIRED_STEW_DELIVERIES
 	else:
 		daily_food_order_active = false
 		daily_food_order_day = 0
+		daily_food_order_kind = ""
+		daily_food_deliveries = 0
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"

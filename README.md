@@ -216,7 +216,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 ## Slice 2 implementation status
 
 - Welcome Lights is a server-authoritative response to the completed cottage repair.
-- Version-10 persistence stores the authoritative neighborhood clock and renewable food-order state. The clock performs bounded safe calendar catch-up and drives Mara's post-event daily routine without overriding required quest appearances.
+- Version-11 persistence stores the authoritative neighborhood clock and renewable market-request state. The clock performs bounded safe calendar catch-up and drives Mara's post-event daily routine without overriding required quest appearances.
 - The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light, while this first weather layer remains atmospheric and never punishes absence or changes movement, combat, or objectives.
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
@@ -241,7 +241,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 - Four persistent garden plots supply moonroot; the cottage cookfire turns pairs into hearth stew; the market crate accepts two deliveries.
 - Farming, Cooking, and Trade mastery belongs to the player who performs each action, while materials and settlement progress remain shared.
 - Completion opens a visible produce stall, improves morale and reputation, and adds a fourth chronicle entry.
-- Beginning with the next in-game day, all four moonroot plots regrow and one repeatable two-stew order opens. Completing it awards normal personal mastery and adds one bounded pantry provision without repeating milestone reputation, morale, or chronicle rewards.
+- Beginning with the next in-game day, all four moonroot plots regrow and the market rotates between a three-root fresh-produce request and a two-stew request. Completing either awards normal personal mastery and adds one bounded pantry provision without repeating milestone reputation, morale, or chronicle rewards.
 - Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.
 - State, migration, presentation, legacy regression, the original two-client probe, and a networked end-to-end livelihood probe pass.
 - Focused Mac inspection of the active need and completed stall passes after correcting garden-label overlap, chronicle height, and the home-waystone placement.
