@@ -111,6 +111,8 @@ var harvested_garden_plots := {
 }
 var stews_delivered := 0
 var produce_stall_open := false
+var daily_food_order_active := false
+var daily_food_order_day := 0
 var player_mastery: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
@@ -278,11 +280,11 @@ func interact(player_token: String) -> bool:
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_festival_interaction(player_token)
-		or try_take_pantry_provision(player_token)
 		or try_use_waystone(player_token)
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
 		or try_deliver_hearth_stew(player_token)
+		or try_take_pantry_provision(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -345,6 +347,7 @@ func simulate_world_clock(delta: float) -> bool:
 func _advance_world_minutes(elapsed_minutes: int) -> void:
 	if elapsed_minutes <= 0:
 		return
+	var previous_day := world_day
 	var total_minutes := (
 		(world_day - 1) * WORLD_MINUTES_PER_DAY
 		+ world_minute
@@ -352,7 +355,23 @@ func _advance_world_minutes(elapsed_minutes: int) -> void:
 	)
 	world_day = floori(float(total_minutes) / float(WORLD_MINUTES_PER_DAY)) + 1
 	world_minute = posmod(total_minutes, WORLD_MINUTES_PER_DAY)
+	if world_day > previous_day and livelihood_stage == "complete" and produce_stall_open:
+		_begin_daily_food_order()
 	_update_mara_routine()
+
+
+func _begin_daily_food_order() -> void:
+	if daily_food_order_day == world_day:
+		return
+	daily_food_order_day = world_day
+	daily_food_order_active = true
+	stews_delivered = 0
+	for plot_id: String in harvested_garden_plots:
+		harvested_garden_plots[plot_id] = false
+
+
+func has_active_food_order() -> bool:
+	return livelihood_stage == "food_need" or daily_food_order_active
 
 
 func world_time_period() -> String:
@@ -571,7 +590,7 @@ func try_use_waystone(player_token: String) -> bool:
 
 
 func try_harvest_garden(player_token: String) -> bool:
-	if livelihood_stage != "food_need":
+	if not has_active_food_order():
 		return false
 	var player_position: Vector3 = register_player(player_token)
 	for plot_id: String in GARDEN_PLOT_POSITIONS:
@@ -586,7 +605,7 @@ func try_harvest_garden(player_token: String) -> bool:
 
 
 func try_cook_hearth_stew(player_token: String) -> bool:
-	if livelihood_stage != "food_need":
+	if not has_active_food_order():
 		return false
 	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
 		return false
@@ -601,7 +620,7 @@ func try_cook_hearth_stew(player_token: String) -> bool:
 
 
 func try_deliver_hearth_stew(player_token: String) -> bool:
-	if livelihood_stage != "food_need":
+	if not has_active_food_order():
 		return false
 	if register_player(player_token).distance_to(MARKET_CRATE_POSITION) > INTERACTION_RADIUS:
 		return false
@@ -611,13 +630,17 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 	stews_delivered += 1
 	_add_mastery(player_token, "trade")
 	if stews_delivered >= REQUIRED_STEW_DELIVERIES:
-		livelihood_stage = "complete"
-		produce_stall_open = true
-		festival_stage = "available"
-		neighborhood_morale += 1
-		reputation += 1
-		chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
-		_update_mara_routine()
+		if livelihood_stage == "food_need":
+			livelihood_stage = "complete"
+			produce_stall_open = true
+			festival_stage = "available"
+			neighborhood_morale += 1
+			reputation += 1
+			chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
+			_update_mara_routine()
+		else:
+			daily_food_order_active = false
+			pantry_stock = mini(pantry_stock + 1, PANTRY_MAX_STOCK)
 	return true
 
 
@@ -714,7 +737,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 9,
+		"version": 10,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -742,6 +765,8 @@ func to_dictionary() -> Dictionary:
 		"harvested_garden_plots": harvested_garden_plots.duplicate(),
 		"stews_delivered": stews_delivered,
 		"produce_stall_open": produce_stall_open,
+		"daily_food_order_active": daily_food_order_active,
+		"daily_food_order_day": daily_food_order_day,
 		"player_mastery": player_mastery.duplicate(true),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
@@ -889,6 +914,12 @@ func load_dictionary(data: Dictionary) -> void:
 	else:
 		world_day = 1
 		world_minute = WORLD_START_MINUTE
+	if save_version >= 10:
+		daily_food_order_active = bool(data.get("daily_food_order_active", false))
+		daily_food_order_day = clampi(int(data.get("daily_food_order_day", 0)), 0, world_day)
+	else:
+		daily_food_order_active = false
+		daily_food_order_day = 0
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"

@@ -45,6 +45,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Current checkpoint: the minimum cumulative Slice 6 promise, **Gather and Celebrate**, is implemented through the in-world Hearthlight Festival, explicit 1–8 player enrollment, a normalized checkpoint circuit, authoritative results, and persistent cosmetic ribbons.
 - Post-slice foundation: the startup flow now offers separate offline, native LAN-hosted, and join-room paths. Offline and LAN saves remain separate, while all modes use the same authoritative world rules. A focused headless test, a native host-plus-guest probe, and exported-Web offline movement pass verify the foundation; broader device validation remains deferred.
 - Persistence hardening: every world mode now writes through a temporary file, retains one previous valid checkpoint, and automatically falls back to that backup when the primary save is missing or unreadable.
+- Slice 4 depth: after the produce stall opens, each new world day regrows the shared moonroot garden and posts one repeatable two-stew order. Contributions retain personal mastery credit, while completion adds one bounded pantry provision without replaying milestone rewards.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
 - Mac and Windows have been used together for the multiplayer quest loop, reconnection, persistence, movement, and camera checks.
@@ -144,6 +145,8 @@ The smallest proof of **Choose a Life** begins after the Old Stone Ruins wayston
 
 This is a deliberately small proof that farming, cooking, trade, individual mastery, and a shared settlement need form one readable loop. Crop timers, planting choices, recipe libraries, direct player trade, coin, bounded market simulation, and production chains remain future Slice 4 depth. The first titles are identity feedback, not the final mastery progression or functional cap.
 
+The first post-slice depth increment makes the livelihood loop renewable without introducing those larger systems: the next in-game day after the stall opens begins one daily two-stew food order and regrows all four plots. Completing it adds one provision to the bounded pantry. Missed days do not stack orders or rewards, and the daily loop does not repeat the stall-opening reputation, morale, or chronicle outcome.
+
 ### Implementation progress
 
 - [x] Server-authoritative garden, cooking, delivery, and settlement-need state
@@ -151,6 +154,7 @@ This is a deliberately small proof that farming, cooking, trade, individual mast
 - [x] Persistent produce stall, morale/reputation result, and chronicle entry
 - [x] Version-6 persistence and version-5 migration
 - [x] In-world stations, objective guidance, interaction prompts, and mastery display
+- [x] Renewable daily garden and settlement-order loop with bounded pantry output
 - [x] Automated state, migration, presentation, and legacy regression coverage
 - [x] Two-client networking regression, including the complete livelihood loop
 - [x] Exported desktop Web functionality and visual check of the cumulative journey

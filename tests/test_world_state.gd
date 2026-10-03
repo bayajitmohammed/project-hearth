@@ -146,6 +146,39 @@ func _init() -> void:
 	assert(restored_livelihood.produce_stall_open)
 	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return value))
 	assert(restored_livelihood.player_mastery["player-a"]["farming"] == 2)
+	var milestone_reputation := restored_livelihood.reputation
+	var milestone_morale := restored_livelihood.neighborhood_morale
+	var milestone_chronicle_size := restored_livelihood.chronicle.size()
+	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
+	assert(restored_livelihood.simulate_world_clock(1.0))
+	assert(restored_livelihood.world_day == 2)
+	assert(restored_livelihood.daily_food_order_active)
+	assert(restored_livelihood.daily_food_order_day == 2)
+	assert(restored_livelihood.stews_delivered == 0)
+	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return not value))
+	for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
+		restored_livelihood.positions["player-a"] = WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]
+		assert(restored_livelihood.try_harvest_garden("player-a"))
+	for cook_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
+		restored_livelihood.positions["player-a"] = WorldStateModel.COOKFIRE_POSITION
+		assert(restored_livelihood.try_cook_hearth_stew("player-a"), "Daily stew %d should cook." % cook_index)
+	restored_livelihood.pantry_stock = 1
+	for delivery_index: int in WorldStateModel.REQUIRED_STEW_DELIVERIES:
+		restored_livelihood.positions["player-a"] = WorldStateModel.MARKET_CRATE_POSITION
+		assert(restored_livelihood.interact("player-a"), "Daily stew %d should deliver." % delivery_index)
+	assert(not restored_livelihood.daily_food_order_active)
+	assert(restored_livelihood.pantry_stock == 2)
+	assert(restored_livelihood.player_provisions["player-a"] == 0, "Daily delivery must take priority over pantry pickup.")
+	assert(restored_livelihood.reputation == milestone_reputation)
+	assert(restored_livelihood.neighborhood_morale == milestone_morale)
+	assert(restored_livelihood.chronicle.size() == milestone_chronicle_size)
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 3, "trade": 3})
+	var persisted_daily_order := WorldStateModel.new()
+	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
+	assert(persisted_daily_order.world_day == 2)
+	assert(persisted_daily_order.daily_food_order_day == 2)
+	assert(not persisted_daily_order.daily_food_order_active)
+	assert(persisted_daily_order.pantry_stock == 2)
 
 	exploration_state.mark_world_empty(1000)
 	assert(exploration_state.apply_offline_catch_up(1300) == WorldStateModel.PANTRY_MAX_STOCK)
@@ -294,6 +327,8 @@ func _init() -> void:
 	assert(migrated_slice_five.festival_ribbons.is_empty())
 	assert(migrated_slice_five.world_day == 1)
 	assert(migrated_slice_five.world_minute == WorldStateModel.WORLD_START_MINUTE)
+	assert(not migrated_slice_five.daily_food_order_active)
+	assert(migrated_slice_five.daily_food_order_day == 0)
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")

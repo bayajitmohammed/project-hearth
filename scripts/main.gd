@@ -493,6 +493,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
 	var route_activated := bool(snapshot.get("ruin_waystone_activated", false))
 	var livelihood_stage := str(snapshot.get("livelihood_stage", "locked"))
+	var food_order_active := livelihood_stage == "food_need" or bool(snapshot.get("daily_food_order_active", false))
 	var harvested_garden: Dictionary = snapshot.get("harvested_garden_plots", {})
 	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
 	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
@@ -504,17 +505,17 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		glow.visible = route_activated
 	for plot_id: String in garden_plants:
 		var harvested := bool(harvested_garden.get(plot_id, false))
-		garden_plants[plot_id].visible = livelihood_stage == "food_need" and not harvested
-		garden_markers[plot_id].visible = livelihood_stage == "food_need" and not harvested
+		garden_plants[plot_id].visible = food_order_active and not harvested
+		garden_markers[plot_id].visible = food_order_active and not harvested
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
 	var stews_delivered := int(snapshot.get("stews_delivered", 0))
 	cookfire_marker.visible = (
-		livelihood_stage == "food_need"
+		food_order_active
 		and moonroot_count >= 2
 		and stew_count + stews_delivered < WorldStateModel.REQUIRED_STEW_DELIVERIES
 	)
-	market_marker.visible = livelihood_stage == "food_need" and stew_count > 0
+	market_marker.visible = food_order_active and stew_count > 0
 	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
 	var festival_stage := str(snapshot.get("festival_stage", "locked"))
 	festival_arch.visible = festival_stage != "locked"
@@ -529,11 +530,21 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	for entry in chronicle:
 		chronicle_lines.append(str(entry))
 	chronicle_label.text = "CHRONICLE (%d)\n• %s" % [chronicle.size(), "\n• ".join(chronicle_lines)] if not chronicle.is_empty() else ""
-	world_change_label.text = "Reputation: %d  Morale: %d  Food need: %d/%d  Chronicle entries: %d" % [
+	var food_status := "Food need %d/%d" % [stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES]
+	if livelihood_stage == "complete":
+		food_status = "Daily order D%d %d/%d" % [
+			int(snapshot.get("daily_food_order_day", 0)),
+			stews_delivered,
+			WorldStateModel.REQUIRED_STEW_DELIVERIES,
+		] if food_order_active else (
+			"Daily order begins next day"
+			if int(snapshot.get("daily_food_order_day", 0)) == 0
+			else "Daily order complete — next day"
+		)
+	world_change_label.text = "Reputation: %d  Morale: %d  %s  Chronicle entries: %d" % [
 		int(snapshot.get("reputation", 0)),
 		int(snapshot.get("neighborhood_morale", 0)),
-		stews_delivered,
-		WorldStateModel.REQUIRED_STEW_DELIVERIES,
+		food_status,
 		chronicle.size(),
 	]
 	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
@@ -777,6 +788,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
 		"stews_delivered": world_state.stews_delivered,
 		"produce_stall_open": world_state.produce_stall_open,
+		"daily_food_order_active": world_state.daily_food_order_active,
+		"daily_food_order_day": world_state.daily_food_order_day,
 		"player_mastery": world_state.player_mastery.duplicate(true),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
@@ -1688,6 +1701,7 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var livelihood_stage := str(latest_snapshot.get("livelihood_stage", "locked"))
+	var food_order_active := livelihood_stage == "food_need" or bool(latest_snapshot.get("daily_food_order_active", false))
 	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
 	var festival_participants: Dictionary = latest_snapshot.get("festival_participants", {})
 	if festival_stage in ["available", "results"] and player_position.distance_to(WorldStateModel.FESTIVAL_ARCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
@@ -1721,15 +1735,7 @@ func _update_interaction_prompt(
 			interaction_prompt.text = "%s  ·  Recover %s trail pack" % [action_name, owner_label]
 			interaction_prompt.visible = true
 			return
-	if (
-		livelihood_stage == "complete"
-		and int(latest_snapshot.get("pantry_stock", 0)) > 0
-		and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
-	):
-		interaction_prompt.text = "%s  ·  Take a trail provision" % action_name
-		interaction_prompt.visible = true
-		return
-	if livelihood_stage == "food_need":
+	if food_order_active:
 		var harvested_garden: Dictionary = latest_snapshot.get("harvested_garden_plots", {})
 		for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
 			if bool(harvested_garden.get(plot_id, false)):
@@ -1753,6 +1759,14 @@ func _update_interaction_prompt(
 			interaction_prompt.text = "%s  ·  Deliver hearth stew" % action_name
 			interaction_prompt.visible = true
 			return
+	if (
+		livelihood_stage == "complete"
+		and int(latest_snapshot.get("pantry_stock", 0)) > 0
+		and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Take a trail provision" % action_name
+		interaction_prompt.visible = true
+		return
 	if quest_stage == "repair_cottage" and has_repair_kit:
 		for part_id: String in WorldStateModel.REPAIR_POSITIONS:
 			if bool(repairs.get(part_id, false)):

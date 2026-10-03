@@ -12,6 +12,12 @@ Gathering, farming, fishing, and exploration provide materials. Cooking and craf
 
 Each step should make a visible difference; the game avoids long processing chains and inventory micromanagement.
 
+## Renewable neighborhood food orders
+
+Opening the produce stall remains a one-time shared milestone. Beginning with the next in-game day, the authoritative world posts one repeatable neighborhood food order and regrows the four shared moonroot plots. The order reuses the readable garden → cookfire → market loop and asks for two hearth stews.
+
+Farming, Cooking, and Trade mastery still belongs to the player who performs each step. Completing the daily order adds one provision to the bounded shared pantry, but does not repeatedly grant reputation, morale, or chronicle entries. If several days pass while the room is empty, only the current day's order is available; unattended time never completes orders or multiplies rewards. Festival activities remain available alongside the order rather than being replaced by it.
+
 ## Loot, trade, and currency
 
 Loot favors recipes, unusual materials, tools with trade-offs, keepsakes, and cosmetics over constant numeric upgrades. Players can trade directly and contribute to shared storage.
