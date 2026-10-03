@@ -47,6 +47,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Persistence hardening: every world mode now writes through a temporary file, retains one previous valid checkpoint, and automatically falls back to that backup when the primary save is missing or unreadable.
 - Slice 4 depth: after the produce stall opens, each new world day regrows the shared moonroot garden and rotates one fresh-produce or cooked-stew market request. Contributions retain personal mastery credit, while completion adds one bounded pantry provision without replaying milestone rewards.
 - Mastery depth: tier-II Farming, Cooking, and Trade techniques batch only eligible nearby/prepared work, preserve per-unit credit, and leave every base action available to newcomers.
+- Home recovery depth: the repaired cottage is a personal safe recovery point. Standing injured players may rest to recover fully without advancing time or affecting companions; downed and field recovery rules remain distinct.
 - Living-world atmosphere: the authoritative day selects one deterministic safe forecast shared by every mode, while clients render the clock as readable day/night ambience. Weather has no punitive gameplay effect in this first layer.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
@@ -67,6 +68,7 @@ The smallest proof of **Our Shared World** begins after the neighborhood produce
 3. When the room becomes empty, the world records that it went to sleep. On the first return, elapsed real time produces at most three pantry provisions at the completed produce stall. This catch-up is deliberately bounded and can never damage or decay the world.
 4. A player can take one personal trail provision from the pantry. These provisions are gathered expedition materials, not gear or permanent progression.
    A standing injured player may consume one provision to restore one health; it cannot self-revive or exceed maximum health.
+   At the repaired cottage, a standing injured player may instead rest to recover fully without consuming a provision, advancing time, or interrupting companions.
 5. Returning to safety while downed leaves carried trail provisions in one persistent recovery pack at the defeat location. The owner or a friend can recover the pack for its owner, and the pack survives disconnects and server restarts.
 6. The existing headless authoritative room remains the server proof. Linux deployment packaging, multi-room process management, and hosting infrastructure are deferred while browser, Windows desktop, and Android client quality take priority.
 
@@ -78,6 +80,7 @@ The prototype uses a short catch-up interval so the behavior can be tested durin
 - [x] Persistent bounded pantry catch-up after an empty-room sleep
 - [x] Personal trail provisions and persistent friend-recoverable packs
 - [x] Server-authoritative provision use on keyboard, controller, and touch
+- [x] Personal full-health recovery at the repaired cottage
 - [x] Version-7 persistence and version-6 migration
 - [x] Automated state, migration, presentation, two-client regression, and eight-client capacity coverage
 - [x] Focused exported desktop Web functionality and visual check in Chromium

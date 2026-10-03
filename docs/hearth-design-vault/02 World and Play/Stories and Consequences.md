@@ -18,6 +18,8 @@ A defeated player becomes downed and can be rescued. If the group fails, players
 
 Personal trail provisions are the first recoverable expedition supply. A standing injured player may consume one to restore one health, never above maximum health. A provision cannot self-revive a downed player; the player still needs a friend or must return to safety, leaving any remaining provisions in the persistent recovery pack. This creates a useful reason to prepare without turning defeat into permanent loss.
 
+Once repaired, the cottage is the first safe recovery point. A standing injured player can rest there to return to full health. Rest does not advance the world clock, consume shared resources, or pause companions, so it works the same in solo and drop-in cooperative play. A downed player cannot rest and must still be revived or return to safety.
+
 Failure may change a local situation or close one approach, but it creates a recovery opportunity instead of deleting hours of work.
 
 ## While players are offline

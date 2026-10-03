@@ -9,6 +9,7 @@ static func build(root: Node3D) -> Dictionary:
 	_add_ground(root)
 	_add_road(root)
 	_add_cottage(root)
+	var cottage_rest_marker := _add_cottage_rest_point(root)
 	_add_forest_edge(root)
 	_add_northern_region(root)
 	_add_old_stone_ruins(root)
@@ -53,6 +54,7 @@ static func build(root: Node3D) -> Dictionary:
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
+		"cottage_rest_marker": cottage_rest_marker,
 		"welcome_lantern_markers": welcome_lanterns["markers"],
 		"welcome_lantern_lights": welcome_lanterns["lights"],
 		"creature": creature,
@@ -71,6 +73,25 @@ static func build(root: Node3D) -> Dictionary:
 		"festival_decorations": festival["decorations"],
 		"festival_checkpoints": festival["checkpoints"],
 	}
+
+
+static func _add_cottage_rest_point(root: Node3D) -> Node3D:
+	var rest_position := WorldStateModel.COTTAGE_REST_POSITION
+	_add_box(
+		root,
+		"CottageBedFrame",
+		Vector3(2.3, 0.45, 1.15),
+		rest_position + Vector3(0.0, -0.33, 0.0),
+		Color("76513d")
+	)
+	_add_box(
+		root,
+		"CottageBedroll",
+		Vector3(2.0, 0.32, 0.95),
+		rest_position + Vector3(0.0, -0.03, 0.0),
+		Color("7ca69a")
+	)
+	return _add_station_marker(root, "CottageRestMarker", rest_position, "REST AT HOME", Color("8ce0c5"))
 
 
 static func _add_environment(root: Node3D) -> Dictionary:

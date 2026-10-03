@@ -2,6 +2,7 @@ class_name WorldState
 extends RefCounted
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
+const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
@@ -292,6 +293,7 @@ func interact(player_token: String) -> bool:
 		try_revive_player(player_token)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_rest_at_cottage(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
 		or try_harvest_garden(player_token)
@@ -304,6 +306,19 @@ func interact(player_token: String) -> bool:
 		or try_repair_cottage(player_token)
 		or try_light_welcome_lantern(player_token)
 	)
+
+
+func try_rest_at_cottage(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(COTTAGE_REST_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
+		return false
+	player_health[player_token] = PLAYER_MAX_HEALTH
+	return true
 
 
 func attack_creature(player_token: String) -> bool:

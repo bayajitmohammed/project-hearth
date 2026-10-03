@@ -413,6 +413,28 @@ func _init() -> void:
 	assert(combat_state.creature_defeated)
 	assert(not combat_state.attack_creature("fighter"))
 
+	var rest_state := WorldStateModel.new()
+	rest_state.quest_stage = "home_repaired"
+	rest_state.register_player("resting-player")
+	rest_state.register_player("companion")
+	rest_state.positions["resting-player"] = WorldStateModel.COTTAGE_REST_POSITION
+	rest_state.player_health["resting-player"] = 1
+	rest_state.player_health["companion"] = 2
+	rest_state.player_provisions["resting-player"] = 1
+	var minute_before_rest := rest_state.world_minute
+	assert(rest_state.try_rest_at_cottage("resting-player"))
+	assert(rest_state.player_health["resting-player"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(rest_state.player_health["companion"] == 2, "Rest must not alter a companion's health.")
+	assert(rest_state.player_provisions["resting-player"] == 1, "Home rest must not consume a field provision.")
+	assert(rest_state.world_minute == minute_before_rest, "Personal rest must not advance the shared clock.")
+	assert(not rest_state.try_rest_at_cottage("resting-player"), "Full-health players should not trigger rest.")
+	rest_state.player_health["resting-player"] = 1
+	rest_state.downed_players["resting-player"] = true
+	assert(not rest_state.try_rest_at_cottage("resting-player"), "Downed players must use the existing recovery flow.")
+	rest_state.downed_players["resting-player"] = false
+	rest_state.positions["resting-player"] = WorldStateModel.SPAWN_POINT
+	assert(not rest_state.try_rest_at_cottage("resting-player"), "Rest must require reaching the repaired cottage.")
+
 	var revive_state := WorldStateModel.new()
 	revive_state.register_player("victim")
 	revive_state.register_player("helper")

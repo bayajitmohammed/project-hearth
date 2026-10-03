@@ -90,6 +90,7 @@ var mara_node: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
+var cottage_rest_marker: Node3D
 var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
 var creature_node: MeshInstance3D
@@ -460,6 +461,13 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		var is_repaired := bool(repairs.get(part_id, false))
 		repair_nodes[part_id].visible = quest_stage == "repair_cottage" and has_repair_kit and not is_repaired
 		repair_result_nodes[part_id].visible = is_repaired
+	var local_health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
+	var local_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
+	cottage_rest_marker.visible = (
+		quest_stage == "home_repaired"
+		and not local_downed
+		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
+	)
 	var lit_lanterns: Dictionary = snapshot.get("lit_welcome_lanterns", {})
 	for lantern_id: String in welcome_lantern_markers:
 		var is_lit := bool(lit_lanterns.get(lantern_id, false))
@@ -986,6 +994,7 @@ func _build_world() -> void:
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
+	cottage_rest_marker = world_nodes["cottage_rest_marker"]
 	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
 	creature_node = world_nodes["creature"]
@@ -1375,6 +1384,7 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		_append_mobile_target(candidates, collectible_mesh, "Pick up", "collect", WorldStateModel.PICKUP_RADIUS)
 	for repair_node: Node3D in repair_nodes.values():
 		_append_mobile_target(candidates, repair_node, "Repair", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1769,6 +1779,15 @@ func _update_interaction_prompt(
 	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
 	if is_downed:
 		interaction_prompt.text = "%s  ·  Return to the cottage" % action_name
+		interaction_prompt.visible = true
+		return
+	var local_health := int(latest_snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
+	if (
+		quest_stage == "home_repaired"
+		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
+		and player_position.distance_to(WorldStateModel.COTTAGE_REST_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Rest and recover" % action_name
 		interaction_prompt.visible = true
 		return
 	var guardian_defeated := bool(latest_snapshot.get("ruin_guardian_defeated", false))
