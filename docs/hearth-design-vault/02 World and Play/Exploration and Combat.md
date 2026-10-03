@@ -19,3 +19,5 @@ Combat is accessible 3D action in either the default first-person view or the cl
 Enemies reward observation, positioning, cooperation, and using the environment. Combat is important in dangerous areas but is only one route to reputation and progress; many sessions contain none.
 
 The first combat-pacing rule is a short authoritative recovery after each successful basic attack. Recovery belongs to the attacking player, so companions can act independently; an input during recovery deals no damage. Missing or attacking out of range does not consume recovery. This transient timing resets with the runtime and is not equipment, mastery, or permanent power.
+
+The first defensive action is **Brace**. A standing player braces briefly; the next forest-creature or ruin-guardian hit during that window is blocked and consumes the brace. Activating it begins a short personal cooldown whether or not a hit arrives, so defense rewards timing instead of repeated input. Brace is available to every newcomer, is independent for each companion, and is cleared on reconnect or runtime restart rather than becoming persistent power.

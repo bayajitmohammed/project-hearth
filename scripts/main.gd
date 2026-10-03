@@ -159,6 +159,8 @@ func _physics_process(delta: float) -> void:
 		_request_craft()
 	if Input.is_action_just_pressed("attack"):
 		_request_attack()
+	if Input.is_action_just_pressed("brace"):
+		_request_brace()
 	if Input.is_action_just_pressed("use_provision"):
 		_request_use_provision()
 	if Input.is_action_just_pressed("toggle_debug"):
@@ -177,6 +179,8 @@ func _update_local_authority_input() -> void:
 		_try_craft_repair_kit()
 	if Input.is_action_just_pressed("attack"):
 		_try_attack(local_token)
+	if Input.is_action_just_pressed("brace"):
+		_try_brace(local_token)
 	if Input.is_action_just_pressed("use_provision"):
 		_try_use_trail_provision(local_token)
 	if Input.is_action_just_pressed("toggle_debug"):
@@ -326,6 +330,7 @@ func register_player(player_token: String, requested_room_code: String) -> void:
 	peer_to_token[sender_id] = player_token
 	peer_inputs[sender_id] = Vector2.ZERO
 	world_state.register_player(player_token)
+	world_state.reset_player_combat_timers(player_token)
 	_save_world()
 	_publish_snapshot()
 
@@ -380,6 +385,16 @@ func request_attack() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
+func request_brace() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	_try_brace(peer_to_token[sender_id])
+
+
+@rpc("any_peer", "call_remote", "reliable")
 func request_use_trail_provision() -> void:
 	if not is_server:
 		return
@@ -410,6 +425,11 @@ func _try_craft_repair_kit() -> void:
 func _try_attack(player_token: String) -> void:
 	if world_state.attack_creature(player_token):
 		_save_world()
+		_publish_snapshot()
+
+
+func _try_brace(player_token: String) -> void:
+	if world_state.try_brace(player_token):
 		_publish_snapshot()
 
 
@@ -820,6 +840,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_health": world_state.player_health.duplicate(),
 		"downed_players": world_state.downed_players.duplicate(),
 		"player_attack_recovery": world_state.player_attack_recovery.duplicate(),
+		"player_brace_time": world_state.player_brace_time.duplicate(),
+		"player_brace_cooldown": world_state.player_brace_cooldown.duplicate(),
 		"creature_position": world_state.creature_position,
 		"creature_health": world_state.creature_health,
 		"creature_defeated": world_state.creature_defeated,
@@ -1192,7 +1214,7 @@ func _build_interface() -> void:
 	mastery_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(mastery_label)
 	var controls_hint := Label.new()
-	controls_hint.text = "F3 closes debug · V changes view · E use · Space attack · C craft · mouse look · Esc cursor"
+	controls_hint.text = "F3 closes debug · V view · E use · Space attack · F brace · C craft · mouse look · Esc cursor"
 	controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(controls_hint)
 
@@ -1346,8 +1368,14 @@ func _update_mobile_targeting() -> void:
 		"font_color", Color(1.0, 0.72, 0.48, 0.92) if is_attack else Color(0.65, 1.0, 0.9, 0.92)
 	)
 	if is_attack:
-		mobile_context_button.visible = false
-		return
+		if not _local_can_brace():
+			mobile_context_button.visible = false
+			return
+		mobile_context_target = {
+			"kind": "brace",
+			"label": "Brace",
+			"screen_position": mobile_context_target.get("screen_position", center),
+		}
 	mobile_context_button.text = str(mobile_context_target.get("label", "Use"))
 	mobile_context_button.visible = true
 	var viewport_size := get_viewport().get_visible_rect().size
@@ -1468,6 +1496,8 @@ func _activate_mobile_context_target() -> void:
 	if mobile_context_target.is_empty():
 		return
 	match str(mobile_context_target.get("kind", "")):
+		"brace":
+			_request_brace()
 		"collect":
 			_request_collect()
 		"provision":
@@ -1504,6 +1534,13 @@ func _request_attack() -> void:
 		request_attack.rpc_id(1)
 
 
+func _request_brace() -> void:
+	if local_authority_player:
+		_try_brace(local_token)
+	elif client_connected:
+		request_brace.rpc_id(1)
+
+
 func _request_use_provision() -> void:
 	if local_authority_player:
 		_try_use_trail_provision(local_token)
@@ -1518,11 +1555,21 @@ func _local_can_use_trail_provision() -> bool:
 	return not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and provisions > 0
 
 
+func _local_can_brace() -> bool:
+	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
+	var brace_time := float(latest_snapshot.get("player_brace_time", {}).get(local_token, 0.0))
+	var brace_cooldown := float(latest_snapshot.get("player_brace_cooldown", {}).get(local_token, 0.0))
+	return not is_downed and brace_time <= 0.0 and brace_cooldown <= 0.0
+
+
 func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
 	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
 	var attack_recovery := float(snapshot.get("player_attack_recovery", {}).get(local_token, 0.0))
 	var attack_text := "ready" if attack_recovery <= 0.0 else "recovering"
+	var brace_time := float(snapshot.get("player_brace_time", {}).get(local_token, 0.0))
+	var brace_cooldown := float(snapshot.get("player_brace_cooldown", {}).get(local_token, 0.0))
+	var brace_text := "braced" if brace_time > 0.0 else ("recovering" if brace_cooldown > 0.0 else "ready")
 	var creature_text := "defeated" if creature_defeated else "%d/%d" % [int(snapshot.get("creature_health", 0)), WorldStateModel.CREATURE_MAX_HEALTH]
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
 	var guardian_text := "defeated" if guardian_defeated else "%d/%d" % [
@@ -1532,12 +1579,13 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var provision_hint := ""
 	if not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and int(snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
 		provision_hint = " — Q / controller B uses a trail provision"
-	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Forest creature: %s  Ruin guardian: %s" % [
+	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
 		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
 		provision_hint,
 		attack_text,
+		brace_text,
 		creature_text,
 		guardian_text,
 	]

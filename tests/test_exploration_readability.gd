@@ -33,8 +33,17 @@ func _init() -> void:
 	assert("Old Stone Ruins — charted" in main.map_label.text)
 	assert("Attack: recovering" in main.combat_label.text)
 	snapshot["player_attack_recovery"]["explorer"] = 0.0
+	snapshot["player_brace_time"]["explorer"] = 0.2
 	main.receive_snapshot(snapshot)
 	assert("Attack: ready" in main.combat_label.text)
+	assert("Brace: braced" in main.combat_label.text)
+	snapshot["player_brace_time"]["explorer"] = 0.0
+	snapshot["player_brace_cooldown"]["explorer"] = 0.8
+	main.receive_snapshot(snapshot)
+	assert("Brace: recovering" in main.combat_label.text)
+	snapshot["player_brace_cooldown"]["explorer"] = 0.0
+	main.receive_snapshot(snapshot)
+	assert("Brace: ready" in main.combat_label.text)
 
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_WAYSTONE_POSITION}
 	snapshot["exploration_stage"] = "restore_waystone"
@@ -69,6 +78,8 @@ func _snapshot() -> Dictionary:
 		"player_health": {"explorer": WorldStateModel.PLAYER_MAX_HEALTH},
 		"downed_players": {"explorer": false},
 		"player_attack_recovery": {"explorer": 0.0},
+		"player_brace_time": {"explorer": 0.0},
+		"player_brace_cooldown": {"explorer": 0.0},
 		"creature_position": WorldStateModel.CREATURE_SPAWN,
 		"creature_health": 0,
 		"creature_defeated": true,

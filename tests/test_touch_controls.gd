@@ -51,8 +51,15 @@ func _init() -> void:
 		"player_health": {"touch-player": 2},
 		"downed_players": {"touch-player": false},
 		"player_provisions": {"touch-player": 1},
+		"player_brace_time": {"touch-player": 0.0},
+		"player_brace_cooldown": {"touch-player": 0.0},
 	}
 	assert(main._local_can_use_trail_provision(), "An injured touch player must qualify for the contextual provision action.")
+	assert(main._local_can_brace(), "A standing touch player must qualify for the contextual brace action.")
+	assert(InputMap.has_action("brace"), "Desktop, controller, and Web builds need one shared brace action.")
+	var main_source := FileAccess.get_file_as_string("res://scripts/main.gd")
+	assert(main_source.contains("request_brace"), "Remote clients need a server-authoritative brace request.")
+	assert(main_source.contains("\"kind\": \"brace\""), "Touch combat targeting needs a contextual brace action.")
 
 	print("PASS: Split-screen Minecraft-style Android touch controls")
 	quit()

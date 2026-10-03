@@ -78,6 +78,8 @@ const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3
 const PLAYER_ATTACK_RECOVERY_SECONDS := 0.45
+const PLAYER_BRACE_WINDOW_SECONDS := 0.7
+const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
 const WORLD_MINUTES_PER_DAY := 1440
 const WORLD_MINUTES_PER_REAL_SECOND := 1.0
 const WORLD_START_MINUTE := 13 * 60
@@ -98,6 +100,8 @@ var repaired_parts := {"door": false, "wall": false, "garden": false}
 var player_health: Dictionary = {}
 var downed_players: Dictionary = {}
 var player_attack_recovery: Dictionary = {}
+var player_brace_time: Dictionary = {}
+var player_brace_cooldown: Dictionary = {}
 var creature_position := CREATURE_SPAWN
 var creature_health := CREATURE_MAX_HEALTH
 var creature_defeated := false
@@ -156,6 +160,10 @@ func register_player(player_token: String) -> Vector3:
 		downed_players[player_token] = false
 	if not player_attack_recovery.has(player_token):
 		player_attack_recovery[player_token] = 0.0
+	if not player_brace_time.has(player_token):
+		player_brace_time[player_token] = 0.0
+	if not player_brace_cooldown.has(player_token):
+		player_brace_cooldown[player_token] = 0.0
 	if not player_mastery.has(player_token):
 		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0}
 	if not player_provisions.has(player_token):
@@ -355,19 +363,47 @@ func attack_creature(player_token: String) -> bool:
 	return true
 
 
+func try_brace(player_token: String) -> bool:
+	register_player(player_token)
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if float(player_brace_time.get(player_token, 0.0)) > 0.0:
+		return false
+	if float(player_brace_cooldown.get(player_token, 0.0)) > 0.0:
+		return false
+	player_brace_time[player_token] = PLAYER_BRACE_WINDOW_SECONDS
+	player_brace_cooldown[player_token] = PLAYER_BRACE_COOLDOWN_SECONDS
+	return true
+
+
+func reset_player_combat_timers(player_token: String) -> void:
+	register_player(player_token)
+	player_attack_recovery[player_token] = 0.0
+	player_brace_time[player_token] = 0.0
+	player_brace_cooldown[player_token] = 0.0
+
+
 func simulate_creature(delta: float, active_tokens: Array) -> bool:
-	_update_player_attack_recovery(delta, active_tokens)
+	_update_player_combat_timers(delta, active_tokens)
 	var changed := _simulate_forest_creature(delta, active_tokens)
 	if _simulate_ruin_guardian(delta, active_tokens):
 		changed = true
 	return changed
 
 
-func _update_player_attack_recovery(delta: float, active_tokens: Array) -> void:
+func _update_player_combat_timers(delta: float, active_tokens: Array) -> void:
 	for player_token: String in active_tokens:
 		register_player(player_token)
 		player_attack_recovery[player_token] = maxf(
 			float(player_attack_recovery.get(player_token, 0.0)) - delta,
+			0.0
+		)
+		player_brace_time[player_token] = maxf(
+			float(player_brace_time.get(player_token, 0.0)) - delta,
+			0.0
+		)
+		player_brace_cooldown[player_token] = maxf(
+			float(player_brace_cooldown.get(player_token, 0.0)) - delta,
 			0.0
 		)
 
@@ -536,9 +572,7 @@ func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 	if creature_attack_cooldown > 0.0:
 		return false
 	creature_attack_cooldown = 1.0
-	player_health[target_token] = maxi(int(player_health[target_token]) - 1, 0)
-	if int(player_health[target_token]) == 0:
-		downed_players[target_token] = true
+	_apply_enemy_hit(target_token)
 	return true
 
 
@@ -567,10 +601,18 @@ func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 	if ruin_guardian_attack_cooldown > 0.0:
 		return false
 	ruin_guardian_attack_cooldown = 1.1
-	player_health[target_token] = maxi(int(player_health[target_token]) - 1, 0)
-	if int(player_health[target_token]) == 0:
-		downed_players[target_token] = true
+	_apply_enemy_hit(target_token)
 	return true
+
+
+func _apply_enemy_hit(player_token: String) -> void:
+	if float(player_brace_time.get(player_token, 0.0)) > 0.0:
+		player_brace_time[player_token] = 0.0
+		return
+	player_health[player_token] = maxi(int(player_health[player_token]) - 1, 0)
+	if int(player_health[player_token]) == 0:
+		downed_players[player_token] = true
+		player_brace_time[player_token] = 0.0
 
 
 func try_revive_player(helper_token: String) -> bool:

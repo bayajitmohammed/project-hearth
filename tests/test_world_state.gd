@@ -452,6 +452,43 @@ func _init() -> void:
 	assert(cooperative_combat.attack_creature("fighter-b"), "One player's recovery must not delay a companion.")
 	assert(cooperative_combat.creature_health == WorldStateModel.CREATURE_MAX_HEALTH - 2)
 
+	var brace_state := WorldStateModel.new()
+	brace_state.register_player("defender")
+	brace_state.register_player("companion")
+	brace_state.positions["defender"] = WorldStateModel.CREATURE_SPAWN
+	assert(brace_state.try_brace("defender"))
+	assert(brace_state.player_brace_time["defender"] == WorldStateModel.PLAYER_BRACE_WINDOW_SECONDS)
+	assert(brace_state.player_brace_cooldown["defender"] == WorldStateModel.PLAYER_BRACE_COOLDOWN_SECONDS)
+	assert(not brace_state.try_brace("defender"), "An active brace cannot be restarted.")
+	assert(brace_state.try_brace("companion"), "One player's brace must not delay a companion.")
+	brace_state.creature_attack_cooldown = 0.0
+	assert(brace_state.simulate_creature(0.1, ["defender"]))
+	assert(brace_state.player_health["defender"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(is_zero_approx(brace_state.player_brace_time["defender"]), "A blocked hit must consume the brace.")
+	assert(brace_state.player_brace_cooldown["defender"] > 0.0)
+	assert(not brace_state.try_brace("defender"), "Brace cooldown must reject repeated defense.")
+	brace_state.positions["defender"] = WorldStateModel.SPAWN_POINT
+	brace_state.simulate_creature(WorldStateModel.PLAYER_BRACE_COOLDOWN_SECONDS, ["defender"])
+	assert(is_zero_approx(brace_state.player_brace_cooldown["defender"]))
+	assert(brace_state.try_brace("defender"))
+	brace_state.player_attack_recovery["defender"] = WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS
+	brace_state.reset_player_combat_timers("defender")
+	assert(is_zero_approx(brace_state.player_attack_recovery["defender"]))
+	assert(is_zero_approx(brace_state.player_brace_time["defender"]))
+	assert(is_zero_approx(brace_state.player_brace_cooldown["defender"]))
+	var downed_bracer := WorldStateModel.new()
+	downed_bracer.register_player("downed")
+	downed_bracer.downed_players["downed"] = true
+	assert(not downed_bracer.try_brace("downed"), "Downed players cannot brace.")
+	assert(not brace_state.to_dictionary().has("player_brace_time"), "Brace timing must remain transient across saves.")
+	var guardian_brace := WorldStateModel.new()
+	guardian_brace.exploration_stage = "defeat_guardian"
+	guardian_brace.register_player("ruins-defender")
+	guardian_brace.positions["ruins-defender"] = WorldStateModel.RUIN_GUARDIAN_SPAWN
+	assert(guardian_brace.try_brace("ruins-defender"))
+	assert(guardian_brace.simulate_creature(0.1, ["ruins-defender"]))
+	assert(guardian_brace.player_health["ruins-defender"] == WorldStateModel.PLAYER_MAX_HEALTH)
+
 	var rest_state := WorldStateModel.new()
 	rest_state.quest_stage = "home_repaired"
 	rest_state.register_player("resting-player")
