@@ -169,12 +169,13 @@ func register_player(player_token: String) -> Vector3:
 			"farming": 0,
 			"cooking": 0,
 			"trade": 0,
+			"building": 0,
 			"combat": 0,
 			"exploration": 0,
 		}
 	else:
 		var mastery: Dictionary = player_mastery[player_token]
-		for track: String in ["farming", "cooking", "trade", "combat", "exploration"]:
+		for track: String in ["farming", "cooking", "trade", "building", "combat", "exploration"]:
 			if not mastery.has(track):
 				mastery[track] = 0
 		player_mastery[player_token] = mastery
@@ -283,6 +284,7 @@ func try_repair_cottage(player_token: String) -> bool:
 			continue
 		if player_position.distance_to(REPAIR_POSITIONS[part_id]) <= INTERACTION_RADIUS:
 			repaired_parts[part_id] = true
+			_add_mastery(player_token, "building")
 			if _all_repairs_complete():
 				materials["repair_kit"] = 0
 				quest_stage = "home_repaired"

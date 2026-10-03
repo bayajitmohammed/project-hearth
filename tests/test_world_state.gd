@@ -36,6 +36,8 @@ func _init() -> void:
 	for part_id: String in WorldStateModel.REPAIR_POSITIONS:
 		state.positions["player-a"] = WorldStateModel.REPAIR_POSITIONS[part_id]
 		assert(state.try_repair_cottage("player-a"))
+	assert(state.player_mastery["player-a"]["building"] == 3)
+	assert(not state.try_repair_cottage("player-a"), "Completed repairs must not duplicate Building mastery.")
 	assert(state.quest_stage == "home_repaired")
 	assert(state.materials["repair_kit"] == 0)
 	assert(state.reputation == 1)
@@ -149,8 +151,8 @@ func _init() -> void:
 	assert(exploration_state.neighborhood_morale == 2)
 	assert(exploration_state.reputation == 4)
 	assert(exploration_state.chronicle.size() == 4)
-	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 5, "exploration": 2})
-	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 0, "exploration": 0})
+	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1, "building": 3, "combat": 5, "exploration": 2})
+	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1, "building": 0, "combat": 0, "exploration": 0})
 	var restored_livelihood := WorldStateModel.new()
 	restored_livelihood.load_dictionary(exploration_state.to_dictionary())
 	assert(restored_livelihood.livelihood_stage == "complete")
@@ -185,7 +187,7 @@ func _init() -> void:
 	assert(restored_livelihood.reputation == milestone_reputation)
 	assert(restored_livelihood.neighborhood_morale == milestone_morale)
 	assert(restored_livelihood.chronicle.size() == milestone_chronicle_size)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "combat": 5, "exploration": 2})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "building": 3, "combat": 5, "exploration": 2})
 	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
@@ -207,7 +209,7 @@ func _init() -> void:
 	assert(restored_livelihood.interact("player-a"), "Trade II should bulk-deliver both daily stews.")
 	assert(not restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "combat": 5, "exploration": 2})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "building": 3, "combat": 5, "exploration": 2})
 	var persisted_daily_order := WorldStateModel.new()
 	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
 	assert(persisted_daily_order.world_day == 4)
@@ -231,6 +233,7 @@ func _init() -> void:
 	})
 	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]
 	assert(technique_state.try_harvest_garden("specialist"))
+	assert(technique_state.player_mastery["specialist"]["building"] == 0, "Returning players from older saves gain the additive Building track at zero.")
 	assert(technique_state.player_mastery["specialist"]["combat"] == 0, "Returning players from older saves gain the additive Combat track at zero.")
 	assert(technique_state.player_mastery["specialist"]["exploration"] == 0, "Returning players from older saves gain the additive Exploration track at zero.")
 	assert(technique_state.harvested_garden_plots["moonroot_1"])
@@ -455,6 +458,21 @@ func _init() -> void:
 	assert(migrated_daily_order.daily_food_deliveries == 1)
 	assert(migrated_daily_order.daily_food_order_reason() == "Existing request continues safely")
 	assert(migrated_daily_order.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
+
+	var building_state := WorldStateModel.new()
+	building_state.quest_stage = "repair_cottage"
+	building_state.materials["repair_kit"] = 1
+	for builder_token: String in ["builder-a", "builder-b"]:
+		building_state.register_player(builder_token)
+	assert(not building_state.try_repair_cottage("builder-a"))
+	assert(building_state.player_mastery["builder-a"]["building"] == 0, "Out-of-range repair input must not grant mastery.")
+	building_state.positions["builder-a"] = WorldStateModel.REPAIR_POSITIONS["door"]
+	building_state.positions["builder-b"] = WorldStateModel.REPAIR_POSITIONS["wall"]
+	assert(building_state.try_repair_cottage("builder-a"))
+	assert(building_state.try_repair_cottage("builder-b"))
+	assert(building_state.player_mastery["builder-a"]["building"] == 1)
+	assert(building_state.player_mastery["builder-b"]["building"] == 1)
+	assert(not building_state.try_repair_cottage("builder-a"), "An already repaired part must not grant duplicate mastery.")
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")

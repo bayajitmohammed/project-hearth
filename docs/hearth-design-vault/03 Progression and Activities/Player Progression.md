@@ -56,3 +56,9 @@ This first layer records participation and gives the combat path a visible ident
 The player who first reveals Northwood or the Old Stone Ruins for the shared map gains one personal **Exploration mastery** point for that discovery. The first point displays the identity title **Pathfinder I**. If one authoritative movement update crosses both reveal conditions, both genuinely new places grant their normal credit.
 
 The map discovery itself remains shared immediately with the room. This identity layer does not change movement speed, waystone access, combat, reveal distance, or any route available to a newcomer. Future repeatable exploration work can provide more opportunities for personal credit without taking shared discoveries away from the group.
+
+## First building mastery identity
+
+Each cottage part successfully placed during the shared repair grants one personal **Building mastery** point to the player who performs that placement. The first point displays the identity title **Builder I**. An already repaired part, an out-of-range attempt, or an interaction outside the repair stage grants nothing.
+
+Building mastery does not reduce shared material costs, accelerate placement, strengthen the cottage, or gate any repair action. The repaired home and its rewards remain shared with the room; the personal track only remembers who practiced the craft. Broader free building and higher techniques require their own later design decision.
