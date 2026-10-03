@@ -1437,9 +1437,15 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for pack_node: Node3D in recovery_pack_nodes.values():
 		_append_mobile_target(candidates, pack_node, "Recover", "interact", WorldStateModel.INTERACTION_RADIUS)
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	var player_health: Dictionary = latest_snapshot.get("player_health", {})
+	var can_offer_field_aid := int(latest_snapshot.get("player_provisions", {}).get(local_token, 0)) > 0
 	for player_token: String in player_nodes:
-		if player_token != local_token and bool(downed_players.get(player_token, false)):
+		if player_token == local_token:
+			continue
+		if bool(downed_players.get(player_token, false)):
 			_append_mobile_target(candidates, player_nodes[player_token], "Revive", "interact", WorldStateModel.INTERACTION_RADIUS)
+		elif can_offer_field_aid and int(player_health.get(player_token, WorldStateModel.PLAYER_MAX_HEALTH)) < WorldStateModel.PLAYER_MAX_HEALTH:
+			_append_mobile_target(candidates, player_nodes[player_token], "Aid friend", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, creature_node, "", "attack", 2.0)
 	_append_mobile_target(candidates, ruin_guardian_node, "", "attack", 2.0)
 	return candidates
@@ -1835,6 +1841,21 @@ func _update_interaction_prompt(
 		interaction_prompt.text = "%s  ·  Return to the cottage" % action_name
 		interaction_prompt.visible = true
 		return
+	var player_positions: Dictionary = latest_snapshot.get("positions", {})
+	var player_health: Dictionary = latest_snapshot.get("player_health", {})
+	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	if int(latest_snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
+		for target_token: String in player_positions:
+			if target_token == local_token or bool(downed_players.get(target_token, false)):
+				continue
+			if int(player_health.get(target_token, WorldStateModel.PLAYER_MAX_HEALTH)) >= WorldStateModel.PLAYER_MAX_HEALTH:
+				continue
+			if player_position.distance_to(player_positions[target_token]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Aid %s with a trail provision" % [
+					action_name, _festival_player_name(target_token)
+				]
+				interaction_prompt.visible = true
+				return
 	var local_health := int(latest_snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	if (
 		quest_stage == "home_repaired"

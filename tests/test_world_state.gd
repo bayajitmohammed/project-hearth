@@ -269,6 +269,26 @@ func _init() -> void:
 	restored_shared_world.mark_world_empty(2000)
 	assert(restored_shared_world.apply_offline_catch_up(2030) == 0)
 	assert(restored_shared_world.apply_offline_catch_up(2120) == 0, "Catch-up runs only once per empty-room sleep.")
+	var field_aid := WorldStateModel.new()
+	field_aid.register_player("helper")
+	field_aid.register_player("friend")
+	field_aid.player_provisions["helper"] = 1
+	field_aid.player_health["friend"] = 1
+	field_aid.positions["helper"] = WorldStateModel.SPAWN_POINT
+	field_aid.positions["friend"] = WorldStateModel.SPAWN_POINT + Vector3(1.0, 0.0, 0.0)
+	assert(field_aid.try_aid_injured_friend("helper"))
+	assert(field_aid.player_provisions["helper"] == 0)
+	assert(field_aid.player_health["friend"] == 2)
+	field_aid.player_provisions["helper"] = 1
+	field_aid.downed_players["friend"] = true
+	field_aid.player_health["friend"] = 0
+	assert(not field_aid.try_aid_injured_friend("helper"), "Field aid must not replace revival.")
+	assert(field_aid.player_provisions["helper"] == 1)
+	field_aid.downed_players["friend"] = false
+	field_aid.player_health["friend"] = 2
+	field_aid.positions["friend"] = WorldStateModel.RUINS_POSITION
+	assert(not field_aid.try_aid_injured_friend("helper"), "Field aid requires a nearby friend.")
+	assert(field_aid.player_provisions["helper"] == 1)
 
 	assert(restored_shared_world.festival_stage == "available")
 	restored_shared_world.positions["player-a"] = WorldStateModel.FESTIVAL_ARCH_POSITION

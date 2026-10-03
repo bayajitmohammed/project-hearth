@@ -303,6 +303,7 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 func interact(player_token: String) -> bool:
 	return (
 		try_revive_player(player_token)
+		or try_aid_injured_friend(player_token)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_rest_at_cottage(player_token)
@@ -318,6 +319,26 @@ func interact(player_token: String) -> bool:
 		or try_repair_cottage(player_token)
 		or try_light_welcome_lantern(player_token)
 	)
+
+
+func try_aid_injured_friend(helper_token: String) -> bool:
+	var helper_position := register_player(helper_token)
+	if bool(downed_players.get(helper_token, false)):
+		return false
+	if int(player_provisions.get(helper_token, 0)) <= 0:
+		return false
+	for target_token: String in positions:
+		if target_token == helper_token or bool(downed_players.get(target_token, false)):
+			continue
+		var target_health := int(player_health.get(target_token, PLAYER_MAX_HEALTH))
+		if target_health >= PLAYER_MAX_HEALTH:
+			continue
+		if helper_position.distance_to(positions[target_token]) > INTERACTION_RADIUS:
+			continue
+		player_provisions[helper_token] = int(player_provisions[helper_token]) - 1
+		player_health[target_token] = mini(target_health + 1, PLAYER_MAX_HEALTH)
+		return true
+	return false
 
 
 func try_rest_at_cottage(player_token: String) -> bool:

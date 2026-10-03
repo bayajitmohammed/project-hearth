@@ -46,6 +46,17 @@ func _init() -> void:
 	assert(main.cottage_rest_marker.get_node("Label").text == "REST AT HOME")
 	assert("Rest and recover" in main.interaction_prompt.text)
 
+	snapshot["positions"] = {
+		"scout": WorldStateModel.SPAWN_POINT,
+		"friend": WorldStateModel.SPAWN_POINT + Vector3(1.0, 0.0, 0.0),
+	}
+	snapshot["player_health"] = {"scout": WorldStateModel.PLAYER_MAX_HEALTH, "friend": 2}
+	snapshot["downed_players"] = {"scout": false, "friend": false}
+	snapshot["player_provisions"]["scout"] = 1
+	main.receive_snapshot(snapshot)
+	assert("Aid friend" in main.interaction_prompt.text)
+	assert("with a trail provision" in main.interaction_prompt.text)
+
 	var main_source := FileAccess.get_file_as_string("res://scripts/main.gd")
 	var state_source := FileAccess.get_file_as_string("res://scripts/world_state.gd")
 	assert(main_source.contains("const MAX_PLAYERS := 8"), "Slice 5 rooms must admit eight players.")
@@ -54,11 +65,13 @@ func _init() -> void:
 	assert(main_source.contains("Recover %s trail pack"), "Recovery packs need a nearby interaction prompt.")
 	assert(main_source.contains("Take a trail provision"), "The pantry catch-up result needs a nearby interaction prompt.")
 	assert(main_source.contains("request_use_trail_provision"), "Clients need a server-authoritative provision-use request.")
+	assert(main_source.contains("\"Aid friend\""), "Touch players need a nearby field-aid target.")
 	assert(main_source.contains("_append_mobile_target(candidates, cottage_rest_marker, \"Rest\""), "Touch players need the contextual home-rest action.")
 	assert(state_source.contains("PANTRY_MAX_STOCK := 3"), "Offline catch-up must remain bounded.")
 	assert(state_source.contains("func apply_offline_catch_up"), "Empty-world return needs an explicit catch-up rule.")
 	assert(state_source.contains("func try_recover_pack"), "Friends need a recovery action.")
 	assert(state_source.contains("func try_use_trail_provision"), "Trail provisions need an actual expedition use.")
+	assert(state_source.contains("func try_aid_injured_friend"), "Friends need a cooperative field-aid action.")
 	assert(state_source.contains("func try_rest_at_cottage"), "The repaired home needs a safe recovery action.")
 	assert(InputMap.has_action("use_provision"), "Keyboard, controller, and Web builds need one shared provision action.")
 	print("PASS: Project Hearth shared-world readability")
