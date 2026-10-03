@@ -1,13 +1,15 @@
 extends SceneTree
 
 const MainScene = preload("res://main.tscn")
+const WorldStateModel = preload("res://scripts/world_state.gd")
 
 
 func _init() -> void:
 	var test_save_path := "/tmp/project-hearth-play-mode-%d.json" % OS.get_process_id()
 	var absolute_test_save_path := test_save_path
-	if FileAccess.file_exists(test_save_path):
-		DirAccess.remove_absolute(absolute_test_save_path)
+	for suffix: String in ["", ".tmp", ".bak"]:
+		if FileAccess.file_exists(test_save_path + suffix):
+			DirAccess.remove_absolute(absolute_test_save_path + suffix)
 
 	var main = MainScene.instantiate()
 	root.add_child(main)
@@ -42,9 +44,24 @@ func _init() -> void:
 	main._request_collect()
 	assert(main.world_state.collectible_collected, "Local interactions must pass through the authoritative world state.")
 	assert(FileAccess.file_exists(test_save_path), "Offline progress must persist on the device.")
+	assert(FileAccess.file_exists(test_save_path + ".bak"), "Saving must retain the previous valid checkpoint.")
+
+	var corrupt_primary := FileAccess.open(test_save_path, FileAccess.WRITE)
+	assert(corrupt_primary != null)
+	corrupt_primary.store_string("not valid json")
+	corrupt_primary.close()
+	main.world_state = WorldStateModel.new()
+	main._load_world()
+	assert(main.save_recovered_from_backup, "An unreadable primary save must fall back to its backup.")
+	assert(main.world_state.quest_stage == "meet_mara", "Recovery must load the previous valid checkpoint.")
+	main._save_world()
+	assert(not main.save_recovered_from_backup)
+	assert(main._read_world_dictionary(test_save_path) is Dictionary, "Recovery must restore a valid primary save.")
 
 	root.remove_child(main)
 	main.free()
-	DirAccess.remove_absolute(absolute_test_save_path)
+	for suffix: String in ["", ".tmp", ".bak"]:
+		if FileAccess.file_exists(test_save_path + suffix):
+			DirAccess.remove_absolute(absolute_test_save_path + suffix)
 	print("PASS: Offline, LAN host, and join play-mode foundations")
 	quit()

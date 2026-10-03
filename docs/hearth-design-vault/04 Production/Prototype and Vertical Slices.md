@@ -44,6 +44,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Project: `/Users/kyrin0/Desktop/studio/garage/project-hearth`
 - Current checkpoint: the minimum cumulative Slice 6 promise, **Gather and Celebrate**, is implemented through the in-world Hearthlight Festival, explicit 1–8 player enrollment, a normalized checkpoint circuit, authoritative results, and persistent cosmetic ribbons.
 - Post-slice foundation: the startup flow now offers separate offline, native LAN-hosted, and join-room paths. Offline and LAN saves remain separate, while all modes use the same authoritative world rules. A focused headless test, a native host-plus-guest probe, and exported-Web offline movement pass verify the foundation; broader device validation remains deferred.
+- Persistence hardening: every world mode now writes through a temporary file, retains one previous valid checkpoint, and automatically falls back to that backup when the primary save is missing or unreadable.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
 - Mac and Windows have been used together for the multiplayer quest loop, reconnection, persistence, movement, and camera checks.

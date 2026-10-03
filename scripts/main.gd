@@ -41,6 +41,7 @@ var snapshot_accumulator := 0.0
 var save_path := SAVE_PATH
 var server_room_code := DEFAULT_ROOM_CODE
 var server_port := DEFAULT_PORT
+var save_recovered_from_backup := false
 var latest_snapshot: Dictionary = {}
 var camera_yaw := 0.0
 var camera_pitch := 0.0
@@ -794,20 +795,58 @@ func _snapshot_for_clients() -> Dictionary:
 
 
 func _save_world() -> void:
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(world_state.to_dictionary()))
+	var temporary_path := save_path + ".tmp"
+	var backup_path := save_path + ".bak"
+	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(world_state.to_dictionary()))
+	file.flush()
+	file.close()
+
+	var absolute_save_path := ProjectSettings.globalize_path(save_path)
+	var absolute_temporary_path := ProjectSettings.globalize_path(temporary_path)
+	var absolute_backup_path := ProjectSettings.globalize_path(backup_path)
+	if FileAccess.file_exists(save_path):
+		if save_recovered_from_backup:
+			DirAccess.remove_absolute(absolute_save_path)
+		else:
+			if FileAccess.file_exists(backup_path):
+				DirAccess.remove_absolute(absolute_backup_path)
+			if DirAccess.rename_absolute(absolute_save_path, absolute_backup_path) != OK:
+				DirAccess.remove_absolute(absolute_temporary_path)
+				return
+	if DirAccess.rename_absolute(absolute_temporary_path, absolute_save_path) != OK:
+		if not FileAccess.file_exists(save_path) and FileAccess.file_exists(backup_path):
+			DirAccess.rename_absolute(absolute_backup_path, absolute_save_path)
+		return
+	save_recovered_from_backup = false
 
 
 func _load_world() -> void:
-	if not FileAccess.file_exists(save_path):
-		return
-	var file := FileAccess.open(save_path, FileAccess.READ)
-	if file == null:
-		return
-	var parsed = JSON.parse_string(file.get_as_text())
+	var parsed: Variant = _read_world_dictionary(save_path)
 	if parsed is Dictionary:
 		world_state.load_dictionary(parsed)
+		save_recovered_from_backup = false
+		return
+	var backup_path := save_path + ".bak"
+	var backup: Variant = _read_world_dictionary(backup_path)
+	if backup is Dictionary:
+		world_state.load_dictionary(backup)
+		save_recovered_from_backup = true
+		_status("Recovered world from the previous valid save")
+
+
+func _read_world_dictionary(path: String) -> Variant:
+	if not FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return null
+	return json.data
 
 
 func _load_or_create_player_token() -> String:

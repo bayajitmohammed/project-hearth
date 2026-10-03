@@ -17,6 +17,8 @@ The modes share the same world rules. Offline and hosted saves are deliberately 
 /Applications/Godot.app/Contents/MacOS/Godot --path . -- --host --room=FAMILY
 ```
 
+World saves are written through a temporary file before replacing the primary JSON. The previous valid checkpoint is retained beside it with a `.bak` suffix, and the game automatically recovers that backup if the primary file is missing or unreadable.
+
 The easiest option is to double-click `run-server.command` in Finder. From Terminal, run:
 
 ```sh
@@ -215,6 +217,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 
 - Welcome Lights is a server-authoritative response to the completed cottage repair.
 - A version-9 authoritative neighborhood clock now persists day/time, performs bounded safe calendar catch-up, and drives Mara's post-event daily routine without overriding required quest appearances.
+- World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
