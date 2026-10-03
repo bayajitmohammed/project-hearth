@@ -48,6 +48,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Slice 4 depth: after the produce stall opens, each new world day regrows the shared moonroot garden and posts one forecast-responsive fresh-produce or cooked-stew request. Contributions retain personal mastery credit, while completion adds one bounded pantry provision without replaying milestone rewards.
 - Mastery depth: tier-II Farming, Cooking, and Trade techniques batch only eligible nearby/prepared work, preserve per-unit credit, and leave every base action available to newcomers.
 - Home recovery depth: the repaired cottage is a personal safe recovery point. Standing injured players may rest to recover fully without advancing time or affecting companions; downed and field recovery rules remain distinct.
+- Combat pacing depth: each successful basic attack begins a short per-player authoritative recovery, preventing input spam without coupling companions or granting progression power.
 - Living-world atmosphere: the authoritative day selects one deterministic safe forecast shared by every mode, while clients render the clock as readable day/night ambience. Renewable food orders respond to that forecast without adding punitive weather effects.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.
@@ -120,6 +121,7 @@ The smallest current proof of **Beyond the Road** begins after Welcome Lights:
 1. Players follow the existing ruins rumor north into a deterministic seed-derived region beyond the original forest boundary.
 2. Entering Northwood and reaching the Old Stone Ruins reveals both locations for the whole room on a shared map.
 3. A ruin guardian creates a server-authoritative first-journey combat obstacle using the existing attack, downed, and cooperative-revive rules.
+   Successful basic attacks use a short per-player recovery window; missed or out-of-range inputs do not consume it.
 4. A downed solo player may return safely to the cottage; equipped gear and permanent progression remain untouched. Recoverable expedition packs remain deferred until expedition inventory exists.
 5. Defeating the guardian lets the group restore an ancient waystone. The persistent route makes repeat travel between home and the ruins immediate.
 6. The restored route grants reputation and enters the shared chronicle.
@@ -130,6 +132,7 @@ This is a deliberately small proof of region generation, shared discovery, an au
 
 - [x] Seed-derived Northwood region and authored Old Stone Ruins destination
 - [x] Server-authoritative shared map discovery and ruin guardian state
+- [x] Independent server-authoritative basic-attack recovery timing
 - [x] Persistent waystone activation and two-way fast travel
 - [x] Solo return-to-safety extension of the existing downed/revive loop
 - [x] Version-5 persistence and version-4 migration

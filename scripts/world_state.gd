@@ -77,6 +77,7 @@ const WELCOME_LANTERN_LABELS := {
 const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3
+const PLAYER_ATTACK_RECOVERY_SECONDS := 0.45
 const WORLD_MINUTES_PER_DAY := 1440
 const WORLD_MINUTES_PER_REAL_SECOND := 1.0
 const WORLD_START_MINUTE := 13 * 60
@@ -96,6 +97,7 @@ var gathered_resources: Dictionary = {}
 var repaired_parts := {"door": false, "wall": false, "garden": false}
 var player_health: Dictionary = {}
 var downed_players: Dictionary = {}
+var player_attack_recovery: Dictionary = {}
 var creature_position := CREATURE_SPAWN
 var creature_health := CREATURE_MAX_HEALTH
 var creature_defeated := false
@@ -152,6 +154,8 @@ func register_player(player_token: String) -> Vector3:
 		player_health[player_token] = PLAYER_MAX_HEALTH
 	if not downed_players.has(player_token):
 		downed_players[player_token] = false
+	if not player_attack_recovery.has(player_token):
+		player_attack_recovery[player_token] = 0.0
 	if not player_mastery.has(player_token):
 		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0}
 	if not player_provisions.has(player_token):
@@ -325,11 +329,14 @@ func attack_creature(player_token: String) -> bool:
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
 		return false
+	if float(player_attack_recovery.get(player_token, 0.0)) > 0.0:
+		return false
 	if (
 		exploration_stage in ["defeat_guardian", "restore_waystone"]
 		and not ruin_guardian_defeated
 		and positions[player_token].distance_to(ruin_guardian_position) <= 2.0
 	):
+		player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
 		ruin_guardian_health -= 1
 		if ruin_guardian_health <= 0:
 			ruin_guardian_health = 0
@@ -340,6 +347,7 @@ func attack_creature(player_token: String) -> bool:
 		return false
 	if positions[player_token].distance_to(creature_position) > 2.0:
 		return false
+	player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
 	creature_health -= 1
 	if creature_health <= 0:
 		creature_health = 0
@@ -348,10 +356,20 @@ func attack_creature(player_token: String) -> bool:
 
 
 func simulate_creature(delta: float, active_tokens: Array) -> bool:
+	_update_player_attack_recovery(delta, active_tokens)
 	var changed := _simulate_forest_creature(delta, active_tokens)
 	if _simulate_ruin_guardian(delta, active_tokens):
 		changed = true
 	return changed
+
+
+func _update_player_attack_recovery(delta: float, active_tokens: Array) -> void:
+	for player_token: String in active_tokens:
+		register_player(player_token)
+		player_attack_recovery[player_token] = maxf(
+			float(player_attack_recovery.get(player_token, 0.0)) - delta,
+			0.0
+		)
 
 
 func simulate_world_clock(delta: float) -> bool:

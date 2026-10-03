@@ -17,3 +17,5 @@ Travel should feel risky and interesting on the first visit, then convenient. Re
 Combat is accessible 3D action in either the default first-person view or the close over-the-shoulder third-person view: basic attack, charged or alternate action, dodge or guard, tool use, and a small ability loadout. Weapons and magic offer distinct roles without permanent classes.
 
 Enemies reward observation, positioning, cooperation, and using the environment. Combat is important in dangerous areas but is only one route to reputation and progress; many sessions contain none.
+
+The first combat-pacing rule is a short authoritative recovery after each successful basic attack. Recovery belongs to the attacking player, so companions can act independently; an input during recovery deals no damage. Missing or attacking out of range does not consume recovery. This transient timing resets with the runtime and is not equipment, mastery, or permanent power.

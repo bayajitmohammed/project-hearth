@@ -819,6 +819,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"repaired_parts": world_state.repaired_parts.duplicate(),
 		"player_health": world_state.player_health.duplicate(),
 		"downed_players": world_state.downed_players.duplicate(),
+		"player_attack_recovery": world_state.player_attack_recovery.duplicate(),
 		"creature_position": world_state.creature_position,
 		"creature_health": world_state.creature_health,
 		"creature_defeated": world_state.creature_defeated,
@@ -1520,6 +1521,8 @@ func _local_can_use_trail_provision() -> bool:
 func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
 	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
+	var attack_recovery := float(snapshot.get("player_attack_recovery", {}).get(local_token, 0.0))
+	var attack_text := "ready" if attack_recovery <= 0.0 else "recovering"
 	var creature_text := "defeated" if creature_defeated else "%d/%d" % [int(snapshot.get("creature_health", 0)), WorldStateModel.CREATURE_MAX_HEALTH]
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
 	var guardian_text := "defeated" if guardian_defeated else "%d/%d" % [
@@ -1529,11 +1532,12 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var provision_hint := ""
 	if not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and int(snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
 		provision_hint = " — Q / controller B uses a trail provision"
-	combat_label.text = "Health: %d/%d%s%s  Forest creature: %s  Ruin guardian: %s" % [
+	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Forest creature: %s  Ruin guardian: %s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
 		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
 		provision_hint,
+		attack_text,
 		creature_text,
 		guardian_text,
 	]

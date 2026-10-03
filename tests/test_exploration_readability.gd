@@ -27,9 +27,14 @@ func _init() -> void:
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_GUARDIAN_SPAWN}
 	snapshot["shared_map_discoveries"]["old_stone_ruins"] = true
 	snapshot["exploration_stage"] = "defeat_guardian"
+	snapshot["player_attack_recovery"]["explorer"] = 0.2
 	main.receive_snapshot(snapshot)
 	assert(main.ruin_guardian_node.visible)
 	assert("Old Stone Ruins — charted" in main.map_label.text)
+	assert("Attack: recovering" in main.combat_label.text)
+	snapshot["player_attack_recovery"]["explorer"] = 0.0
+	main.receive_snapshot(snapshot)
+	assert("Attack: ready" in main.combat_label.text)
 
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_WAYSTONE_POSITION}
 	snapshot["exploration_stage"] = "restore_waystone"
@@ -63,6 +68,7 @@ func _snapshot() -> Dictionary:
 		"repaired_parts": {"door": true, "wall": true, "garden": true},
 		"player_health": {"explorer": WorldStateModel.PLAYER_MAX_HEALTH},
 		"downed_players": {"explorer": false},
+		"player_attack_recovery": {"explorer": 0.0},
 		"creature_position": WorldStateModel.CREATURE_SPAWN,
 		"creature_health": 0,
 		"creature_defeated": true,

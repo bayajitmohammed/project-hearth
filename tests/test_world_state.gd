@@ -91,6 +91,7 @@ func _init() -> void:
 	assert(exploration_state.exploration_stage == "defeat_guardian")
 	exploration_state.positions["player-a"] = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(1.0, 0.0, 0.0)
 	for hit: int in WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH:
+		exploration_state.player_attack_recovery["player-a"] = 0.0
 		assert(exploration_state.attack_creature("player-a"), "Guardian attack %d should hit." % hit)
 	assert(exploration_state.ruin_guardian_defeated)
 	assert(exploration_state.exploration_stage == "restore_waystone")
@@ -425,11 +426,31 @@ func _init() -> void:
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")
+	combat_state.positions["fighter"] = WorldStateModel.SPAWN_POINT
+	assert(not combat_state.attack_creature("fighter"))
+	assert(is_zero_approx(combat_state.player_attack_recovery["fighter"]), "Out-of-range input must not consume recovery.")
 	combat_state.positions["fighter"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
-	for hit: int in WorldStateModel.CREATURE_MAX_HEALTH:
-		assert(combat_state.attack_creature("fighter"), "Attack %d should hit." % hit)
+	assert(combat_state.attack_creature("fighter"))
+	assert(combat_state.player_attack_recovery["fighter"] == WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS)
+	assert(not combat_state.attack_creature("fighter"), "Recovery must reject immediate repeated damage.")
+	combat_state.positions["fighter"] = WorldStateModel.SPAWN_POINT
+	combat_state.simulate_creature(0.2, ["fighter"])
+	assert(combat_state.player_attack_recovery["fighter"] > 0.0)
+	combat_state.simulate_creature(0.25, ["fighter"])
+	assert(is_zero_approx(combat_state.player_attack_recovery["fighter"]))
+	combat_state.positions["fighter"] = combat_state.creature_position + Vector3(1.0, 0.0, 0.0)
+	assert(combat_state.attack_creature("fighter"))
+	combat_state.player_attack_recovery["fighter"] = 0.0
+	assert(combat_state.attack_creature("fighter"))
 	assert(combat_state.creature_defeated)
 	assert(not combat_state.attack_creature("fighter"))
+	var cooperative_combat := WorldStateModel.new()
+	for fighter_token: String in ["fighter-a", "fighter-b"]:
+		cooperative_combat.register_player(fighter_token)
+		cooperative_combat.positions[fighter_token] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	assert(cooperative_combat.attack_creature("fighter-a"))
+	assert(cooperative_combat.attack_creature("fighter-b"), "One player's recovery must not delay a companion.")
+	assert(cooperative_combat.creature_health == WorldStateModel.CREATURE_MAX_HEALTH - 2)
 
 	var rest_state := WorldStateModel.new()
 	rest_state.quest_stage = "home_repaired"
