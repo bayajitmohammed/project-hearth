@@ -52,6 +52,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Combat pacing depth: each successful basic attack begins a short per-player authoritative recovery, preventing input spam without coupling companions or granting progression power.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.
+- Exploration identity depth: the player who reveals a new shared place builds personal Exploration mastery and displays a Pathfinder title, while the discovery and all routes remain shared with newcomers.
 - Living-world atmosphere: the authoritative day selects one deterministic safe forecast shared by every mode, while clients render the clock as readable day/night ambience. Renewable food orders respond to that forecast without adding punitive weather effects.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.
 - Windows: the exported x86-64 build runs, connects to the Mac server, and displays both Windows and Mac players.

@@ -165,12 +165,19 @@ func register_player(player_token: String) -> Vector3:
 	if not player_brace_cooldown.has(player_token):
 		player_brace_cooldown[player_token] = 0.0
 	if not player_mastery.has(player_token):
-		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0, "combat": 0}
+		player_mastery[player_token] = {
+			"farming": 0,
+			"cooking": 0,
+			"trade": 0,
+			"combat": 0,
+			"exploration": 0,
+		}
 	else:
 		var mastery: Dictionary = player_mastery[player_token]
-		if not mastery.has("combat"):
-			mastery["combat"] = 0
-			player_mastery[player_token] = mastery
+		for track: String in ["farming", "cooking", "trade", "combat", "exploration"]:
+			if not mastery.has(track):
+				mastery[track] = 0
+		player_mastery[player_token] = mastery
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
 	if not festival_ribbons.has(player_token):
@@ -200,6 +207,7 @@ func update_exploration(player_token: String) -> bool:
 	if player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
 		shared_map_discoveries["northwood"] = true
 		exploration_stage = "find_ruins"
+		_add_mastery(player_token, "exploration")
 		changed = true
 	if (
 		player_position.distance_to(RUINS_POSITION) <= RUINS_REVEAL_RADIUS
@@ -207,6 +215,7 @@ func update_exploration(player_token: String) -> bool:
 	):
 		shared_map_discoveries["old_stone_ruins"] = true
 		exploration_stage = "defeat_guardian"
+		_add_mastery(player_token, "exploration")
 		changed = true
 	return changed
 

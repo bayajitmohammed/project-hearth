@@ -218,6 +218,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 - Welcome Lights is a server-authoritative response to the completed cottage repair.
 - Version-11 persistence stores the authoritative neighborhood clock and renewable market-request state. The clock performs bounded safe calendar catch-up and drives Mara's post-event daily routine without overriding required quest appearances.
 - Personal Combat mastery records successful damaging attacks and exposes a Warden identity title without changing combat power. Existing Version-11 saves add the new track at zero when a player returns.
+- Personal Exploration mastery credits the player who first reveals Northwood or the Old Stone Ruins and exposes a Pathfinder identity title; the map discovery and route access remain shared. Existing Version-11 saves add the track at zero when a player returns.
 - The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light. Weather never punishes absence or changes movement or combat; after the produce stall opens, it safely frames the current renewable food request.
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.

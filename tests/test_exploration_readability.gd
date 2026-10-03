@@ -18,11 +18,13 @@ func _init() -> void:
 	snapshot["positions"] = {"explorer": Vector3(0.0, 0.6, -20.0)}
 	snapshot["shared_map_discoveries"]["northwood"] = true
 	snapshot["exploration_stage"] = "find_ruins"
+	snapshot["player_mastery"] = {"explorer": {"exploration": 1}}
 	main.receive_snapshot(snapshot)
 	assert(main.map_panel.visible)
 	assert("Northwood — charted" in main.map_label.text)
 	assert(main.quest_title_label.text == "BEYOND THE ROAD")
 	assert("find the Old Stone Ruins" in main.objective_label.text)
+	assert("Pathfinder I" in main.mastery_label.text)
 
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_GUARDIAN_SPAWN}
 	snapshot["shared_map_discoveries"]["old_stone_ruins"] = true

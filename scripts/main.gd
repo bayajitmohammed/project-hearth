@@ -1210,7 +1210,7 @@ func _build_interface() -> void:
 	world_change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(world_change_label)
 	mastery_label = Label.new()
-	mastery_label.text = "Mastery — Farming: 0  Cooking: 0  Trade: 0  Combat: 0"
+	mastery_label.text = "Mastery — Farming: 0  Cooking: 0  Trade: 0  Combat: 0  Exploration: 0"
 	mastery_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(mastery_label)
 	var controls_hint := Label.new()
@@ -2023,6 +2023,7 @@ func _mastery_text(mastery: Dictionary) -> String:
 	var cooking := int(mastery.get("cooking", 0))
 	var trade := int(mastery.get("trade", 0))
 	var combat := int(mastery.get("combat", 0))
+	var exploration := int(mastery.get("exploration", 0))
 	var farming_title := ""
 	if farming >= WorldStateModel.FARMING_TIER_TWO_MASTERY:
 		farming_title = " (Gardener II · Careful Tending)"
@@ -2039,11 +2040,13 @@ func _mastery_text(mastery: Dictionary) -> String:
 	elif trade > 0:
 		trade_title = " (Trader I)"
 	var combat_title := " (Warden I)" if combat > 0 else ""
-	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s  Combat: %d%s" % [
+	var exploration_title := " (Pathfinder I)" if exploration > 0 else ""
+	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s  Combat: %d%s  Exploration: %d%s" % [
 		farming, farming_title,
 		cooking, cooking_title,
 		trade, trade_title,
 		combat, combat_title,
+		exploration, exploration_title,
 	]
 
 

@@ -50,3 +50,9 @@ Tier II begins at 4 Cooking or Trade mastery and 8 Farming mastery. Every item h
 Each successful basic attack that damages a creature grants one personal **Combat mastery** point. The first point displays the identity title **Warden I** in the existing mastery readout. Misses, rejected attacks during recovery, bracing, and taking damage grant no credit.
 
 This first layer records participation and gives the combat path a visible identity only. It does not change damage, health, attack recovery, brace timing, enemy strength, or access to the base combat actions, so a newcomer remains equally useful in an encounter. Later combat techniques must preserve that compatibility and need a separate design decision before implementation.
+
+## First exploration mastery identity
+
+The player who first reveals Northwood or the Old Stone Ruins for the shared map gains one personal **Exploration mastery** point for that discovery. The first point displays the identity title **Pathfinder I**. If one authoritative movement update crosses both reveal conditions, both genuinely new places grant their normal credit.
+
+The map discovery itself remains shared immediately with the room. This identity layer does not change movement speed, waystone access, combat, reveal distance, or any route available to a newcomer. Future repeatable exploration work can provide more opportunities for personal credit without taking shared discoveries away from the group.

@@ -85,10 +85,20 @@ func _init() -> void:
 	assert(exploration_state.update_exploration("player-a"))
 	assert(exploration_state.shared_map_discoveries["northwood"])
 	assert(exploration_state.exploration_stage == "find_ruins")
+	assert(exploration_state.player_mastery["player-a"]["exploration"] == 1)
+	assert(not exploration_state.update_exploration("player-a"), "An already shared discovery must not duplicate mastery.")
 	exploration_state.positions["player-a"] = WorldStateModel.RUINS_POSITION
 	assert(exploration_state.update_exploration("player-a"))
 	assert(exploration_state.shared_map_discoveries["old_stone_ruins"])
 	assert(exploration_state.exploration_stage == "defeat_guardian")
+	assert(exploration_state.player_mastery["player-a"]["exploration"] == 2)
+	var direct_explorer := WorldStateModel.new()
+	direct_explorer.exploration_stage = "follow_rumor"
+	direct_explorer.register_player("direct")
+	direct_explorer.positions["direct"] = WorldStateModel.RUINS_POSITION
+	assert(direct_explorer.update_exploration("direct"))
+	assert(direct_explorer.shared_map_discoveries.values().all(func(value: bool) -> bool: return value))
+	assert(direct_explorer.player_mastery["direct"]["exploration"] == 2, "Crossing both new reveal conditions earns both discovery credits.")
 	exploration_state.positions["player-a"] = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(1.0, 0.0, 0.0)
 	for hit: int in WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH:
 		exploration_state.player_attack_recovery["player-a"] = 0.0
@@ -139,8 +149,8 @@ func _init() -> void:
 	assert(exploration_state.neighborhood_morale == 2)
 	assert(exploration_state.reputation == 4)
 	assert(exploration_state.chronicle.size() == 4)
-	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 5})
-	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 0})
+	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 5, "exploration": 2})
+	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 0, "exploration": 0})
 	var restored_livelihood := WorldStateModel.new()
 	restored_livelihood.load_dictionary(exploration_state.to_dictionary())
 	assert(restored_livelihood.livelihood_stage == "complete")
@@ -175,7 +185,7 @@ func _init() -> void:
 	assert(restored_livelihood.reputation == milestone_reputation)
 	assert(restored_livelihood.neighborhood_morale == milestone_morale)
 	assert(restored_livelihood.chronicle.size() == milestone_chronicle_size)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "combat": 5})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "combat": 5, "exploration": 2})
 	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
@@ -197,7 +207,7 @@ func _init() -> void:
 	assert(restored_livelihood.interact("player-a"), "Trade II should bulk-deliver both daily stews.")
 	assert(not restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "combat": 5})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "combat": 5, "exploration": 2})
 	var persisted_daily_order := WorldStateModel.new()
 	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
 	assert(persisted_daily_order.world_day == 4)
@@ -222,6 +232,7 @@ func _init() -> void:
 	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]
 	assert(technique_state.try_harvest_garden("specialist"))
 	assert(technique_state.player_mastery["specialist"]["combat"] == 0, "Returning players from older saves gain the additive Combat track at zero.")
+	assert(technique_state.player_mastery["specialist"]["exploration"] == 0, "Returning players from older saves gain the additive Exploration track at zero.")
 	assert(technique_state.harvested_garden_plots["moonroot_1"])
 	assert(technique_state.harvested_garden_plots["moonroot_2"])
 	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_3"]

@@ -45,7 +45,7 @@ func _init() -> void:
 	assert(str(main.latest_snapshot.get("livelihood_stage", "")) == "complete")
 	assert(bool(main.latest_snapshot.get("produce_stall_open", false)))
 	var mastery: Dictionary = main.latest_snapshot.get("player_mastery", {}).get(token, {})
-	assert(mastery == {"farming": 4, "cooking": 2, "trade": 2})
+	assert(mastery == {"farming": 4, "cooking": 2, "trade": 2, "combat": 0, "exploration": 0})
 	print("PASS: Multiplayer Choose a Life loop and personal mastery")
 	quit()
 
