@@ -80,6 +80,7 @@ const PLAYER_MAX_HEALTH := 3
 const PLAYER_ATTACK_RECOVERY_SECONDS := 0.45
 const PLAYER_BRACE_WINDOW_SECONDS := 0.7
 const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
+const ENEMY_ATTACK_WINDUP_SECONDS := 0.6
 const WORLD_MINUTES_PER_DAY := 1440
 const WORLD_MINUTES_PER_REAL_SECOND := 1.0
 const WORLD_START_MINUTE := 13 * 60
@@ -106,6 +107,8 @@ var creature_position := CREATURE_SPAWN
 var creature_health := CREATURE_MAX_HEALTH
 var creature_defeated := false
 var creature_attack_cooldown := 0.0
+var creature_attack_windup := 0.0
+var creature_attack_target := ""
 var reputation := 0
 var map_rumor_unlocked := false
 var mara_position := MARA_POSITION
@@ -119,6 +122,8 @@ var ruin_guardian_position := RUIN_GUARDIAN_SPAWN
 var ruin_guardian_health := RUIN_GUARDIAN_MAX_HEALTH
 var ruin_guardian_defeated := false
 var ruin_guardian_attack_cooldown := 0.0
+var ruin_guardian_attack_windup := 0.0
+var ruin_guardian_attack_target := ""
 var ruin_waystone_activated := false
 var livelihood_stage := "locked"
 var harvested_garden_plots := {
@@ -387,6 +392,8 @@ func attack_creature(player_token: String) -> bool:
 		if ruin_guardian_health <= 0:
 			ruin_guardian_health = 0
 			ruin_guardian_defeated = true
+			ruin_guardian_attack_windup = 0.0
+			ruin_guardian_attack_target = ""
 			exploration_stage = "restore_waystone"
 		return true
 	if creature_defeated:
@@ -399,6 +406,8 @@ func attack_creature(player_token: String) -> bool:
 	if creature_health <= 0:
 		creature_health = 0
 		creature_defeated = true
+		creature_attack_windup = 0.0
+		creature_attack_target = ""
 	return true
 
 
@@ -588,8 +597,21 @@ func _update_mara_routine() -> void:
 
 func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 	if creature_defeated:
+		creature_attack_windup = 0.0
+		creature_attack_target = ""
 		return false
 	creature_attack_cooldown = maxf(creature_attack_cooldown - delta, 0.0)
+	if creature_attack_windup > 0.0:
+		creature_attack_windup = maxf(creature_attack_windup - delta, 0.0)
+		if creature_attack_windup > 0.0:
+			return false
+		var committed_target := creature_attack_target
+		creature_attack_target = ""
+		if not _enemy_target_in_strike_range(committed_target, active_tokens, creature_position, 1.15):
+			return false
+		creature_attack_cooldown = 1.0
+		_apply_enemy_hit(committed_target)
+		return true
 	var target_token := ""
 	var target_distance := INF
 	for player_token: String in active_tokens:
@@ -610,15 +632,28 @@ func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 		return false
 	if creature_attack_cooldown > 0.0:
 		return false
-	creature_attack_cooldown = 1.0
-	_apply_enemy_hit(target_token)
-	return true
+	creature_attack_windup = ENEMY_ATTACK_WINDUP_SECONDS
+	creature_attack_target = target_token
+	return false
 
 
 func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 	if ruin_guardian_defeated or exploration_stage != "defeat_guardian":
+		ruin_guardian_attack_windup = 0.0
+		ruin_guardian_attack_target = ""
 		return false
 	ruin_guardian_attack_cooldown = maxf(ruin_guardian_attack_cooldown - delta, 0.0)
+	if ruin_guardian_attack_windup > 0.0:
+		ruin_guardian_attack_windup = maxf(ruin_guardian_attack_windup - delta, 0.0)
+		if ruin_guardian_attack_windup > 0.0:
+			return false
+		var committed_target := ruin_guardian_attack_target
+		ruin_guardian_attack_target = ""
+		if not _enemy_target_in_strike_range(committed_target, active_tokens, ruin_guardian_position, 1.3):
+			return false
+		ruin_guardian_attack_cooldown = 1.1
+		_apply_enemy_hit(committed_target)
+		return true
 	var target_token := ""
 	var target_distance := INF
 	for player_token: String in active_tokens:
@@ -639,9 +674,24 @@ func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 		return false
 	if ruin_guardian_attack_cooldown > 0.0:
 		return false
-	ruin_guardian_attack_cooldown = 1.1
-	_apply_enemy_hit(target_token)
-	return true
+	ruin_guardian_attack_windup = ENEMY_ATTACK_WINDUP_SECONDS
+	ruin_guardian_attack_target = target_token
+	return false
+
+
+func _enemy_target_in_strike_range(
+	player_token: String,
+	active_tokens: Array,
+	enemy_position: Vector3,
+	strike_range: float
+) -> bool:
+	return (
+		not player_token.is_empty()
+		and player_token in active_tokens
+		and positions.has(player_token)
+		and not bool(downed_players.get(player_token, false))
+		and enemy_position.distance_to(positions[player_token]) <= strike_range
+	)
 
 
 func _apply_enemy_hit(player_token: String) -> void:

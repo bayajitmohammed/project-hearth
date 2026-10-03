@@ -51,6 +51,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Cooperative recovery depth: a prepared standing player may spend one carried trail provision to restore one health to a nearby injured friend; downed friends still require revival.
 - Combat pacing depth: each successful basic attack begins a short per-player authoritative recovery, preventing input spam without coupling companions or granting progression power.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.
+- Combat readability depth: forest-creature and ruin-guardian strikes name a target during a short authoritative wind-up, giving that player time to brace or leave range while companions keep acting.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.
 - Exploration identity depth: the player who reveals a new shared place builds personal Exploration mastery and displays a Pathfinder title, while the discovery and all routes remain shared with newcomers.
 - Building identity depth: successful cottage-part placements build personal Building mastery and display a Builder title, while repair costs, actions, and the finished home remain shared with newcomers.

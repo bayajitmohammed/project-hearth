@@ -511,13 +511,16 @@ func _init() -> void:
 	brace_state.register_player("defender")
 	brace_state.register_player("companion")
 	brace_state.positions["defender"] = WorldStateModel.CREATURE_SPAWN
+	assert(not brace_state.simulate_creature(0.1, ["defender", "companion"]), "Entering strike range starts a wind-up before damage.")
+	assert(brace_state.creature_attack_target == "defender")
+	assert(brace_state.creature_attack_windup == WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS)
 	assert(brace_state.try_brace("defender"))
 	assert(brace_state.player_brace_time["defender"] == WorldStateModel.PLAYER_BRACE_WINDOW_SECONDS)
 	assert(brace_state.player_brace_cooldown["defender"] == WorldStateModel.PLAYER_BRACE_COOLDOWN_SECONDS)
 	assert(not brace_state.try_brace("defender"), "An active brace cannot be restarted.")
 	assert(brace_state.try_brace("companion"), "One player's brace must not delay a companion.")
-	brace_state.creature_attack_cooldown = 0.0
-	assert(brace_state.simulate_creature(0.1, ["defender"]))
+	assert(not brace_state.simulate_creature(0.3, ["defender", "companion"]))
+	assert(brace_state.simulate_creature(0.3, ["defender", "companion"]))
 	assert(brace_state.player_health["defender"] == WorldStateModel.PLAYER_MAX_HEALTH)
 	assert(is_zero_approx(brace_state.player_brace_time["defender"]), "A blocked hit must consume the brace.")
 	assert(brace_state.player_brace_cooldown["defender"] > 0.0)
@@ -536,13 +539,35 @@ func _init() -> void:
 	downed_bracer.downed_players["downed"] = true
 	assert(not downed_bracer.try_brace("downed"), "Downed players cannot brace.")
 	assert(not brace_state.to_dictionary().has("player_brace_time"), "Brace timing must remain transient across saves.")
+	assert(not brace_state.to_dictionary().has("creature_attack_windup"), "Enemy wind-ups must remain transient across saves.")
+	var evasion_state := WorldStateModel.new()
+	evasion_state.register_player("evader")
+	evasion_state.positions["evader"] = WorldStateModel.CREATURE_SPAWN
+	assert(not evasion_state.simulate_creature(0.1, ["evader"]))
+	assert(evasion_state.creature_attack_target == "evader")
+	evasion_state.positions["evader"] = WorldStateModel.SPAWN_POINT
+	assert(not evasion_state.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["evader"]))
+	assert(evasion_state.player_health["evader"] == WorldStateModel.PLAYER_MAX_HEALTH, "Leaving strike range during wind-up must avoid the hit.")
+	assert(evasion_state.creature_attack_target.is_empty())
 	var guardian_brace := WorldStateModel.new()
 	guardian_brace.exploration_stage = "defeat_guardian"
 	guardian_brace.register_player("ruins-defender")
 	guardian_brace.positions["ruins-defender"] = WorldStateModel.RUIN_GUARDIAN_SPAWN
+	assert(not guardian_brace.simulate_creature(0.1, ["ruins-defender"]))
+	assert(guardian_brace.ruin_guardian_attack_target == "ruins-defender")
 	assert(guardian_brace.try_brace("ruins-defender"))
-	assert(guardian_brace.simulate_creature(0.1, ["ruins-defender"]))
+	assert(guardian_brace.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["ruins-defender"]))
 	assert(guardian_brace.player_health["ruins-defender"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	var interrupted_guardian := WorldStateModel.new()
+	interrupted_guardian.exploration_stage = "defeat_guardian"
+	interrupted_guardian.register_player("finisher")
+	interrupted_guardian.positions["finisher"] = WorldStateModel.RUIN_GUARDIAN_SPAWN
+	assert(not interrupted_guardian.simulate_creature(0.1, ["finisher"]))
+	interrupted_guardian.ruin_guardian_health = 1
+	assert(interrupted_guardian.attack_creature("finisher"))
+	assert(interrupted_guardian.ruin_guardian_defeated)
+	assert(interrupted_guardian.ruin_guardian_attack_target.is_empty(), "Defeating an enemy must cancel its pending warning.")
+	assert(is_zero_approx(interrupted_guardian.ruin_guardian_attack_windup))
 
 	var rest_state := WorldStateModel.new()
 	rest_state.quest_stage = "home_repaired"
@@ -573,7 +598,8 @@ func _init() -> void:
 	revive_state.positions["helper"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
 	for attack: int in WorldStateModel.PLAYER_MAX_HEALTH:
 		revive_state.creature_attack_cooldown = 0.0
-		assert(revive_state.simulate_creature(0.1, ["victim"]), "Creature attack %d should land." % attack)
+		assert(not revive_state.simulate_creature(0.1, ["victim"]), "Creature attack %d should telegraph first." % attack)
+		assert(revive_state.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["victim"]), "Creature attack %d should land after its wind-up." % attack)
 	assert(revive_state.downed_players["victim"], "The creature should down a player after three hits.")
 	assert(revive_state.try_revive_player("helper"))
 	assert(not revive_state.downed_players["victim"])

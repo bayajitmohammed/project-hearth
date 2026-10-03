@@ -44,8 +44,20 @@ func _init() -> void:
 	main.receive_snapshot(snapshot)
 	assert("Brace: recovering" in main.combat_label.text)
 	snapshot["player_brace_cooldown"]["explorer"] = 0.0
+	snapshot["ruin_guardian_attack_windup"] = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
+	snapshot["ruin_guardian_attack_target"] = "explorer"
 	main.receive_snapshot(snapshot)
 	assert("Brace: ready" in main.combat_label.text)
+	assert("WARNING: ruin guardian targets YOU — brace or move" in main.combat_label.text)
+	assert(main.combat_warning_label.visible)
+	assert(main.combat_warning_label.text == "RUIN GUARDIAN ATTACK — BRACE OR MOVE")
+	assert(main.ruin_guardian_node.scale.x > 1.0)
+	snapshot["ruin_guardian_attack_windup"] = 0.0
+	snapshot["ruin_guardian_attack_target"] = ""
+	main.receive_snapshot(snapshot)
+	assert(not "WARNING:" in main.combat_label.text)
+	assert(not main.combat_warning_label.visible)
+	assert(is_equal_approx(main.ruin_guardian_node.scale.x, 1.0))
 
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_WAYSTONE_POSITION}
 	snapshot["exploration_stage"] = "restore_waystone"

@@ -59,6 +59,7 @@ var objective_label: Label
 var dialogue_label: Label
 var progress_label: Label
 var interaction_prompt: Label
+var combat_warning_label: Label
 var inventory_label: Label
 var combat_label: Label
 var world_change_label: Label
@@ -541,6 +542,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
 	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
+	creature_node.scale = Vector3.ONE * (1.12 if float(snapshot.get("creature_attack_windup", 0.0)) > 0.0 else 1.0)
 	_update_combat_interface(snapshot, creature_defeated)
 	var rumor_unlocked := bool(snapshot.get("map_rumor_unlocked", false))
 	var discoveries: Dictionary = snapshot.get("shared_map_discoveries", {})
@@ -555,6 +557,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
 	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
 	ruin_guardian_node.position = snapshot.get("ruin_guardian_position", WorldStateModel.RUIN_GUARDIAN_SPAWN)
+	ruin_guardian_node.scale = Vector3.ONE * (1.12 if float(snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0 else 1.0)
 	waystone_marker.visible = exploration_stage == "restore_waystone" and not route_activated
 	home_waystone.visible = route_activated
 	ruin_waystone.visible = bool(discoveries.get("old_stone_ruins", false))
@@ -845,6 +848,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"creature_position": world_state.creature_position,
 		"creature_health": world_state.creature_health,
 		"creature_defeated": world_state.creature_defeated,
+		"creature_attack_windup": world_state.creature_attack_windup,
+		"creature_attack_target": world_state.creature_attack_target,
 		"reputation": world_state.reputation,
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
 		"mara_position": world_state.mara_position,
@@ -863,6 +868,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"ruin_guardian_position": world_state.ruin_guardian_position,
 		"ruin_guardian_health": world_state.ruin_guardian_health,
 		"ruin_guardian_defeated": world_state.ruin_guardian_defeated,
+		"ruin_guardian_attack_windup": world_state.ruin_guardian_attack_windup,
+		"ruin_guardian_attack_target": world_state.ruin_guardian_attack_target,
 		"ruin_waystone_activated": world_state.ruin_waystone_activated,
 		"livelihood_stage": world_state.livelihood_stage,
 		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
@@ -1204,6 +1211,7 @@ func _build_interface() -> void:
 	debug_content.add_child(inventory_label)
 	combat_label = Label.new()
 	combat_label.text = "Health: 3/3  Forest creature: 3/3"
+	combat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	debug_content.add_child(combat_label)
 	world_change_label = Label.new()
 	world_change_label.text = "Reputation: 0  Map rumor: Locked"
@@ -1231,6 +1239,21 @@ func _build_interface() -> void:
 	interaction_prompt.add_theme_color_override("font_color", Color("e9feff"))
 	interaction_prompt.visible = false
 	layer.add_child(interaction_prompt)
+	combat_warning_label = Label.new()
+	combat_warning_label.name = "CombatWarning"
+	combat_warning_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	combat_warning_label.offset_left = -300.0
+	combat_warning_label.offset_top = 24.0
+	combat_warning_label.offset_right = 300.0
+	combat_warning_label.offset_bottom = 84.0
+	combat_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	combat_warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	combat_warning_label.add_theme_font_size_override("font_size", 21)
+	combat_warning_label.add_theme_color_override("font_color", Color("ffe08a"))
+	combat_warning_label.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.01, 0.95))
+	combat_warning_label.add_theme_constant_override("outline_size", 7)
+	combat_warning_label.visible = false
+	layer.add_child(combat_warning_label)
 	if _uses_android_touch_controls():
 		_build_touch_controls(layer)
 
@@ -1585,7 +1608,21 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var provision_hint := ""
 	if not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and int(snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
 		provision_hint = " — Q / controller B uses a trail provision"
-	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s" % [
+	var threat_text := ""
+	var local_warnings: Array[String] = []
+	if float(snapshot.get("creature_attack_windup", 0.0)) > 0.0:
+		var creature_target := str(snapshot.get("creature_attack_target", ""))
+		threat_text += "\nWARNING: forest creature targets %s" % _combat_player_name(creature_target)
+		if creature_target == local_token:
+			local_warnings.append("FOREST CREATURE ATTACK — BRACE OR MOVE")
+	if float(snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0:
+		var guardian_target := str(snapshot.get("ruin_guardian_attack_target", ""))
+		threat_text += "\nWARNING: ruin guardian targets %s" % _combat_player_name(guardian_target)
+		if guardian_target == local_token:
+			local_warnings.append("RUIN GUARDIAN ATTACK — BRACE OR MOVE")
+	combat_warning_label.text = "\n".join(local_warnings)
+	combat_warning_label.visible = not local_warnings.is_empty()
+	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s%s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
 		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
@@ -1594,7 +1631,16 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 		brace_text,
 		creature_text,
 		guardian_text,
+		threat_text,
 	]
+
+
+func _combat_player_name(player_token: String) -> String:
+	if player_token == local_token:
+		return "YOU — brace or move"
+	if player_token.is_empty():
+		return "—"
+	return "friend " + player_token.left(6)
 
 
 func _update_quest_interface(
