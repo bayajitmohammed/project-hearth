@@ -75,6 +75,8 @@ Rooms now accept up to eight distinct players. After the produce stall opens, an
 
 Each accepted market unit pays its contributing player one persistent coin. Once the produce stall is open, use **E** at the nearby supply basket to spend two coins on one personal trail provision; free pantry stock remains a separate first-priority pickup. Coin is personal, never drops on defeat, and does not accrue while the room is empty.
 
+The open stall also reveals the neighborhood's first optional shared project beside the cottage. Use **E** at the Hearthbloom planter frame to contribute one personal coin at a time. Four total contributions permanently bloom the planter, raise neighborhood morale and reputation once, and record the improvement in the chronicle. One player may finish it over time or friends may pool their earnings; partial progress never decays.
+
 Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at the gold festival arch to opt into the Hearthlight Circuit; use it again when the entrants are ready to start. Follow the three numbered gold checkpoints in order. The server records the first finisher, every finisher earns one persistent cosmetic ribbon, and gear, mastery, and provisions give no advantage. The first completed circuit raises neighborhood morale and reputation, leaves festival decorations in the gathering place, and adds the celebration to the chronicle. Use the arch again after the results to replay the activity.
 
 ## Run the state test
@@ -198,6 +200,20 @@ cp tests/fixtures/slice6_ready_world.json /tmp/project-hearth-slice6-network.jso
 
 The probes verify explicit enrollment, ordered checkpoints, the server-owned first finisher, shared results, and one persistent ribbon per finisher.
 
+For the Hearthbloom contribution regression, copy `tests/fixtures/hearthbloom_ready_world.json` to a temporary path, start an isolated server on port `9397` with room `PROJECT`, and run these clients simultaneously:
+
+```sh
+cp tests/fixtures/hearthbloom_ready_world.json /tmp/project-hearth-hearthbloom-network.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9397 --room=PROJECT --save-file=/tmp/project-hearth-hearthbloom-network.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/hearthbloom_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9397 --room=PROJECT --player-token=project-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/hearthbloom_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9397 --room=PROJECT --player-token=project-b
+```
+
+The two probes verify that separate personal balances contribute exactly four conserved coins, produce one shared completion, and expose the same permanent rewards to both clients.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -228,6 +244,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 - A defeated forest creature remains gone for the rest of the current world day and returns at full health on the next day, including after bounded empty-room catch-up. The ruin guardian remains a persistent one-time story defeat.
 - Mara persistently remembers each player's meaningful story conversations. After Welcome Lights, each identity may check in once per world day for personal rapport and warmer recognition; this does not gate shared progress, power, or rewards.
 - Market deliveries now pay one persistent personal coin per accepted unit. The supply basket sells trail provisions for two coins through the same authoritative offline, LAN-hosted, and dedicated-world rules.
+- The four-coin Hearthbloom planter is the first optional contribution-funded homestead project. Its partial and completed states persist, and completion produces one visible shared change plus one-time morale, reputation, and chronicle recognition without player power.
 - The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light. Weather never punishes absence or changes movement or combat; after the produce stall opens, it safely frames the current renewable food request.
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.

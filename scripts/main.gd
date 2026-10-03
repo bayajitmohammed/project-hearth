@@ -108,6 +108,9 @@ var cookfire_marker: Node3D
 var market_marker: Node3D
 var produce_stall: Node3D
 var supply_marker: Node3D
+var hearthbloom_project: Node3D
+var hearthbloom_marker: Node3D
+var hearthbloom_blooms: Node3D
 var recovery_pack_nodes: Dictionary = {}
 var festival_arch: Node3D
 var festival_decorations: Node3D
@@ -622,8 +625,13 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			and moonroot_count > 0
 		)
 	)
-	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
-	supply_marker.visible = bool(snapshot.get("produce_stall_open", false))
+	var produce_stall_open := bool(snapshot.get("produce_stall_open", false))
+	var hearthbloom_complete := bool(snapshot.get("hearthbloom_complete", false))
+	produce_stall.visible = produce_stall_open
+	supply_marker.visible = produce_stall_open
+	hearthbloom_project.visible = produce_stall_open
+	hearthbloom_marker.visible = produce_stall_open and not hearthbloom_complete
+	hearthbloom_blooms.visible = hearthbloom_complete
 	var festival_stage := str(snapshot.get("festival_stage", "locked"))
 	festival_arch.visible = festival_stage != "locked"
 	festival_decorations.visible = bool(snapshot.get("festival_completed", false))
@@ -650,12 +658,22 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			if int(snapshot.get("daily_food_order_day", 0)) == 0
 			else "Daily request complete — next day"
 		)
-	world_change_label.text = "Reputation: %d  Morale: %d  %s  Chronicle entries: %d" % [
-		int(snapshot.get("reputation", 0)),
-		int(snapshot.get("neighborhood_morale", 0)),
+	var world_status_parts := PackedStringArray([
+		"Reputation: %d" % int(snapshot.get("reputation", 0)),
+		"Morale: %d" % int(snapshot.get("neighborhood_morale", 0)),
 		food_status,
-		chronicle.size(),
-	]
+	])
+	if produce_stall_open:
+		world_status_parts.append(
+			"Hearthbloom complete"
+			if hearthbloom_complete
+			else "Hearthbloom %d/%d" % [
+				int(snapshot.get("hearthbloom_contributions", 0)),
+				WorldStateModel.HEARTHBLOOM_REQUIRED_COINS,
+			]
+		)
+	world_status_parts.append("Chronicle entries: %d" % chronicle.size())
+	world_change_label.text = "  ".join(world_status_parts)
 	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
 	mastery_label.text = _mastery_text(mastery)
 	connection_panel.visible = false
@@ -923,6 +941,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_provisions": world_state.player_provisions.duplicate(),
 		"player_coins": world_state.player_coins.duplicate(),
 		"recovery_packs": world_state.recovery_packs.duplicate(true),
+		"hearthbloom_contributions": world_state.hearthbloom_contributions,
+		"hearthbloom_complete": world_state.hearthbloom_complete,
 		"festival_stage": world_state.festival_stage,
 		"festival_completed": world_state.festival_completed,
 		"festival_ribbons": world_state.festival_ribbons.duplicate(),
@@ -1078,6 +1098,9 @@ func _build_world() -> void:
 	market_marker = world_nodes["market_marker"]
 	produce_stall = world_nodes["produce_stall"]
 	supply_marker = world_nodes["supply_marker"]
+	hearthbloom_project = world_nodes["hearthbloom_project"]
+	hearthbloom_marker = world_nodes["hearthbloom_marker"]
+	hearthbloom_blooms = world_nodes["hearthbloom_blooms"]
 	festival_arch = world_nodes["festival_arch"]
 	festival_decorations = world_nodes["festival_decorations"]
 	festival_checkpoint_nodes = world_nodes["festival_checkpoints"]
@@ -1506,6 +1529,12 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) >= WorldStateModel.TRAIL_PROVISION_PRICE
 	):
 		_append_mobile_target(candidates, supply_marker, "Buy", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if (
+		bool(latest_snapshot.get("produce_stall_open", false))
+		and not bool(latest_snapshot.get("hearthbloom_complete", false))
+		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) > 0
+	):
+		_append_mobile_target(candidates, hearthbloom_marker, "Contribute", "interact", WorldStateModel.INTERACTION_RADIUS)
 	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
 	if festival_stage in ["available", "signup", "results"]:
 		var festival_label := "Start" if festival_stage == "signup" else "Join"
@@ -2131,6 +2160,19 @@ func _update_interaction_prompt(
 	):
 		interaction_prompt.text = "%s  ·  Buy trail provision (%d coin)" % [
 			action_name, WorldStateModel.TRAIL_PROVISION_PRICE
+		]
+		interaction_prompt.visible = true
+		return
+	if (
+		livelihood_stage == "complete"
+		and not bool(latest_snapshot.get("hearthbloom_complete", false))
+		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) > 0
+		and player_position.distance_to(WorldStateModel.HEARTHBLOOM_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Contribute 1 coin to Hearthbloom (%d/%d)" % [
+			action_name,
+			int(latest_snapshot.get("hearthbloom_contributions", 0)),
+			WorldStateModel.HEARTHBLOOM_REQUIRED_COINS,
 		]
 		interaction_prompt.visible = true
 		return

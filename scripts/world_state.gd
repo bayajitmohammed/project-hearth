@@ -33,6 +33,8 @@ const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
 const TRAIL_PROVISION_PRICE := 2
+const HEARTHBLOOM_POSITION := Vector3(-14.8, 0.6, 3.0)
+const HEARTHBLOOM_REQUIRED_COINS := 4
 const REQUIRED_STEW_DELIVERIES := 2
 const DAILY_FRESH_MOONROOT_DELIVERIES := 3
 const DAILY_ORDER_FRESH_MOONROOT := "fresh_moonroot"
@@ -158,6 +160,8 @@ var last_catch_up_units := 0
 var player_provisions: Dictionary = {}
 var player_coins: Dictionary = {}
 var recovery_packs: Dictionary = {}
+var hearthbloom_contributions := 0
+var hearthbloom_complete := false
 var festival_stage := "locked"
 var festival_completed := false
 var festival_ribbons: Dictionary = {}
@@ -377,6 +381,7 @@ func interact(player_token: String) -> bool:
 		or try_deliver_hearth_stew(player_token)
 		or try_take_pantry_provision(player_token)
 		or try_buy_trail_provision(player_token)
+		or try_contribute_hearthbloom(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -924,6 +929,23 @@ func try_buy_trail_provision(player_token: String) -> bool:
 	return true
 
 
+func try_contribute_hearthbloom(player_token: String) -> bool:
+	if livelihood_stage != "complete" or not produce_stall_open or hearthbloom_complete:
+		return false
+	if register_player(player_token).distance_to(HEARTHBLOOM_POSITION) > INTERACTION_RADIUS:
+		return false
+	if int(player_coins.get(player_token, 0)) < 1:
+		return false
+	player_coins[player_token] = int(player_coins[player_token]) - 1
+	hearthbloom_contributions = mini(hearthbloom_contributions + 1, HEARTHBLOOM_REQUIRED_COINS)
+	if hearthbloom_contributions >= HEARTHBLOOM_REQUIRED_COINS:
+		hearthbloom_complete = true
+		neighborhood_morale += 1
+		reputation += 1
+		chronicle.append("The neighborhood pooled its earnings to bloom a Hearthbloom planter beside the cottage.")
+	return true
+
+
 func try_use_trail_provision(player_token: String) -> bool:
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
@@ -1215,7 +1237,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 12,
+		"version": 13,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1255,6 +1277,8 @@ func to_dictionary() -> Dictionary:
 		"player_provisions": player_provisions.duplicate(),
 		"player_coins": player_coins.duplicate(),
 		"recovery_packs": encoded_recovery_packs,
+		"hearthbloom_contributions": hearthbloom_contributions,
+		"hearthbloom_complete": hearthbloom_complete,
 		"festival_completed": festival_completed,
 		"festival_ribbons": festival_ribbons.duplicate(),
 		"festival_last_winner": festival_last_winner,
@@ -1387,6 +1411,19 @@ func load_dictionary(data: Dictionary) -> void:
 		player_coins = data.get("player_coins", {}).duplicate()
 	else:
 		player_coins = {}
+	if save_version >= 13:
+		hearthbloom_contributions = clampi(
+			int(data.get("hearthbloom_contributions", 0)), 0, HEARTHBLOOM_REQUIRED_COINS
+		)
+		hearthbloom_complete = (
+			bool(data.get("hearthbloom_complete", false))
+			or hearthbloom_contributions >= HEARTHBLOOM_REQUIRED_COINS
+		)
+		if hearthbloom_complete:
+			hearthbloom_contributions = HEARTHBLOOM_REQUIRED_COINS
+	else:
+		hearthbloom_contributions = 0
+		hearthbloom_complete = false
 	if save_version >= 8:
 		festival_completed = bool(data.get("festival_completed", false))
 		festival_ribbons = data.get("festival_ribbons", {}).duplicate()

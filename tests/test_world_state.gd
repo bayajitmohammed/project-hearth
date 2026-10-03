@@ -304,6 +304,36 @@ func _init() -> void:
 	assert(restored_coin_state.player_coins["buyer"] == 0)
 	assert(restored_coin_state.recovery_packs["buyer"]["count"] == 1, "Only provisions, never coin, belong in a recovery pack.")
 
+	var project_state := WorldStateModel.new()
+	project_state.livelihood_stage = "complete"
+	project_state.produce_stall_open = true
+	for contributor: String in ["neighbor-a", "neighbor-b"]:
+		project_state.register_player(contributor)
+		project_state.player_coins[contributor] = 2
+	assert(not project_state.try_contribute_hearthbloom("neighbor-a"), "A contribution must be made at the project site.")
+	project_state.positions["neighbor-a"] = WorldStateModel.HEARTHBLOOM_POSITION
+	assert(project_state.try_contribute_hearthbloom("neighbor-a"))
+	assert(project_state.try_contribute_hearthbloom("neighbor-a"))
+	assert(project_state.hearthbloom_contributions == 2)
+	assert(project_state.player_coins["neighbor-a"] == 0)
+	assert(not project_state.hearthbloom_complete)
+	project_state.mark_world_empty(4000)
+	project_state.apply_offline_catch_up(4060)
+	assert(project_state.hearthbloom_contributions == 2, "An empty world must neither finish nor decay a shared project.")
+	var restored_project := WorldStateModel.new()
+	restored_project.load_dictionary(project_state.to_dictionary())
+	assert(restored_project.hearthbloom_contributions == 2)
+	restored_project.positions["neighbor-b"] = WorldStateModel.HEARTHBLOOM_POSITION
+	assert(restored_project.try_contribute_hearthbloom("neighbor-b"))
+	assert(restored_project.try_contribute_hearthbloom("neighbor-b"))
+	assert(restored_project.hearthbloom_complete)
+	assert(restored_project.hearthbloom_contributions == WorldStateModel.HEARTHBLOOM_REQUIRED_COINS)
+	assert(restored_project.player_coins["neighbor-b"] == 0)
+	assert(restored_project.neighborhood_morale == 1)
+	assert(restored_project.reputation == 1)
+	assert(restored_project.chronicle == ["The neighborhood pooled its earnings to bloom a Hearthbloom planter beside the cottage."])
+	assert(not restored_project.try_contribute_hearthbloom("neighbor-b"), "A completed project must never consume more coin.")
+
 	exploration_state.mark_world_empty(1000)
 	assert(exploration_state.apply_offline_catch_up(1300) == WorldStateModel.PANTRY_MAX_STOCK)
 	assert(exploration_state.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
@@ -515,6 +545,8 @@ func _init() -> void:
 	assert(migrated_daily_order.player_relationships["returning-player"] == {"mara": 0})
 	assert(migrated_daily_order.player_npc_check_in_day["returning-player"] == {"mara": 0})
 	assert(migrated_daily_order.player_coins["returning-player"] == 0)
+	assert(migrated_daily_order.hearthbloom_contributions == 0)
+	assert(not migrated_daily_order.hearthbloom_complete)
 
 	var building_state := WorldStateModel.new()
 	building_state.quest_stage = "repair_cottage"

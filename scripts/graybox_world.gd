@@ -70,6 +70,9 @@ static func build(root: Node3D) -> Dictionary:
 		"market_marker": livelihood["market_marker"],
 		"produce_stall": livelihood["produce_stall"],
 		"supply_marker": livelihood["supply_marker"],
+		"hearthbloom_project": livelihood["hearthbloom_project"],
+		"hearthbloom_marker": livelihood["hearthbloom_marker"],
+		"hearthbloom_blooms": livelihood["hearthbloom_blooms"],
 		"festival_arch": festival["arch"],
 		"festival_decorations": festival["decorations"],
 		"festival_checkpoints": festival["checkpoints"],
@@ -512,6 +515,49 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 	supply_marker.visible = true
 	supply_basket.visible = false
 
+	var hearthbloom_project := Node3D.new()
+	hearthbloom_project.name = "HearthbloomProject"
+	hearthbloom_project.position = WorldStateModel.HEARTHBLOOM_POSITION
+	root.add_child(hearthbloom_project)
+	_add_box(hearthbloom_project, "Planter", Vector3(2.6, 0.65, 1.2), Vector3(0.0, -0.12, 0.0), Color("8a5b3b"))
+	_add_box(hearthbloom_project, "Soil", Vector3(2.3, 0.18, 0.95), Vector3(0.0, 0.26, 0.0), Color("493628"))
+	var hearthbloom_marker := _add_station_marker(
+		hearthbloom_project,
+		"HearthbloomMarker",
+		Vector3.ZERO,
+		"HEARTHBLOOM PROJECT · CONTRIBUTE COIN",
+		Color("f4b7dd")
+	)
+	var hearthbloom_blooms := Node3D.new()
+	hearthbloom_blooms.name = "HearthbloomBlooms"
+	hearthbloom_project.add_child(hearthbloom_blooms)
+	for bloom_index: int in 5:
+		var x_position := -0.9 + float(bloom_index) * 0.45
+		_add_cylinder(
+			hearthbloom_blooms,
+			"Stem%d" % bloom_index,
+			0.055,
+			0.65 + 0.08 * float(bloom_index % 2),
+			Vector3(x_position, 0.62, 0.0),
+			Color("5e9d64"),
+			8
+		)
+		var flower := _add_cylinder(
+			hearthbloom_blooms,
+			"Bloom%d" % bloom_index,
+			0.22,
+			0.16,
+			Vector3(x_position, 1.0 + 0.08 * float(bloom_index % 2), 0.0),
+			Color("e99acb") if bloom_index % 2 == 0 else Color("ffd782"),
+			8
+		)
+		var flower_material := flower.material_override as StandardMaterial3D
+		flower_material.emission_enabled = true
+		flower_material.emission = flower_material.albedo_color * 0.55
+	hearthbloom_project.visible = false
+	hearthbloom_marker.visible = false
+	hearthbloom_blooms.visible = false
+
 	return {
 		"garden_plants": garden_plants,
 		"garden_markers": garden_markers,
@@ -519,6 +565,9 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 		"market_marker": market_marker,
 		"produce_stall": produce_stall,
 		"supply_marker": supply_basket,
+		"hearthbloom_project": hearthbloom_project,
+		"hearthbloom_marker": hearthbloom_marker,
+		"hearthbloom_blooms": hearthbloom_blooms,
 	}
 
 

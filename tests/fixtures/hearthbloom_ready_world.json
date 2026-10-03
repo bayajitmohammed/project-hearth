@@ -1,0 +1,40 @@
+{
+  "version": 13,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "player_health": {"project-a": 3, "project-b": 3},
+  "downed_players": {"project-a": false, "project-b": false},
+  "creature_defeated": true,
+  "creature_health": 0,
+  "reputation": 4,
+  "map_rumor_unlocked": true,
+  "neighborhood_event_stage": "complete",
+  "lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
+  "neighborhood_morale": 2,
+  "chronicle": [
+    "The newcomers repaired the abandoned cottage and made it their home.",
+    "Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
+    "The group found the Old Stone Ruins and restored its ancient waystone route.",
+    "The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall."
+  ],
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true},
+  "exploration_stage": "complete",
+  "ruin_guardian_health": 0,
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "livelihood_stage": "complete",
+  "harvested_garden_plots": {"moonroot_1": true, "moonroot_2": true, "moonroot_3": true, "moonroot_4": true},
+  "stews_delivered": 2,
+  "produce_stall_open": true,
+  "player_coins": {"project-a": 2, "project-b": 2},
+  "player_provisions": {"project-a": 0, "project-b": 0},
+  "hearthbloom_contributions": 0,
+  "hearthbloom_complete": false,
+  "pantry_stock": 0,
+  "festival_completed": false,
+  "festival_ribbons": {},
+  "positions": {
+    "project-a": [-14.8, 0.6, 3.0],
+    "project-b": [-14.8, 0.6, 3.0]
+  }
+}

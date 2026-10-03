@@ -15,6 +15,9 @@ func _init() -> void:
 	assert(main.market_marker != null)
 	assert(main.produce_stall != null)
 	assert(main.supply_marker != null)
+	assert(main.hearthbloom_project != null)
+	assert(main.hearthbloom_marker != null)
+	assert(main.hearthbloom_blooms != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
@@ -51,6 +54,9 @@ func _init() -> void:
 	assert(main.produce_stall.visible)
 	assert(main.supply_marker.visible)
 	assert(main.supply_marker.get_node("TrailSupplyMarker").visible)
+	assert(main.hearthbloom_project.visible)
+	assert(main.hearthbloom_marker.visible)
+	assert(not main.hearthbloom_blooms.visible)
 	assert(main.quest_title_label.text == "OUR SHARED WORLD")
 	assert("shared world is ready" in main.objective_label.text)
 	assert("Gardener I" in main.mastery_label.text)
@@ -69,6 +75,19 @@ func _init() -> void:
 	assert(main.interaction_prompt.visible)
 	assert("Buy trail provision (2 coin)" in main.interaction_prompt.text)
 	assert("Coin 2" in main.progress_label.text)
+
+	snapshot["player_coins"] = {"artisan": 1}
+	snapshot["hearthbloom_contributions"] = 2
+	snapshot["positions"] = {"artisan": WorldStateModel.HEARTHBLOOM_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("Contribute 1 coin to Hearthbloom (2/4)" in main.interaction_prompt.text)
+	assert("Hearthbloom 2/4" in main.world_change_label.text)
+	snapshot["hearthbloom_contributions"] = WorldStateModel.HEARTHBLOOM_REQUIRED_COINS
+	snapshot["hearthbloom_complete"] = true
+	main.receive_snapshot(snapshot)
+	assert(not main.hearthbloom_marker.visible)
+	assert(main.hearthbloom_blooms.visible)
+	assert("Hearthbloom complete" in main.world_change_label.text)
 
 	snapshot["daily_food_order_active"] = true
 	snapshot["daily_food_order_day"] = 2
@@ -160,4 +179,6 @@ func _snapshot() -> Dictionary:
 		"pantry_stock": 0,
 		"player_provisions": {"artisan": 0},
 		"player_coins": {"artisan": 0},
+		"hearthbloom_contributions": 0,
+		"hearthbloom_complete": false,
 	}
