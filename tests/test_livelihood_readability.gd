@@ -60,12 +60,14 @@ func _init() -> void:
 	snapshot["daily_food_deliveries"] = 0
 	snapshot["daily_food_order_label"] = "Fresh moonroot"
 	snapshot["daily_food_order_required"] = WorldStateModel.DAILY_FRESH_MOONROOT_DELIVERIES
+	snapshot["daily_food_order_reason"] = "Clear skies favor fresh harvests"
 	snapshot["world_day"] = 2
 	snapshot["harvested_garden_plots"]["moonroot_1"] = false
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)
 	assert(main.garden_markers["moonroot_1"].visible)
 	assert("Daily request D2 · Fresh moonroot 0/3" in main.world_change_label.text)
+	assert("Clear skies favor fresh harvests" in main.world_change_label.text)
 	assert(main.interaction_prompt.visible)
 	assert("Harvest moonroot" in main.interaction_prompt.text)
 	snapshot["materials"]["moonroot"] = 3

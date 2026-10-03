@@ -585,11 +585,12 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	chronicle_label.text = "CHRONICLE (%d)\n• %s" % [chronicle.size(), "\n• ".join(chronicle_lines)] if not chronicle.is_empty() else ""
 	var food_status := "Food need %d/%d" % [stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES]
 	if livelihood_stage == "complete":
-		food_status = "Daily request D%d · %s %d/%d" % [
+		food_status = "Daily request D%d · %s %d/%d · %s" % [
 			int(snapshot.get("daily_food_order_day", 0)),
 			str(snapshot.get("daily_food_order_label", "Hearth stew")),
 			int(snapshot.get("daily_food_deliveries", 0)),
 			int(snapshot.get("daily_food_order_required", WorldStateModel.REQUIRED_STEW_DELIVERIES)),
+			str(snapshot.get("daily_food_order_reason", "Shared daily need")),
 		] if food_order_active else (
 			"Daily request begins next day"
 			if int(snapshot.get("daily_food_order_day", 0)) == 0
@@ -850,6 +851,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"daily_food_deliveries": world_state.daily_food_deliveries,
 		"daily_food_order_label": world_state.daily_food_order_label(),
 		"daily_food_order_required": world_state.daily_food_order_required(),
+		"daily_food_order_reason": world_state.daily_food_order_reason(),
 		"player_mastery": world_state.player_mastery.duplicate(true),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,

@@ -155,6 +155,7 @@ func _init() -> void:
 	assert(restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.daily_food_order_day == 2)
 	assert(restored_livelihood.daily_food_order_kind == WorldStateModel.DAILY_ORDER_FRESH_MOONROOT)
+	assert(restored_livelihood.daily_food_order_reason() == "Clear skies favor fresh harvests")
 	assert(restored_livelihood.daily_food_order_required() == WorldStateModel.DAILY_FRESH_MOONROOT_DELIVERIES)
 	assert(restored_livelihood.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
 	assert(restored_livelihood.harvested_garden_plots.values().all(func(value: bool) -> bool: return not value))
@@ -177,7 +178,13 @@ func _init() -> void:
 	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
+	assert(restored_livelihood.daily_food_order_kind == WorldStateModel.DAILY_ORDER_FRESH_MOONROOT)
+	assert(restored_livelihood.daily_food_order_reason() == "Clear skies favor fresh harvests")
+	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
+	assert(restored_livelihood.simulate_world_clock(1.0))
+	assert(restored_livelihood.world_day == 4)
 	assert(restored_livelihood.daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
+	assert(restored_livelihood.daily_food_order_reason() == "Gentle rain calls for warming stew")
 	for plot_id: String in ["moonroot_1", "moonroot_2", "moonroot_3"]:
 		restored_livelihood.positions["player-a"] = WorldStateModel.GARDEN_PLOT_POSITIONS[plot_id]
 		assert(restored_livelihood.try_harvest_garden("player-a"))
@@ -192,8 +199,8 @@ func _init() -> void:
 	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6})
 	var persisted_daily_order := WorldStateModel.new()
 	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
-	assert(persisted_daily_order.world_day == 3)
-	assert(persisted_daily_order.daily_food_order_day == 3)
+	assert(persisted_daily_order.world_day == 4)
+	assert(persisted_daily_order.daily_food_order_day == 4)
 	assert(persisted_daily_order.daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
 	assert(persisted_daily_order.daily_food_deliveries == WorldStateModel.REQUIRED_STEW_DELIVERIES)
 	assert(not persisted_daily_order.daily_food_order_active)
@@ -346,6 +353,16 @@ func _init() -> void:
 	rainy_day.load_dictionary({"version": 10, "world_day": 4})
 	assert(rainy_day.world_weather() == "gentle_rain")
 	assert(rainy_day.world_weather_label() == "Gentle rain")
+	assert(rainy_day.recommended_daily_food_order_kind() == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
+	var overcast_stew_day := WorldStateModel.new()
+	overcast_stew_day.world_day = 5
+	assert(overcast_stew_day.world_weather() == "overcast")
+	assert(overcast_stew_day.recommended_daily_food_order_kind() == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
+	assert(overcast_stew_day.daily_food_order_reason() == "Overcast market rotation")
+	var overcast_fresh_day := WorldStateModel.new()
+	overcast_fresh_day.world_day = 8
+	assert(overcast_fresh_day.world_weather() == "overcast")
+	assert(overcast_fresh_day.recommended_daily_food_order_kind() == WorldStateModel.DAILY_ORDER_FRESH_MOONROOT)
 
 	var migrated_slice_one := WorldStateModel.new()
 	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})
@@ -403,6 +420,7 @@ func _init() -> void:
 	})
 	assert(migrated_daily_order.daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
 	assert(migrated_daily_order.daily_food_deliveries == 1)
+	assert(migrated_daily_order.daily_food_order_reason() == "Existing request continues safely")
 	assert(migrated_daily_order.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
 
 	var combat_state := WorldStateModel.new()

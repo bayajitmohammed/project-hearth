@@ -394,9 +394,7 @@ func _begin_daily_food_order() -> void:
 		return
 	daily_food_order_day = world_day
 	daily_food_order_active = true
-	daily_food_order_kind = (
-		DAILY_ORDER_FRESH_MOONROOT if world_day % 2 == 0 else DAILY_ORDER_HEARTH_STEW
-	)
+	daily_food_order_kind = recommended_daily_food_order_kind()
 	daily_food_deliveries = 0
 	for plot_id: String in harvested_garden_plots:
 		harvested_garden_plots[plot_id] = false
@@ -416,6 +414,32 @@ func daily_food_order_label() -> String:
 	if daily_food_order_kind == DAILY_ORDER_FRESH_MOONROOT:
 		return "Fresh moonroot"
 	return "Hearth stew"
+
+
+func recommended_daily_food_order_kind() -> String:
+	match world_weather():
+		"clear":
+			return DAILY_ORDER_FRESH_MOONROOT
+		"gentle_rain":
+			return DAILY_ORDER_HEARTH_STEW
+		_:
+			return DAILY_ORDER_FRESH_MOONROOT if world_day % 2 == 0 else DAILY_ORDER_HEARTH_STEW
+
+
+func daily_food_order_reason() -> String:
+	if (
+		daily_food_order_active
+		and not daily_food_order_kind.is_empty()
+		and daily_food_order_kind != recommended_daily_food_order_kind()
+	):
+		return "Existing request continues safely"
+	match world_weather():
+		"clear":
+			return "Clear skies favor fresh harvests"
+		"gentle_rain":
+			return "Gentle rain calls for warming stew"
+		_:
+			return "Overcast market rotation"
 
 
 func world_time_period() -> String:
