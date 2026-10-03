@@ -28,6 +28,9 @@ func _init() -> void:
 		assert(await _move_to(WorldStateModel.MARA_POSITION), "Leader could not reach Mara.")
 		main._request_interaction()
 	assert(await _wait_until(func() -> bool: return _quest_stage() == "recover_supplies", "share quest progress"))
+	assert(await _wait_until(_relationship_credit_visible, "share personal Mara rapport"))
+	assert(_mara_rapport("probe-leader") == 1, "The player who spoke with Mara must receive personal rapport.")
+	assert(_mara_rapport("probe-helper") == 0, "Shared quest progress must not duplicate personal rapport.")
 
 	assert(await _move_to(WorldStateModel.RESOURCE_POSITIONS["wood_1"]), "Could not reach shared wood.")
 	assert(await _wait_until(_both_players_at_wood, "bring both players to the same resource"))
@@ -115,6 +118,14 @@ func _is_downed(player_token: String) -> bool:
 
 func _quest_stage() -> String:
 	return str(main.latest_snapshot.get("quest_stage", ""))
+
+
+func _relationship_credit_visible() -> bool:
+	return _mara_rapport("probe-leader") == 1 and _mara_rapport("probe-helper") == 0
+
+
+func _mara_rapport(player_token: String) -> int:
+	return int(main.latest_snapshot.get("player_relationships", {}).get(player_token, {}).get("mara", -1))
 
 
 func _argument(prefix: String) -> String:

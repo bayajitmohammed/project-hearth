@@ -12,6 +12,8 @@ Hand-authored characters and story chains provide meaning. Reusable requests and
 
 The event director favors unresolved people and places the players already know. Outcomes change relationships, access, appearance, or local conditions and enter the shared chronicle.
 
+The first personal relationship memory belongs to **Mara**. A player gains one rapport point when they personally complete a meaningful story conversation with her. After Welcome Lights, every player may also check in with Mara once per authoritative world day for one point; one companion's conversation never consumes another's opportunity. Rapport persists with that identity and displays increasingly warm recognition, but this first layer grants no power, exclusive reward, quest ownership, or access that could separate friends. Shared story state remains shared immediately.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.

@@ -7,6 +7,8 @@ func _init() -> void:
 	var state := WorldStateModel.new()
 	var first_spawn: Vector3 = state.register_player("player-a")
 	assert(first_spawn == WorldStateModel.SPAWN_POINT)
+	assert(state.player_relationships["player-a"] == {"mara": 0})
+	assert(state.player_npc_check_in_day["player-a"] == {"mara": 0})
 
 	state.move_player("player-a", Vector2(0.0, -1.0), 1.5)
 	assert(state.register_player("player-a").z < first_spawn.z)
@@ -16,6 +18,7 @@ func _init() -> void:
 	state.positions["player-a"] = WorldStateModel.MARA_POSITION
 	assert(state.interact_with_mara("player-a"))
 	assert(state.quest_stage == "recover_supplies")
+	assert(state.player_relationships["player-a"]["mara"] == 1)
 	for resource_id: String in ["wood_1", "wood_2", "herb_1"]:
 		state.positions["player-a"] = WorldStateModel.RESOURCE_POSITIONS[resource_id]
 		assert(state.try_gather_resource("player-a"))
@@ -29,6 +32,7 @@ func _init() -> void:
 	state.positions["player-a"] = WorldStateModel.MARA_POSITION
 	assert(state.interact_with_mara("player-a"))
 	assert(state.quest_stage == "repair_cottage")
+	assert(state.player_relationships["player-a"]["mara"] == 2)
 	assert(state.craft_repair_kit())
 	assert(not state.craft_repair_kit(), "Only one repair kit is needed.")
 	assert(state.materials["wood"] == 0)
@@ -49,6 +53,7 @@ func _init() -> void:
 	assert(state.interact_with_mara("player-a"))
 	assert(state.neighborhood_event_stage == "lighting")
 	assert(state.mara_position == WorldStateModel.MARA_WELCOME_POSITION)
+	assert(state.player_relationships["player-a"]["mara"] == 3)
 	state.register_player("player-b")
 	state.positions["player-a"] = WorldStateModel.WELCOME_LANTERN_POSITIONS["cottage"]
 	assert(state.try_light_welcome_lantern("player-a"))
@@ -65,6 +70,15 @@ func _init() -> void:
 		"The newcomers repaired the abandoned cottage and made it their home.",
 		"Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
 	])
+	state.positions["player-a"] = state.mara_position
+	assert(state.interact_with_mara("player-a"), "Each player may check in with Mara once per world day.")
+	assert(state.player_relationships["player-a"]["mara"] == 4)
+	assert(state.player_npc_check_in_day["player-a"]["mara"] == state.world_day)
+	assert(not state.interact_with_mara("player-a"), "Repeated same-day check-ins must not farm rapport.")
+	state.positions["player-b"] = state.mara_position
+	assert(state.interact_with_mara("player-b"), "One player's check-in must not consume a companion's opportunity.")
+	assert(state.player_relationships["player-b"]["mara"] == 1)
+	assert(state.player_npc_check_in_day["player-b"]["mara"] == state.world_day)
 
 	var restored := WorldStateModel.new()
 	restored.load_dictionary(state.to_dictionary())
@@ -80,6 +94,16 @@ func _init() -> void:
 	assert(restored.neighborhood_morale == 1)
 	assert(restored.chronicle.size() == 2)
 	assert(restored.register_player("player-a") == state.positions["player-a"])
+	assert(restored.player_relationships["player-a"]["mara"] == 4)
+	assert(restored.player_relationships["player-b"]["mara"] == 1)
+	assert(restored.player_npc_check_in_day["player-a"]["mara"] == 1)
+	var next_day_relationship := WorldStateModel.new()
+	next_day_relationship.load_dictionary(state.to_dictionary())
+	assert(next_day_relationship.simulate_world_clock(WorldStateModel.WORLD_MINUTES_PER_DAY))
+	next_day_relationship.positions["player-a"] = next_day_relationship.mara_position
+	assert(next_day_relationship.interact_with_mara("player-a"))
+	assert(next_day_relationship.player_relationships["player-a"]["mara"] == 5)
+	assert(next_day_relationship.player_npc_check_in_day["player-a"]["mara"] == 2)
 
 	var exploration_state := WorldStateModel.new()
 	exploration_state.load_dictionary(state.to_dictionary())
@@ -458,6 +482,9 @@ func _init() -> void:
 	assert(migrated_daily_order.daily_food_deliveries == 1)
 	assert(migrated_daily_order.daily_food_order_reason() == "Existing request continues safely")
 	assert(migrated_daily_order.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
+	migrated_daily_order.register_player("returning-player")
+	assert(migrated_daily_order.player_relationships["returning-player"] == {"mara": 0})
+	assert(migrated_daily_order.player_npc_check_in_day["returning-player"] == {"mara": 0})
 
 	var building_state := WorldStateModel.new()
 	building_state.quest_stage = "repair_cottage"

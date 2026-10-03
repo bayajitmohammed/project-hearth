@@ -57,6 +57,7 @@ var status_label: Label
 var quest_title_label: Label
 var objective_label: Label
 var dialogue_label: Label
+var relationship_label: Label
 var progress_label: Label
 var interaction_prompt: Label
 var combat_warning_label: Label
@@ -558,6 +559,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		str(snapshot.get("festival_last_winner", "")),
 		int(snapshot.get("festival_ribbons", {}).get(local_token, 0))
 	)
+	_update_relationship_interface(snapshot)
 	_sync_recovery_packs(snapshot.get("recovery_packs", {}))
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
@@ -911,6 +913,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"daily_food_order_required": world_state.daily_food_order_required(),
 		"daily_food_order_reason": world_state.daily_food_order_reason(),
 		"player_mastery": world_state.player_mastery.duplicate(true),
+		"player_relationships": world_state.player_relationships.duplicate(true),
+		"player_npc_check_in_day": world_state.player_npc_check_in_day.duplicate(true),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
 		"player_provisions": world_state.player_provisions.duplicate(),
@@ -1126,6 +1130,12 @@ func _build_interface() -> void:
 	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialogue_label.add_theme_color_override("font_color", Color("ced8dc"))
 	quest_content.add_child(dialogue_label)
+	relationship_label = Label.new()
+	relationship_label.name = "MaraRelationship"
+	relationship_label.text = "MARA REMEMBERS YOU · New face · 0"
+	relationship_label.add_theme_color_override("font_color", Color("e7c98b"))
+	relationship_label.add_theme_font_size_override("font_size", 14)
+	quest_content.add_child(relationship_label)
 	craft_button = Button.new()
 	craft_button.text = "Craft Repair Kit (C)"
 	craft_button.custom_minimum_size.y = 42.0
@@ -2111,6 +2121,14 @@ func _update_interaction_prompt(
 				interaction_prompt.text = "%s  ·  Light %s" % [action_name, WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id].capitalize()]
 				interaction_prompt.visible = true
 				return
+	if (
+		event_stage == "complete"
+		and player_position.distance_to(mara_node.position) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+		and int(latest_snapshot.get("player_npc_check_in_day", {}).get(local_token, {}).get("mara", 0)) < int(latest_snapshot.get("world_day", 1))
+	):
+		interaction_prompt.text = "%s  ·  Check in with Mara" % action_name
+		interaction_prompt.visible = true
+		return
 	if _local_can_use_trail_provision():
 		interaction_prompt.text = "Q  ·  Use a trail provision"
 		interaction_prompt.visible = true
@@ -2121,6 +2139,26 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:
 	var ruins := "charted" if bool(discoveries.get("old_stone_ruins", false)) else "rumored"
 	var route := "waystone route active" if route_activated else "first journey required"
 	return "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
+
+
+func _update_relationship_interface(snapshot: Dictionary) -> void:
+	var rapport := int(snapshot.get("player_relationships", {}).get(local_token, {}).get("mara", 0))
+	var recognition := "New face"
+	if rapport >= 5:
+		recognition = "Trusted friend"
+	elif rapport >= 3:
+		recognition = "Familiar neighbor"
+	elif rapport >= 1:
+		recognition = "Acquainted"
+	var checked_in_today := (
+		int(snapshot.get("player_npc_check_in_day", {}).get(local_token, {}).get("mara", 0))
+		>= int(snapshot.get("world_day", 1))
+	)
+	relationship_label.text = "MARA REMEMBERS YOU · %s · %d%s" % [
+		recognition,
+		rapport,
+		" · checked in today" if checked_in_today else "",
+	]
 
 
 func _festival_player_name(player_token: String) -> String:

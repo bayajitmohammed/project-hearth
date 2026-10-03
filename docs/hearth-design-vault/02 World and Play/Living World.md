@@ -34,6 +34,8 @@ Required story appearances override routines so an NPC can never wander away fro
 
 The HUD names the day, time of day, and Mara's current activity. This is a small proof of a reusable clock and NPC schedule, not a commitment to simulating every NPC continuously.
 
+Mara's routine also supports one optional personal check-in per player per world day after Welcome Lights. The server records the last check-in day separately for each persistent identity, so offline and cooperative players receive the same opportunity without repeated-input farming or one player consuming the room's conversation.
+
 ## First weather and daylight depth
 
 Each world day has one deterministic forecast derived from the region seed and authoritative day number: clear, overcast, or gentle rain. Every client receives the same named weather in the world snapshot, while daylight color and brightness follow the shared clock. Night remains navigable and inviting through cool ambient light and warm authored landmarks rather than becoming black.

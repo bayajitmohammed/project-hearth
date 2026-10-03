@@ -60,6 +60,18 @@ func _init() -> void:
 	assert("Mara:" in main.world_time_label.text)
 	assert(not main.rain_particles.emitting)
 	var daytime_energy: float = main.world_environment.environment.ambient_light_energy
+	complete_snapshot["positions"] = {"reader": WorldStateModel.MARA_WELCOME_POSITION}
+	complete_snapshot["player_relationships"] = {"reader": {"mara": 3}}
+	complete_snapshot["player_npc_check_in_day"] = {"reader": {"mara": 0}}
+	main.receive_snapshot(complete_snapshot)
+	assert("Familiar neighbor · 3" in main.relationship_label.text)
+	assert(main.interaction_prompt.visible)
+	assert("Check in with Mara" in main.interaction_prompt.text)
+	complete_snapshot["player_relationships"]["reader"]["mara"] = 4
+	complete_snapshot["player_npc_check_in_day"]["reader"]["mara"] = 1
+	main.receive_snapshot(complete_snapshot)
+	assert("Familiar neighbor · 4 · checked in today" in main.relationship_label.text)
+	assert(not main.interaction_prompt.visible)
 
 	complete_snapshot["world_day"] = 4
 	complete_snapshot["world_minute"] = 0
@@ -97,6 +109,8 @@ func _base_snapshot() -> Dictionary:
 		"world_time_period": "Afternoon",
 		"world_weather": "overcast",
 		"world_weather_label": "Overcast",
+		"player_relationships": {"reader": {"mara": 0}},
+		"player_npc_check_in_day": {"reader": {"mara": 0}},
 		"neighborhood_event_stage": "invitation",
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,

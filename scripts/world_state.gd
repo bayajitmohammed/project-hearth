@@ -148,6 +148,8 @@ var daily_food_order_day := 0
 var daily_food_order_kind := ""
 var daily_food_deliveries := 0
 var player_mastery: Dictionary = {}
+var player_relationships: Dictionary = {}
+var player_npc_check_in_day: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
 var last_catch_up_units := 0
@@ -193,6 +195,20 @@ func register_player(player_token: String) -> Vector3:
 			if not mastery.has(track):
 				mastery[track] = 0
 		player_mastery[player_token] = mastery
+	if not player_relationships.has(player_token):
+		player_relationships[player_token] = {"mara": 0}
+	else:
+		var relationships: Dictionary = player_relationships[player_token]
+		if not relationships.has("mara"):
+			relationships["mara"] = 0
+		player_relationships[player_token] = relationships
+	if not player_npc_check_in_day.has(player_token):
+		player_npc_check_in_day[player_token] = {"mara": 0}
+	else:
+		var check_in_days: Dictionary = player_npc_check_in_day[player_token]
+		if not check_in_days.has("mara"):
+			check_in_days["mara"] = 0
+		player_npc_check_in_day[player_token] = check_in_days
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
 	if not festival_ribbons.has(player_token):
@@ -251,14 +267,25 @@ func interact_with_mara(player_token: String) -> bool:
 	match quest_stage:
 		"meet_mara":
 			quest_stage = "recover_supplies"
+			_add_npc_rapport(player_token, "mara")
 			return true
 		"return_to_mara":
 			quest_stage = "repair_cottage"
+			_add_npc_rapport(player_token, "mara")
 			return true
 		"home_repaired":
 			if neighborhood_event_stage == "invitation":
 				neighborhood_event_stage = "lighting"
 				mara_position = MARA_WELCOME_POSITION
+				_add_npc_rapport(player_token, "mara")
+				return true
+			if neighborhood_event_stage == "complete":
+				var check_in_days: Dictionary = player_npc_check_in_day[player_token]
+				if int(check_in_days.get("mara", 0)) >= world_day:
+					return false
+				check_in_days["mara"] = world_day
+				player_npc_check_in_day[player_token] = check_in_days
+				_add_npc_rapport(player_token, "mara")
 				return true
 	return false
 
@@ -1127,6 +1154,13 @@ func _add_mastery(player_token: String, track: String, amount: int = 1) -> void:
 	player_mastery[player_token] = mastery
 
 
+func _add_npc_rapport(player_token: String, npc_id: String, amount: int = 1) -> void:
+	register_player(player_token)
+	var relationships: Dictionary = player_relationships[player_token]
+	relationships[npc_id] = int(relationships.get(npc_id, 0)) + maxi(amount, 0)
+	player_relationships[player_token] = relationships
+
+
 func _all_repairs_complete() -> bool:
 	for is_repaired: bool in repaired_parts.values():
 		if not is_repaired:
@@ -1189,6 +1223,8 @@ func to_dictionary() -> Dictionary:
 		"daily_food_order_kind": daily_food_order_kind,
 		"daily_food_deliveries": daily_food_deliveries,
 		"player_mastery": player_mastery.duplicate(true),
+		"player_relationships": player_relationships.duplicate(true),
+		"player_npc_check_in_day": player_npc_check_in_day.duplicate(true),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
 		"player_provisions": player_provisions.duplicate(),
@@ -1356,6 +1392,8 @@ func load_dictionary(data: Dictionary) -> void:
 		daily_food_order_day = 0
 		daily_food_order_kind = ""
 		daily_food_deliveries = 0
+	player_relationships = data.get("player_relationships", {}).duplicate(true)
+	player_npc_check_in_day = data.get("player_npc_check_in_day", {}).duplicate(true)
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"
