@@ -44,3 +44,9 @@ The first tier-II techniques reduce repeated inputs without improving combat sta
 - **Trade II — Bulk Delivery:** one interaction may deliver the matching goods already prepared for the current market request.
 
 Tier II begins at 4 Cooking or Trade mastery and 8 Farming mastery. Every item harvested, cooked, or delivered still grants its normal mastery credit, regardless of whether it was processed in one input. A player at mastery 0 can complete every request with the original actions, and friends may still divide the work. These are first convenience proofs, not final thresholds or a permanent skill-tree layout.
+
+## First combat mastery identity
+
+Each successful basic attack that damages a creature grants one personal **Combat mastery** point. The first point displays the identity title **Warden I** in the existing mastery readout. Misses, rejected attacks during recovery, bracing, and taking damage grant no credit.
+
+This first layer records participation and gives the combat path a visible identity only. It does not change damage, health, attack recovery, brace timing, enemy strength, or access to the base combat actions, so a newcomer remains equally useful in an encounter. Later combat techniques must preserve that compatibility and need a separate design decision before implementation.

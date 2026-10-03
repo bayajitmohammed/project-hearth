@@ -45,7 +45,7 @@ func _init() -> void:
 	snapshot["stews_delivered"] = 2
 	snapshot["livelihood_stage"] = "complete"
 	snapshot["produce_stall_open"] = true
-	snapshot["player_mastery"]["artisan"] = {"farming": 4, "cooking": 2, "trade": 2}
+	snapshot["player_mastery"]["artisan"] = {"farming": 4, "cooking": 2, "trade": 2, "combat": 1}
 	main.receive_snapshot(snapshot)
 	assert(main.produce_stall.visible)
 	assert(main.quest_title_label.text == "OUR SHARED WORLD")
@@ -53,6 +53,7 @@ func _init() -> void:
 	assert("Gardener I" in main.mastery_label.text)
 	assert("Cook I" in main.mastery_label.text)
 	assert("Trader I" in main.mastery_label.text)
+	assert("Warden I" in main.mastery_label.text)
 
 	snapshot["daily_food_order_active"] = true
 	snapshot["daily_food_order_day"] = 2
@@ -76,7 +77,7 @@ func _init() -> void:
 	assert(main.market_marker.visible)
 	assert("Deliver fresh moonroot" in main.interaction_prompt.text)
 
-	snapshot["player_mastery"]["artisan"] = {"farming": 8, "cooking": 4, "trade": 4}
+	snapshot["player_mastery"]["artisan"] = {"farming": 8, "cooking": 4, "trade": 4, "combat": 1}
 	snapshot["materials"]["moonroot"] = 0
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)
@@ -140,5 +141,5 @@ func _snapshot() -> Dictionary:
 		"daily_food_order_day": 0,
 		"daily_food_order_kind": "",
 		"daily_food_deliveries": 0,
-		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0}},
+		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0, "combat": 0}},
 	}

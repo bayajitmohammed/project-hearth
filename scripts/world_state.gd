@@ -165,7 +165,12 @@ func register_player(player_token: String) -> Vector3:
 	if not player_brace_cooldown.has(player_token):
 		player_brace_cooldown[player_token] = 0.0
 	if not player_mastery.has(player_token):
-		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0}
+		player_mastery[player_token] = {"farming": 0, "cooking": 0, "trade": 0, "combat": 0}
+	else:
+		var mastery: Dictionary = player_mastery[player_token]
+		if not mastery.has("combat"):
+			mastery["combat"] = 0
+			player_mastery[player_token] = mastery
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
 	if not festival_ribbons.has(player_token):
@@ -367,6 +372,7 @@ func attack_creature(player_token: String) -> bool:
 	):
 		player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
 		ruin_guardian_health -= 1
+		_add_mastery(player_token, "combat")
 		if ruin_guardian_health <= 0:
 			ruin_guardian_health = 0
 			ruin_guardian_defeated = true
@@ -378,6 +384,7 @@ func attack_creature(player_token: String) -> bool:
 		return false
 	player_attack_recovery[player_token] = PLAYER_ATTACK_RECOVERY_SECONDS
 	creature_health -= 1
+	_add_mastery(player_token, "combat")
 	if creature_health <= 0:
 		creature_health = 0
 		creature_defeated = true

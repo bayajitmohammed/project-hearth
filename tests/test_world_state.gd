@@ -139,8 +139,8 @@ func _init() -> void:
 	assert(exploration_state.neighborhood_morale == 2)
 	assert(exploration_state.reputation == 4)
 	assert(exploration_state.chronicle.size() == 4)
-	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1})
-	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1})
+	assert(exploration_state.player_mastery["player-a"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 5})
+	assert(exploration_state.player_mastery["player-b"] == {"farming": 2, "cooking": 1, "trade": 1, "combat": 0})
 	var restored_livelihood := WorldStateModel.new()
 	restored_livelihood.load_dictionary(exploration_state.to_dictionary())
 	assert(restored_livelihood.livelihood_stage == "complete")
@@ -175,7 +175,7 @@ func _init() -> void:
 	assert(restored_livelihood.reputation == milestone_reputation)
 	assert(restored_livelihood.neighborhood_morale == milestone_morale)
 	assert(restored_livelihood.chronicle.size() == milestone_chronicle_size)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "combat": 5})
 	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
@@ -197,7 +197,7 @@ func _init() -> void:
 	assert(restored_livelihood.interact("player-a"), "Trade II should bulk-deliver both daily stews.")
 	assert(not restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
-	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6})
+	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "combat": 5})
 	var persisted_daily_order := WorldStateModel.new()
 	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
 	assert(persisted_daily_order.world_day == 4)
@@ -221,6 +221,7 @@ func _init() -> void:
 	})
 	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]
 	assert(technique_state.try_harvest_garden("specialist"))
+	assert(technique_state.player_mastery["specialist"]["combat"] == 0, "Returning players from older saves gain the additive Combat track at zero.")
 	assert(technique_state.harvested_garden_plots["moonroot_1"])
 	assert(technique_state.harvested_garden_plots["moonroot_2"])
 	technique_state.positions["specialist"] = WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_3"]
@@ -448,9 +449,11 @@ func _init() -> void:
 	combat_state.register_player("fighter")
 	combat_state.positions["fighter"] = WorldStateModel.SPAWN_POINT
 	assert(not combat_state.attack_creature("fighter"))
+	assert(combat_state.player_mastery["fighter"]["combat"] == 0, "A missed attack must not grant mastery.")
 	assert(is_zero_approx(combat_state.player_attack_recovery["fighter"]), "Out-of-range input must not consume recovery.")
 	combat_state.positions["fighter"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
 	assert(combat_state.attack_creature("fighter"))
+	assert(combat_state.player_mastery["fighter"]["combat"] == 1)
 	assert(combat_state.player_attack_recovery["fighter"] == WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS)
 	assert(not combat_state.attack_creature("fighter"), "Recovery must reject immediate repeated damage.")
 	combat_state.positions["fighter"] = WorldStateModel.SPAWN_POINT
@@ -464,6 +467,7 @@ func _init() -> void:
 	assert(combat_state.attack_creature("fighter"))
 	assert(combat_state.creature_defeated)
 	assert(not combat_state.attack_creature("fighter"))
+	assert(combat_state.player_mastery["fighter"]["combat"] == 3, "Only the three damaging hits grant mastery.")
 	var cooperative_combat := WorldStateModel.new()
 	for fighter_token: String in ["fighter-a", "fighter-b"]:
 		cooperative_combat.register_player(fighter_token)
@@ -471,6 +475,8 @@ func _init() -> void:
 	assert(cooperative_combat.attack_creature("fighter-a"))
 	assert(cooperative_combat.attack_creature("fighter-b"), "One player's recovery must not delay a companion.")
 	assert(cooperative_combat.creature_health == WorldStateModel.CREATURE_MAX_HEALTH - 2)
+	assert(cooperative_combat.player_mastery["fighter-a"]["combat"] == 1)
+	assert(cooperative_combat.player_mastery["fighter-b"]["combat"] == 1)
 
 	var brace_state := WorldStateModel.new()
 	brace_state.register_player("defender")
