@@ -91,6 +91,8 @@ The game should work when:
 - Someone joins late or leaves early
 - Different players have very different amounts of playtime
 
+Players choose between a private offline world on their device, a player-hosted LAN world for nearby friends, or a networked room. All three modes run the same authoritative world rules; LAN hosting makes the host's game the authority, while networked rooms use a dedicated server. Losing internet access must never prevent someone from playing their own offline world.
+
 Encounters scale through different threats and parallel jobs rather than inflated health. Players can join and leave without resetting an outing. Loot is personal and shared-project credit is automatic.
 
 PvP exists only in opt-in world activities. Standard contests normalize power; an optional chaos mode uses personal gear.

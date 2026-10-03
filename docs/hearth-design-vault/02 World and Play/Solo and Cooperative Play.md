@@ -10,6 +10,16 @@ tags: [game-design, multiplayer]
 
 Solo play supports scouting, gathering, building, farming, crafting, trading, small requests, and personal story steps. Dangerous group content can be postponed or attempted with NPC help. Solo players are never forced to defend the world on a timer.
 
+Solo play is available in a device-local offline world and does not require an internet connection or a separate server process. Offline worlds remain separate from hosted shared worlds unless a future explicit world-transfer feature is added.
+
+## Ways to play together
+
+- **LAN host:** one player's native game owns the authoritative world and save while up to seven nearby players join over the local network.
+- **Networked room:** every player is a client of an authoritative dedicated room, suitable for friends who are not on the same network.
+- **Offline:** the local game runs those same authoritative rules for one player without opening a network listener.
+
+Browser builds can play offline or join LAN and networked rooms, but do not host a room because the browser platform cannot listen as a WebSocket server. The modes share world logic so changing from one transport to another does not create different gameplay rules.
+
 ## What friends change
 
 Friends create parallel roles and interactions: one distracts a creature while another completes an objective; players carry complementary tools; group choices provoke conversation; rescues, celebrations, and mistakes create stories. Cooperation opens approaches rather than only reducing difficulty.

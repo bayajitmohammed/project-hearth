@@ -2,6 +2,8 @@ extends Node3D
 
 const DEFAULT_PORT := 9080
 const SAVE_PATH := "user://slice_zero_world.json"
+const OFFLINE_SAVE_PATH := "user://offline_world.json"
+const HOSTED_SAVE_PATH := "user://hosted_world.json"
 const DEFAULT_ROOM_CODE := "HEARTH"
 const MAX_PLAYERS := 8
 const CAMERA_FIRST_PERSON := "first_person"
@@ -10,6 +12,9 @@ const CAMERA_MIN_DISTANCE := 3.0
 const CAMERA_MAX_DISTANCE := 8.0
 const CAMERA_MOUSE_SENSITIVITY := 0.004
 const CAMERA_TOUCH_SENSITIVITY := 0.006
+const MOBILE_TAP_DRAG_THRESHOLD := 18.0
+const MOBILE_AIM_RADIUS := 64.0
+const MOBILE_TAP_RADIUS := 92.0
 const CAMERA_CONTROLLER_SPEED := 2.2
 const CAMERA_MIN_PITCH := deg_to_rad(-65.0)
 const CAMERA_MAX_PITCH := deg_to_rad(65.0)
@@ -19,26 +24,33 @@ const THIRD_PERSON_SHOULDER_OFFSET := 0.75
 const PLAYER_POSITION_SMOOTHING_SPEED := 18.0
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
+const TouchJoystick = preload("res://scripts/touch_joystick.gd")
 
 var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
 var peer_inputs: Dictionary = {}
 var player_nodes: Dictionary = {}
 var player_target_positions: Dictionary = {}
-var touch_directions: Dictionary = {}
+var touch_movement := Vector2.ZERO
 var local_token := ""
 var is_server := false
 var client_connected := false
+var local_authority_player := false
+var broadcasts_to_clients := false
 var snapshot_accumulator := 0.0
 var save_path := SAVE_PATH
 var server_room_code := DEFAULT_ROOM_CODE
+var server_port := DEFAULT_PORT
 var latest_snapshot: Dictionary = {}
 var camera_yaw := 0.0
 var camera_pitch := 0.0
 var camera_distance := 5.5
 var camera_mode := CAMERA_FIRST_PERSON
 var camera_touch_index := -1
+var camera_touch_start_position := Vector2.ZERO
+var camera_touch_drag_distance := 0.0
 var local_input_enabled := true
+var mobile_context_target: Dictionary = {}
 
 var status_label: Label
 var quest_title_label: Label
@@ -53,6 +65,12 @@ var mastery_label: Label
 var address_input: LineEdit
 var room_code_input: LineEdit
 var connect_button: Button
+var offline_button: Button
+var host_button: Button
+var session_status_label: Label
+var touch_controls: Control
+var mobile_crosshair: Label
+var mobile_context_button: Button
 var craft_button: Button
 var quest_card: PanelContainer
 var map_panel: PanelContainer
@@ -106,13 +124,19 @@ func _ready() -> void:
 			local_token = _load_or_create_player_token()
 		room_code_input.text = _read_room_argument()
 		var connect_address := _read_connect_argument()
-		if not connect_address.is_empty():
+		if "--offline" in OS.get_cmdline_user_args():
+			_start_local_world(false, _read_save_path_argument(OFFLINE_SAVE_PATH))
+		elif "--host" in OS.get_cmdline_user_args():
+			_start_local_world(true, _read_save_path_argument(HOSTED_SAVE_PATH), _read_port_argument())
+		elif not connect_address.is_empty():
 			address_input.text = connect_address
 			_connect_to_server.call_deferred()
 
 
 func _physics_process(delta: float) -> void:
 	if is_server:
+		if local_authority_player and local_input_enabled:
+			_update_local_authority_input()
 		_simulate_server(delta)
 		return
 	if not client_connected:
@@ -129,6 +153,22 @@ func _physics_process(delta: float) -> void:
 		_request_craft()
 	if Input.is_action_just_pressed("attack"):
 		_request_attack()
+	if Input.is_action_just_pressed("toggle_debug"):
+		debug_panel.visible = not debug_panel.visible
+	if Input.is_action_just_pressed("toggle_camera"):
+		_toggle_camera_mode()
+
+
+func _update_local_authority_input() -> void:
+	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
+	peer_inputs[1] = input_vector.rotated(-camera_yaw)
+	if Input.is_action_just_pressed("interact"):
+		_try_interaction(local_token)
+	if Input.is_action_just_pressed("craft"):
+		_try_craft_repair_kit()
+	if Input.is_action_just_pressed("attack"):
+		_try_attack(local_token)
 	if Input.is_action_just_pressed("toggle_debug"):
 		debug_panel.visible = not debug_panel.visible
 	if Input.is_action_just_pressed("toggle_camera"):
@@ -160,6 +200,8 @@ func _process(delta: float) -> void:
 		)
 		game_camera.position = game_camera.position.lerp(target_position, minf(delta * 10.0, 1.0))
 	game_camera.look_at(eye_position + look_direction * 10.0)
+	if _uses_android_touch_controls():
+		_update_mobile_targeting()
 
 
 func _interpolate_player_positions(delta: float) -> void:
@@ -172,7 +214,7 @@ func _interpolate_player_positions(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_server:
+	if is_server and not local_authority_player:
 		return
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -190,11 +232,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_release_mouse()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
-		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.45:
+		if event.pressed and event.position.x >= get_viewport().get_visible_rect().size.x * 0.5:
 			camera_touch_index = event.index
+			camera_touch_start_position = event.position
+			camera_touch_drag_distance = 0.0
 		elif not event.pressed and event.index == camera_touch_index:
+			if _uses_android_touch_controls() and camera_touch_drag_distance <= MOBILE_TAP_DRAG_THRESHOLD:
+				_handle_mobile_world_tap(event.position)
 			camera_touch_index = -1
 	elif event is InputEventScreenDrag and event.index == camera_touch_index:
+		camera_touch_drag_distance += event.relative.length()
 		_orbit_camera(event.relative, CAMERA_TOUCH_SENSITIVITY)
 
 
@@ -243,7 +290,7 @@ func _simulate_server(delta: float) -> void:
 	snapshot_accumulator += delta
 	if snapshot_accumulator >= 0.05:
 		snapshot_accumulator = 0.0
-		receive_snapshot.rpc(_snapshot_for_clients())
+		_publish_snapshot()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -268,7 +315,7 @@ func register_player(player_token: String, requested_room_code: String) -> void:
 	peer_inputs[sender_id] = Vector2.ZERO
 	world_state.register_player(player_token)
 	_save_world()
-	receive_snapshot.rpc_id(sender_id, _snapshot_for_clients())
+	_publish_snapshot()
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
@@ -287,10 +334,17 @@ func request_interaction() -> void:
 	var sender_id := multiplayer.get_remote_sender_id()
 	if not peer_to_token.has(sender_id):
 		return
-	var player_token: String = peer_to_token[sender_id]
-	if world_state.interact(player_token):
-		_save_world()
-		receive_snapshot.rpc(_snapshot_for_clients())
+	_try_interaction(peer_to_token[sender_id])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_collect() -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if not peer_to_token.has(sender_id):
+		return
+	_try_collect(peer_to_token[sender_id])
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -300,9 +354,7 @@ func request_craft_repair_kit() -> void:
 	var sender_id := multiplayer.get_remote_sender_id()
 	if not peer_to_token.has(sender_id):
 		return
-	if world_state.craft_repair_kit():
-		_save_world()
-		receive_snapshot.rpc(_snapshot_for_clients())
+	_try_craft_repair_kit()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -312,9 +364,39 @@ func request_attack() -> void:
 	var sender_id := multiplayer.get_remote_sender_id()
 	if not peer_to_token.has(sender_id):
 		return
-	if world_state.attack_creature(peer_to_token[sender_id]):
+	_try_attack(peer_to_token[sender_id])
+
+
+func _try_interaction(player_token: String) -> void:
+	if world_state.interact(player_token):
 		_save_world()
-		receive_snapshot.rpc(_snapshot_for_clients())
+		_publish_snapshot()
+
+
+func _try_collect(player_token: String) -> void:
+	if world_state.try_collect(player_token):
+		_save_world()
+		_publish_snapshot()
+
+
+func _try_craft_repair_kit() -> void:
+	if world_state.craft_repair_kit():
+		_save_world()
+		_publish_snapshot()
+
+
+func _try_attack(player_token: String) -> void:
+	if world_state.attack_creature(player_token):
+		_save_world()
+		_publish_snapshot()
+
+
+func _publish_snapshot() -> void:
+	var snapshot := _snapshot_for_clients()
+	if local_authority_player:
+		receive_snapshot(snapshot)
+	if broadcasts_to_clients:
+		receive_snapshot.rpc(snapshot)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
@@ -446,11 +528,15 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
 	mastery_label.text = _mastery_text(mastery)
 	connection_panel.visible = false
+	if touch_controls != null:
+		touch_controls.visible = true
 
 
 @rpc("authority", "call_remote", "reliable")
 func registration_rejected(reason: String) -> void:
 	client_connected = false
+	if touch_controls != null:
+		touch_controls.visible = false
 	_release_mouse()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	connect_button.disabled = false
@@ -461,6 +547,7 @@ func registration_rejected(reason: String) -> void:
 
 func _start_server(port: int, bind_address: String = "*") -> void:
 	is_server = true
+	broadcasts_to_clients = true
 	_load_world()
 	var web_socket_peer := WebSocketMultiplayerPeer.new()
 	var error := web_socket_peer.create_server(port, bind_address)
@@ -472,6 +559,98 @@ func _start_server(port: int, bind_address: String = "*") -> void:
 	connect_button.visible = false
 	address_input.visible = false
 	room_code_input.visible = false
+
+
+func _start_offline_world() -> void:
+	_start_local_world(false, OFFLINE_SAVE_PATH)
+
+
+func _start_lan_world() -> void:
+	_start_local_world(true, HOSTED_SAVE_PATH)
+
+
+func _start_local_world(
+	allow_lan_connections: bool, world_save_path: String, requested_port: int = DEFAULT_PORT
+) -> void:
+	server_room_code = room_code_input.text.strip_edges().to_upper()
+	if server_room_code.is_empty():
+		server_room_code = DEFAULT_ROOM_CODE
+		room_code_input.text = server_room_code
+	save_path = world_save_path
+	server_port = requested_port
+	is_server = true
+	local_authority_player = true
+	broadcasts_to_clients = false
+	peer_to_token.clear()
+	peer_inputs.clear()
+	latest_snapshot.clear()
+	world_state = WorldStateModel.new()
+	_load_world()
+	if allow_lan_connections:
+		if OS.has_feature("web"):
+			is_server = false
+			local_authority_player = false
+			_status("Browser builds can play offline or join a room, but cannot host one")
+			return
+		var web_socket_peer := WebSocketMultiplayerPeer.new()
+		var error := web_socket_peer.create_server(server_port, "*")
+		if error != OK:
+			is_server = false
+			local_authority_player = false
+			_status("LAN host failed: %s" % error_string(error))
+			return
+		multiplayer.multiplayer_peer = web_socket_peer
+		broadcasts_to_clients = true
+	else:
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		broadcasts_to_clients = false
+	var now := int(Time.get_unix_time_from_system())
+	world_state.apply_offline_catch_up(now)
+	peer_to_token[1] = local_token
+	peer_inputs[1] = Vector2.ZERO
+	world_state.register_player(local_token)
+	client_connected = true
+	_save_world()
+	connection_panel.visible = false
+	if touch_controls != null:
+		touch_controls.visible = true
+	_capture_mouse()
+	var mode_status := _local_world_status(allow_lan_connections)
+	_status(mode_status)
+	session_status_label.text = mode_status
+	session_status_label.visible = true
+	receive_snapshot(_snapshot_for_clients())
+
+
+func _local_world_status(allow_lan_connections: bool) -> String:
+	if not allow_lan_connections:
+		return "Playing offline — this world stays on this device"
+	var address := _preferred_lan_address()
+	return "Hosting LAN room %s at ws://%s:%d" % [server_room_code, address, server_port]
+
+
+func _preferred_lan_address() -> String:
+	var ten_address := ""
+	var seventeen_address := ""
+	for address: String in IP.get_local_addresses():
+		if address.begins_with("192.168."):
+			return address
+		if address.begins_with("10.") and ten_address.is_empty():
+			ten_address = address
+		if address.begins_with("172."):
+			var parts := address.split(".")
+			if (
+				parts.size() == 4
+				and int(parts[1]) >= 16
+				and int(parts[1]) <= 31
+				and seventeen_address.is_empty()
+			):
+				seventeen_address = address
+	if not ten_address.is_empty():
+		return ten_address
+	if not seventeen_address.is_empty():
+		return seventeen_address
+	return "127.0.0.1"
 
 
 func _connect_to_server() -> void:
@@ -498,6 +677,8 @@ func _on_connected_to_server() -> void:
 
 func _on_connection_failed() -> void:
 	client_connected = false
+	if touch_controls != null:
+		touch_controls.visible = false
 	_release_mouse()
 	_status("Could not connect")
 	connect_button.disabled = false
@@ -506,6 +687,8 @@ func _on_connection_failed() -> void:
 
 func _on_server_disconnected() -> void:
 	client_connected = false
+	if touch_controls != null:
+		touch_controls.visible = false
 	_release_mouse()
 	_status("Server disconnected")
 	connect_button.disabled = false
@@ -536,6 +719,13 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if peer_to_token.is_empty():
 		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
 	_save_world()
+
+
+func _exit_tree() -> void:
+	if is_server and local_authority_player:
+		world_state.remove_festival_participant(local_token)
+		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
+		_save_world()
 
 
 func _snapshot_for_clients() -> Dictionary:
@@ -658,13 +848,13 @@ func _read_room_argument() -> String:
 	return DEFAULT_ROOM_CODE
 
 
-func _read_save_path_argument() -> String:
+func _read_save_path_argument(default_path: String = SAVE_PATH) -> String:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--save-file="):
 			var requested := argument.trim_prefix("--save-file=").strip_edges()
 			if not requested.is_empty():
 				return requested
-	return SAVE_PATH
+	return default_path
 
 
 func _build_world() -> void:
@@ -796,6 +986,27 @@ func _build_interface() -> void:
 	var connection_content := VBoxContainer.new()
 	connection_content.add_theme_constant_override("separation", 8)
 	connection_panel.add_child(connection_content)
+	var play_mode_label := Label.new()
+	play_mode_label.text = "Choose how to play"
+	play_mode_label.add_theme_font_size_override("font_size", 20)
+	connection_content.add_child(play_mode_label)
+	offline_button = Button.new()
+	offline_button.name = "PlayOfflineButton"
+	offline_button.text = "Play Offline"
+	offline_button.custom_minimum_size.y = 46.0
+	offline_button.pressed.connect(_start_offline_world)
+	connection_content.add_child(offline_button)
+	host_button = Button.new()
+	host_button.name = "HostLanButton"
+	host_button.text = "Host LAN Game"
+	host_button.custom_minimum_size.y = 46.0
+	host_button.disabled = OS.has_feature("web")
+	host_button.tooltip_text = "Browser builds cannot host a WebSocket room" if OS.has_feature("web") else "Friends on this network can join your room"
+	host_button.pressed.connect(_start_lan_world)
+	connection_content.add_child(host_button)
+	var join_label := Label.new()
+	join_label.text = "Join a LAN or online room"
+	connection_content.add_child(join_label)
 	address_input = LineEdit.new()
 	address_input.text = "ws://127.0.0.1:%d" % DEFAULT_PORT
 	address_input.placeholder_text = "Server address"
@@ -806,14 +1017,20 @@ func _build_interface() -> void:
 	room_code_input.max_length = 16
 	connection_content.add_child(room_code_input)
 	connect_button = Button.new()
-	connect_button.text = "Connect"
+	connect_button.text = "Join Room"
 	connect_button.custom_minimum_size.y = 46.0
 	connect_button.pressed.connect(_connect_to_server)
 	connection_content.add_child(connect_button)
 	status_label = Label.new()
-	status_label.text = "Start the server, then connect."
+	status_label.text = "Offline play needs no internet. LAN hosting keeps authority on this device."
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	connection_content.add_child(status_label)
+	session_status_label = Label.new()
+	session_status_label.name = "SessionStatus"
+	session_status_label.visible = false
+	session_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	session_status_label.add_theme_color_override("font_color", Color("a8edf0"))
+	top_stack.add_child(session_status_label)
 
 	debug_panel = PanelContainer.new()
 	debug_panel.name = "DebugPanel"
@@ -853,77 +1070,289 @@ func _build_interface() -> void:
 	interaction_prompt.add_theme_color_override("font_color", Color("e9feff"))
 	interaction_prompt.visible = false
 	layer.add_child(interaction_prompt)
-	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+	if _uses_android_touch_controls():
 		_build_touch_controls(layer)
 
 
 func _build_touch_controls(layer: CanvasLayer) -> void:
-	var controls := HBoxContainer.new()
-	controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	controls.offset_left = 24.0
-	controls.offset_top = -96.0
-	controls.offset_right = 360.0
-	controls.offset_bottom = -24.0
-	controls.add_theme_constant_override("separation", 12)
-	layer.add_child(controls)
-	_add_touch_button(controls, "←", "left")
-	_add_touch_button(controls, "↑", "forward")
-	_add_touch_button(controls, "↓", "back")
-	_add_touch_button(controls, "→", "right")
-	var interact_button := Button.new()
-	interact_button.text = "Use"
-	interact_button.custom_minimum_size = Vector2(88.0, 72.0)
-	interact_button.pressed.connect(_request_interaction)
-	controls.add_child(interact_button)
-	var craft_touch_button := Button.new()
-	craft_touch_button.text = "Craft"
-	craft_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
-	craft_touch_button.pressed.connect(_request_craft)
-	controls.add_child(craft_touch_button)
-	var attack_touch_button := Button.new()
-	attack_touch_button.text = "Attack"
-	attack_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
-	attack_touch_button.pressed.connect(_request_attack)
-	controls.add_child(attack_touch_button)
-	var camera_touch_button := Button.new()
-	camera_touch_button.text = "View"
-	camera_touch_button.custom_minimum_size = Vector2(88.0, 72.0)
-	camera_touch_button.pressed.connect(_toggle_camera_mode)
-	controls.add_child(camera_touch_button)
+	var safe_insets := _touch_safe_insets()
+	var control_scale := _touch_control_scale()
+	touch_controls = Control.new()
+	touch_controls.name = "TouchControls"
+	touch_controls.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	touch_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	touch_controls.visible = client_connected
+	layer.add_child(touch_controls)
+
+	var joystick := TouchJoystick.new()
+	joystick.name = "MovementJoystick"
+	joystick.anchor_left = 0.0
+	joystick.anchor_top = 0.0
+	joystick.anchor_right = 0.5
+	joystick.anchor_bottom = 1.0
+	joystick.offset_left = 0.0
+	joystick.offset_top = 0.0
+	joystick.offset_right = 0.0
+	joystick.offset_bottom = 0.0
+	joystick.visual_diameter = 168.0 * control_scale
+	joystick.horizontal_inset = 28.0 * control_scale + safe_insets.x
+	joystick.value_changed.connect(_set_touch_movement)
+	touch_controls.add_child(joystick)
+
+	mobile_crosshair = Label.new()
+	mobile_crosshair.name = "MobileCrosshair"
+	mobile_crosshair.text = "+"
+	mobile_crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	mobile_crosshair.offset_left = -22.0 * control_scale
+	mobile_crosshair.offset_top = -24.0 * control_scale
+	mobile_crosshair.offset_right = 22.0 * control_scale
+	mobile_crosshair.offset_bottom = 24.0 * control_scale
+	mobile_crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mobile_crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mobile_crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mobile_crosshair.add_theme_font_size_override("font_size", roundi(30.0 * control_scale))
+	mobile_crosshair.add_theme_color_override("font_color", Color(0.92, 1.0, 1.0, 0.72))
+	touch_controls.add_child(mobile_crosshair)
+
+	mobile_context_button = _create_touch_action_button(
+		"Use", "ContextAction", Vector2(150.0, 58.0) * control_scale, roundi(19.0 * control_scale)
+	)
+	mobile_context_button.visible = false
+	mobile_context_button.pressed.connect(_activate_mobile_context_target)
+	touch_controls.add_child(mobile_context_button)
 
 
-func _add_touch_button(parent: Control, label: String, direction: String) -> void:
+func _create_touch_action_button(label: String, node_name: String, minimum_size: Vector2, font_size: int) -> Button:
 	var button := Button.new()
+	button.name = node_name
 	button.text = label
-	button.custom_minimum_size = Vector2(72.0, 72.0)
-	button.button_down.connect(_set_touch_direction.bind(direction, true))
-	button.button_up.connect(_set_touch_direction.bind(direction, false))
-	parent.add_child(button)
+	button.custom_minimum_size = minimum_size
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_color_override("font_color", Color(0.92, 1.0, 1.0, 0.9))
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_stylebox_override("normal", _touch_button_style(0.2, 0.42))
+	button.add_theme_stylebox_override("hover", _touch_button_style(0.28, 0.58))
+	button.add_theme_stylebox_override("pressed", _touch_button_style(0.44, 0.78))
+	return button
 
 
-func _set_touch_direction(direction: String, pressed: bool) -> void:
-	touch_directions[direction] = pressed
+func _touch_button_style(background_alpha: float, border_alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.035, 0.08, 0.1, background_alpha)
+	style.border_color = Color(0.72, 0.96, 0.98, border_alpha)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(40)
+	style.set_content_margin_all(8)
+	return style
 
 
-func _touch_input_vector() -> Vector2:
-	return Vector2(
-		float(touch_directions.get("right", false)) - float(touch_directions.get("left", false)),
-		float(touch_directions.get("back", false)) - float(touch_directions.get("forward", false)),
+func _touch_control_scale() -> float:
+	var viewport_size := get_viewport().get_visible_rect().size
+	var short_side := minf(viewport_size.x, viewport_size.y)
+	return clampf(short_side / 720.0, 0.85, 1.25) * 1.16
+
+
+func _uses_android_touch_controls() -> bool:
+	return OS.get_name() == "Android"
+
+
+func _touch_safe_insets() -> Vector4:
+	var screen_size := Vector2(DisplayServer.screen_get_size())
+	var safe_area := Rect2(DisplayServer.get_display_safe_area())
+	var viewport_size := get_viewport().get_visible_rect().size
+	if screen_size.x <= 0.0 or screen_size.y <= 0.0 or safe_area.size.x <= 0.0 or safe_area.size.y <= 0.0:
+		return Vector4.ZERO
+	var scale := viewport_size / screen_size
+	return Vector4(
+		safe_area.position.x * scale.x,
+		safe_area.position.y * scale.y,
+		maxf(screen_size.x - safe_area.end.x, 0.0) * scale.x,
+		maxf(screen_size.y - safe_area.end.y, 0.0) * scale.y
 	)
 
 
+func _set_touch_movement(value: Vector2) -> void:
+	touch_movement = value
+
+
+func _touch_input_vector() -> Vector2:
+	return touch_movement
+
+
+func _update_mobile_targeting() -> void:
+	if mobile_context_button == null or mobile_crosshair == null:
+		return
+	if touch_controls == null or not touch_controls.visible or not client_connected:
+		mobile_context_target = {}
+		mobile_context_button.visible = false
+		return
+	var center := get_viewport().get_visible_rect().size * 0.5
+	mobile_context_target = _select_mobile_target(
+		_mobile_target_candidates(), center, MOBILE_AIM_RADIUS * _touch_control_scale()
+	)
+	if mobile_context_target.is_empty():
+		mobile_crosshair.add_theme_color_override("font_color", Color(0.92, 1.0, 1.0, 0.72))
+		mobile_context_button.visible = false
+		return
+	var is_attack := str(mobile_context_target.get("kind", "")) == "attack"
+	mobile_crosshair.add_theme_color_override(
+		"font_color", Color(1.0, 0.72, 0.48, 0.92) if is_attack else Color(0.65, 1.0, 0.9, 0.92)
+	)
+	if is_attack:
+		mobile_context_button.visible = false
+		return
+	mobile_context_button.text = str(mobile_context_target.get("label", "Use"))
+	mobile_context_button.visible = true
+	var viewport_size := get_viewport().get_visible_rect().size
+	var target_position: Vector2 = mobile_context_target.get("screen_position", center)
+	var button_size := mobile_context_button.custom_minimum_size
+	var desired_position := target_position - Vector2(button_size.x * 0.5, button_size.y + 34.0 * _touch_control_scale())
+	mobile_context_button.position = Vector2(
+		clampf(desired_position.x, 12.0, viewport_size.x - button_size.x - 12.0),
+		clampf(desired_position.y, 12.0, viewport_size.y - button_size.y - 12.0)
+	)
+
+
+func _mobile_target_candidates() -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	if game_camera == null or latest_snapshot.is_empty():
+		return candidates
+	var player_position: Vector3 = latest_snapshot.get("positions", {}).get(local_token, Vector3.INF)
+	if not player_position.is_finite():
+		return candidates
+	var is_downed := bool(latest_snapshot.get("downed_players", {}).get(local_token, false))
+	if is_downed:
+		candidates.append({
+			"kind": "interact",
+			"label": "Return home",
+			"screen_position": get_viewport().get_visible_rect().size * 0.5,
+		})
+		return candidates
+
+	var quest_stage := str(latest_snapshot.get("quest_stage", "meet_mara"))
+	var event_stage := str(latest_snapshot.get("neighborhood_event_stage", "locked"))
+	if quest_stage in ["meet_mara", "return_to_mara"] or (quest_stage == "home_repaired" and event_stage == "invitation"):
+		_append_mobile_target(candidates, mara_node, "Talk", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if quest_stage not in ["meet_mara", "home_repaired"]:
+		for resource_node: Node3D in resource_nodes.values():
+			_append_mobile_target(candidates, resource_node, "Pick up", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if collectible_mesh != null and collectible_mesh.visible:
+		_append_mobile_target(candidates, collectible_mesh, "Pick up", "collect", WorldStateModel.PICKUP_RADIUS)
+	for repair_node: Node3D in repair_nodes.values():
+		_append_mobile_target(candidates, repair_node, "Repair", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for lantern_node: Node3D in welcome_lantern_markers.values():
+		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if bool(latest_snapshot.get("ruin_waystone_activated", false)):
+		_append_mobile_target(candidates, home_waystone, "Travel", "interact", WorldStateModel.INTERACTION_RADIUS)
+		_append_mobile_target(candidates, ruin_waystone, "Travel", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for garden_node: Node3D in garden_plants.values():
+		_append_mobile_target(candidates, garden_node, "Harvest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, cookfire_marker, "Cook", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, market_marker, "Deliver", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if int(latest_snapshot.get("pantry_stock", 0)) > 0:
+		_append_mobile_target(candidates, produce_stall, "Take", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
+	if festival_stage in ["available", "signup", "results"]:
+		var festival_label := "Start" if festival_stage == "signup" else "Join"
+		_append_mobile_target(candidates, festival_arch, festival_label, "interact", WorldStateModel.INTERACTION_RADIUS)
+	for checkpoint_node: Node3D in festival_checkpoint_nodes.values():
+		_append_mobile_target(candidates, checkpoint_node, "Claim", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for pack_node: Node3D in recovery_pack_nodes.values():
+		_append_mobile_target(candidates, pack_node, "Recover", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	for player_token: String in player_nodes:
+		if player_token != local_token and bool(downed_players.get(player_token, false)):
+			_append_mobile_target(candidates, player_nodes[player_token], "Revive", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, creature_node, "", "attack", 2.0)
+	_append_mobile_target(candidates, ruin_guardian_node, "", "attack", 2.0)
+	return candidates
+
+
+func _append_mobile_target(
+	candidates: Array[Dictionary], node: Node3D, label: String, kind: String, maximum_distance: float
+) -> void:
+	if node == null or not is_instance_valid(node) or not node.is_visible_in_tree():
+		return
+	var player_position: Vector3 = latest_snapshot.get("positions", {}).get(local_token, Vector3.INF)
+	var target_position := node.global_position + Vector3.UP * 0.65
+	if player_position.distance_to(node.global_position) > maximum_distance + 0.35:
+		return
+	if game_camera.is_position_behind(target_position):
+		return
+	candidates.append({
+		"kind": kind,
+		"label": label,
+		"screen_position": game_camera.unproject_position(target_position),
+	})
+
+
+func _select_mobile_target(
+	candidates: Array[Dictionary], screen_position: Vector2, selection_radius: float
+) -> Dictionary:
+	var selected: Dictionary = {}
+	var nearest_distance := selection_radius
+	for candidate: Dictionary in candidates:
+		var candidate_position: Vector2 = candidate.get("screen_position", Vector2.INF)
+		var distance := candidate_position.distance_to(screen_position)
+		if distance <= nearest_distance:
+			nearest_distance = distance
+			selected = candidate
+	return selected
+
+
+func _handle_mobile_world_tap(screen_position: Vector2) -> void:
+	var target := _select_mobile_target(
+		_mobile_target_candidates(), screen_position, MOBILE_TAP_RADIUS * _touch_control_scale()
+	)
+	if target.is_empty():
+		return
+	match str(target.get("kind", "")):
+		"attack":
+			_request_attack()
+		"collect":
+			_request_collect()
+		_:
+			_request_interaction()
+
+
+func _activate_mobile_context_target() -> void:
+	if mobile_context_target.is_empty():
+		return
+	match str(mobile_context_target.get("kind", "")):
+		"collect":
+			_request_collect()
+		_:
+			_request_interaction()
+
+
 func _request_interaction() -> void:
-	if client_connected:
+	if local_authority_player:
+		_try_interaction(local_token)
+	elif client_connected:
 		request_interaction.rpc_id(1)
 
 
+func _request_collect() -> void:
+	if local_authority_player:
+		_try_collect(local_token)
+	elif client_connected:
+		request_collect.rpc_id(1)
+
+
 func _request_craft() -> void:
-	if client_connected:
+	if local_authority_player:
+		_try_craft_repair_kit()
+	elif client_connected:
 		request_craft_repair_kit.rpc_id(1)
 
 
 func _request_attack() -> void:
-	if client_connected:
+	if local_authority_player:
+		_try_attack(local_token)
+	elif client_connected:
 		request_attack.rpc_id(1)
 
 
@@ -1179,6 +1608,8 @@ func _update_interaction_prompt(
 	player_position: Vector3
 ) -> void:
 	interaction_prompt.visible = false
+	if _uses_android_touch_controls():
+		return
 	if not player_position.is_finite():
 		return
 	var action_name := "USE" if OS.has_feature("mobile") else "E"

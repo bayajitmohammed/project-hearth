@@ -4,6 +4,19 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+The game now opens with three play choices:
+
+- **Play Offline** runs the authoritative world simulation on the player's device without opening a network listener. It uses `user://offline_world.json`.
+- **Host LAN Game** lets the host play while their device owns the authoritative room. Up to seven more players can join `ws://<HOST-LAN-IP>:9080` with the displayed room code. It uses `user://hosted_world.json` and is available in native builds.
+- **Join Room** connects to either a LAN host or a dedicated online room. Browser builds can play offline or join, but cannot host a WebSocket server; browser-local offline saves are best-effort because browser storage may be cleared.
+
+The modes share the same world rules. Offline and hosted saves are deliberately separate so solo play never changes a shared hosted world. Command-line shortcuts are also available:
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --path . -- --offline
+/Applications/Godot.app/Contents/MacOS/Godot --path . -- --host --room=FAMILY
+```
+
 The easiest option is to double-click `run-server.command` in Finder. From Terminal, run:
 
 ```sh
@@ -46,7 +59,7 @@ Add `--room=TEST42` when connecting to a server that uses a non-default room cod
 
 Press **Connect**, move with WASD or the arrow keys, and press **E** (or controller A) to talk, gather, repair, or revive. Press **Space** (or controller X) near the forest creature to attack. Gather two wood and one herb, then press **C** (or controller Y) to craft the repair kit. Restart the client or server to verify the quest, shared project bag, creature, health, and cottage repairs remain changed.
 
-On desktop, the mouse is captured after connecting and ordinary mouse movement looks around—no button needs to be held. Press **Escape** to release the cursor and click the game to capture it again. Controller uses the **right stick**, and touch uses a drag on the right side of the screen. The game starts in first person. Press **V**, click the controller's right stick, or use the touch **View** button to switch to a close over-the-shoulder third-person camera. Use the mouse wheel to adjust its distance. Movement follows the camera direction.
+On desktop, the mouse is captured after connecting and ordinary mouse movement looks around—no button needs to be held. Press **Escape** to release the cursor and click the game to capture it again. Controller uses the **right stick**. On Android, touch anywhere on the left half to place the floating movement stick, drag anywhere on the right half to look, and use the center crosshair to aim. A single contextual action appears for nearby non-combat targets; tap a nearby creature to attack or another valid target to use it. Crafting remains in the quest card when available. The game starts in first person. Desktop players can press **V** or click the controller's right stick to switch to a close over-the-shoulder third-person camera. Use the mouse wheel to adjust its distance. Movement follows the camera direction.
 
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
@@ -68,6 +81,9 @@ Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_shared_world_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_festival_readability.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_movement_smoothing.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_camera.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_touch_controls.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_play_modes.gd
 ```
 
 ## Build and run the browser client
