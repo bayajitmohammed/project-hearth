@@ -53,6 +53,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Alternate combat depth: every newcomer can trade speed for impact with a two-damage Power Strike whose longer personal recovery keeps its sustained damage below repeated basic attacks.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.
 - Combat readability depth: forest-creature and ruin-guardian strikes name a target during a short authoritative wind-up, giving that player time to brace or leave range while companions keep acting.
+- Encounter-boundary depth: authored enemies stop pursuing players beyond their home area, return visibly, and recover only after reaching spawn so danger cannot be dragged through peaceful spaces.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.
 - Exploration identity depth: the player who reveals a new shared place builds personal Exploration mastery and displays a Pathfinder title, while the discovery and all routes remain shared with newcomers.
 - Building identity depth: successful cottage-part placements build personal Building mastery and display a Builder title, while repair costs, actions, and the finished home remain shared with newcomers.

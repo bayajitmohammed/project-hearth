@@ -58,6 +58,11 @@ func _init() -> void:
 	assert(not "WARNING:" in main.combat_label.text)
 	assert(not main.combat_warning_label.visible)
 	assert(is_equal_approx(main.ruin_guardian_node.scale.x, 1.0))
+	snapshot["ruin_guardian_returning"] = true
+	main.receive_snapshot(snapshot)
+	assert("Ruin guardian: returning home" in main.combat_label.text)
+	assert(main.ruin_guardian_node.scale.x < 1.0, "Returning enemies need a visible disengagement cue.")
+	snapshot["ruin_guardian_returning"] = false
 
 	snapshot["positions"] = {"explorer": WorldStateModel.RUIN_WAYSTONE_POSITION}
 	snapshot["exploration_stage"] = "restore_waystone"

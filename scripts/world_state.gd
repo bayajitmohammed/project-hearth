@@ -82,6 +82,12 @@ const PLAYER_POWER_STRIKE_RECOVERY_SECONDS := 1.1
 const PLAYER_BRACE_WINDOW_SECONDS := 0.7
 const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
 const ENEMY_ATTACK_WINDUP_SECONDS := 0.6
+const CREATURE_AGGRO_RADIUS := 6.0
+const CREATURE_LEASH_RADIUS := 8.0
+const CREATURE_RETURN_SPEED := 2.2
+const RUIN_GUARDIAN_AGGRO_RADIUS := 7.0
+const RUIN_GUARDIAN_LEASH_RADIUS := 9.0
+const RUIN_GUARDIAN_RETURN_SPEED := 2.5
 const WORLD_MINUTES_PER_DAY := 1440
 const WORLD_MINUTES_PER_REAL_SECOND := 1.0
 const WORLD_START_MINUTE := 13 * 60
@@ -110,6 +116,7 @@ var creature_defeated := false
 var creature_attack_cooldown := 0.0
 var creature_attack_windup := 0.0
 var creature_attack_target := ""
+var creature_returning := false
 var reputation := 0
 var map_rumor_unlocked := false
 var mara_position := MARA_POSITION
@@ -125,6 +132,7 @@ var ruin_guardian_defeated := false
 var ruin_guardian_attack_cooldown := 0.0
 var ruin_guardian_attack_windup := 0.0
 var ruin_guardian_attack_target := ""
+var ruin_guardian_returning := false
 var ruin_waystone_activated := false
 var livelihood_stage := "locked"
 var harvested_garden_plots := {
@@ -608,31 +616,40 @@ func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 	if creature_defeated:
 		creature_attack_windup = 0.0
 		creature_attack_target = ""
+		creature_returning = false
 		return false
 	creature_attack_cooldown = maxf(creature_attack_cooldown - delta, 0.0)
 	if creature_attack_windup > 0.0:
-		creature_attack_windup = maxf(creature_attack_windup - delta, 0.0)
-		if creature_attack_windup > 0.0:
-			return false
-		var committed_target := creature_attack_target
+		if _enemy_target_is_eligible(
+			creature_attack_target, active_tokens, CREATURE_SPAWN, CREATURE_LEASH_RADIUS
+		):
+			creature_attack_windup = maxf(creature_attack_windup - delta, 0.0)
+			if creature_attack_windup > 0.0:
+				return false
+			var committed_target := creature_attack_target
+			creature_attack_target = ""
+			if not _enemy_target_in_strike_range(committed_target, active_tokens, creature_position, 1.15):
+				return false
+			creature_attack_cooldown = 1.0
+			_apply_enemy_hit(committed_target)
+			return true
+		creature_attack_windup = 0.0
 		creature_attack_target = ""
-		if not _enemy_target_in_strike_range(committed_target, active_tokens, creature_position, 1.15):
-			return false
-		creature_attack_cooldown = 1.0
-		_apply_enemy_hit(committed_target)
-		return true
 	var target_token := ""
 	var target_distance := INF
 	for player_token: String in active_tokens:
 		register_player(player_token)
-		if bool(downed_players.get(player_token, false)):
+		if not _enemy_target_is_eligible(
+			player_token, active_tokens, CREATURE_SPAWN, CREATURE_LEASH_RADIUS
+		):
 			continue
 		var distance := creature_position.distance_to(positions[player_token])
 		if distance < target_distance:
 			target_distance = distance
 			target_token = player_token
-	if target_token.is_empty() or target_distance > 6.0:
-		return false
+	if target_token.is_empty() or target_distance > CREATURE_AGGRO_RADIUS:
+		return _return_forest_creature_home(delta)
+	creature_returning = false
 	var target_position: Vector3 = positions[target_token]
 	if target_distance > 1.15:
 		var direction := (target_position - creature_position).normalized()
@@ -650,31 +667,43 @@ func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 	if ruin_guardian_defeated or exploration_stage != "defeat_guardian":
 		ruin_guardian_attack_windup = 0.0
 		ruin_guardian_attack_target = ""
+		ruin_guardian_returning = false
 		return false
 	ruin_guardian_attack_cooldown = maxf(ruin_guardian_attack_cooldown - delta, 0.0)
 	if ruin_guardian_attack_windup > 0.0:
-		ruin_guardian_attack_windup = maxf(ruin_guardian_attack_windup - delta, 0.0)
-		if ruin_guardian_attack_windup > 0.0:
-			return false
-		var committed_target := ruin_guardian_attack_target
+		if _enemy_target_is_eligible(
+			ruin_guardian_attack_target,
+			active_tokens,
+			RUIN_GUARDIAN_SPAWN,
+			RUIN_GUARDIAN_LEASH_RADIUS
+		):
+			ruin_guardian_attack_windup = maxf(ruin_guardian_attack_windup - delta, 0.0)
+			if ruin_guardian_attack_windup > 0.0:
+				return false
+			var committed_target := ruin_guardian_attack_target
+			ruin_guardian_attack_target = ""
+			if not _enemy_target_in_strike_range(committed_target, active_tokens, ruin_guardian_position, 1.3):
+				return false
+			ruin_guardian_attack_cooldown = 1.1
+			_apply_enemy_hit(committed_target)
+			return true
+		ruin_guardian_attack_windup = 0.0
 		ruin_guardian_attack_target = ""
-		if not _enemy_target_in_strike_range(committed_target, active_tokens, ruin_guardian_position, 1.3):
-			return false
-		ruin_guardian_attack_cooldown = 1.1
-		_apply_enemy_hit(committed_target)
-		return true
 	var target_token := ""
 	var target_distance := INF
 	for player_token: String in active_tokens:
 		register_player(player_token)
-		if bool(downed_players.get(player_token, false)):
+		if not _enemy_target_is_eligible(
+			player_token, active_tokens, RUIN_GUARDIAN_SPAWN, RUIN_GUARDIAN_LEASH_RADIUS
+		):
 			continue
 		var distance := ruin_guardian_position.distance_to(positions[player_token])
 		if distance < target_distance:
 			target_distance = distance
 			target_token = player_token
-	if target_token.is_empty() or target_distance > 7.0:
-		return false
+	if target_token.is_empty() or target_distance > RUIN_GUARDIAN_AGGRO_RADIUS:
+		return _return_ruin_guardian_home(delta)
+	ruin_guardian_returning = false
 	var target_position: Vector3 = positions[target_token]
 	if target_distance > 1.3:
 		var direction := (target_position - ruin_guardian_position).normalized()
@@ -686,6 +715,69 @@ func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 	ruin_guardian_attack_windup = ENEMY_ATTACK_WINDUP_SECONDS
 	ruin_guardian_attack_target = target_token
 	return false
+
+
+func _return_forest_creature_home(delta: float) -> bool:
+	creature_attack_windup = 0.0
+	creature_attack_target = ""
+	var distance_home := creature_position.distance_to(CREATURE_SPAWN)
+	if distance_home > 0.05:
+		creature_returning = true
+		creature_position = creature_position.move_toward(
+			CREATURE_SPAWN, CREATURE_RETURN_SPEED * delta
+		)
+		creature_position.y = CREATURE_SPAWN.y
+		if creature_position.distance_to(CREATURE_SPAWN) > 0.05:
+			return false
+	var reset_changed := (
+		creature_position != CREATURE_SPAWN
+		or creature_health != CREATURE_MAX_HEALTH
+		or creature_returning
+	)
+	creature_position = CREATURE_SPAWN
+	creature_health = CREATURE_MAX_HEALTH
+	creature_attack_cooldown = 0.0
+	creature_returning = false
+	return reset_changed
+
+
+func _return_ruin_guardian_home(delta: float) -> bool:
+	ruin_guardian_attack_windup = 0.0
+	ruin_guardian_attack_target = ""
+	var distance_home := ruin_guardian_position.distance_to(RUIN_GUARDIAN_SPAWN)
+	if distance_home > 0.05:
+		ruin_guardian_returning = true
+		ruin_guardian_position = ruin_guardian_position.move_toward(
+			RUIN_GUARDIAN_SPAWN, RUIN_GUARDIAN_RETURN_SPEED * delta
+		)
+		ruin_guardian_position.y = RUIN_GUARDIAN_SPAWN.y
+		if ruin_guardian_position.distance_to(RUIN_GUARDIAN_SPAWN) > 0.05:
+			return false
+	var reset_changed := (
+		ruin_guardian_position != RUIN_GUARDIAN_SPAWN
+		or ruin_guardian_health != RUIN_GUARDIAN_MAX_HEALTH
+		or ruin_guardian_returning
+	)
+	ruin_guardian_position = RUIN_GUARDIAN_SPAWN
+	ruin_guardian_health = RUIN_GUARDIAN_MAX_HEALTH
+	ruin_guardian_attack_cooldown = 0.0
+	ruin_guardian_returning = false
+	return reset_changed
+
+
+func _enemy_target_is_eligible(
+	player_token: String,
+	active_tokens: Array,
+	home_position: Vector3,
+	leash_radius: float
+) -> bool:
+	return (
+		not player_token.is_empty()
+		and player_token in active_tokens
+		and positions.has(player_token)
+		and not bool(downed_players.get(player_token, false))
+		and home_position.distance_to(positions[player_token]) <= leash_radius
+	)
 
 
 func _enemy_target_in_strike_range(

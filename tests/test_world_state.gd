@@ -485,7 +485,7 @@ func _init() -> void:
 	assert(combat_state.player_mastery["fighter"]["combat"] == 1)
 	assert(combat_state.player_attack_recovery["fighter"] == WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS)
 	assert(not combat_state.attack_creature("fighter"), "Recovery must reject immediate repeated damage.")
-	combat_state.positions["fighter"] = WorldStateModel.SPAWN_POINT
+	combat_state.positions["fighter"] = WorldStateModel.CREATURE_SPAWN + Vector3(4.0, 0.0, 0.0)
 	combat_state.simulate_creature(0.2, ["fighter"])
 	assert(combat_state.player_attack_recovery["fighter"] > 0.0)
 	combat_state.simulate_creature(0.25, ["fighter"])
@@ -569,6 +569,34 @@ func _init() -> void:
 	assert(not evasion_state.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["evader"]))
 	assert(evasion_state.player_health["evader"] == WorldStateModel.PLAYER_MAX_HEALTH, "Leaving strike range during wind-up must avoid the hit.")
 	assert(evasion_state.creature_attack_target.is_empty())
+	var leash_state := WorldStateModel.new()
+	leash_state.register_player("runner")
+	leash_state.creature_position = WorldStateModel.CREATURE_SPAWN + Vector3(-4.0, 0.0, 0.0)
+	leash_state.creature_health = 1
+	leash_state.creature_attack_windup = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
+	leash_state.creature_attack_target = "runner"
+	leash_state.positions["runner"] = WorldStateModel.CREATURE_SPAWN + Vector3(-9.0, 0.0, 0.0)
+	var first_return_position := leash_state.creature_position
+	assert(not leash_state.simulate_creature(0.5, ["runner"]))
+	assert(leash_state.creature_returning)
+	assert(leash_state.creature_position.distance_to(WorldStateModel.CREATURE_SPAWN) < first_return_position.distance_to(WorldStateModel.CREATURE_SPAWN))
+	assert(leash_state.creature_health == 1, "An enemy must not heal until it reaches home.")
+	assert(leash_state.creature_attack_target.is_empty(), "Leaving the home boundary must cancel a pending strike.")
+	assert(leash_state.simulate_creature(2.0, ["runner"]), "Arriving home must persist the completed encounter reset.")
+	assert(leash_state.creature_position == WorldStateModel.CREATURE_SPAWN)
+	assert(leash_state.creature_health == WorldStateModel.CREATURE_MAX_HEALTH)
+	assert(not leash_state.creature_returning)
+	assert(not leash_state.to_dictionary().has("creature_returning"), "Return presentation must remain transient across saves.")
+	var held_encounter := WorldStateModel.new()
+	for token: String in ["runner", "holder"]:
+		held_encounter.register_player(token)
+	held_encounter.positions["runner"] = WorldStateModel.CREATURE_SPAWN + Vector3(-9.0, 0.0, 0.0)
+	held_encounter.positions["holder"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	held_encounter.creature_attack_windup = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
+	held_encounter.creature_attack_target = "runner"
+	assert(not held_encounter.simulate_creature(0.1, ["runner", "holder"]))
+	assert(held_encounter.creature_attack_target == "holder", "A companion inside the boundary must keep the encounter active.")
+	assert(not held_encounter.creature_returning)
 	var guardian_brace := WorldStateModel.new()
 	guardian_brace.exploration_stage = "defeat_guardian"
 	guardian_brace.register_player("ruins-defender")
@@ -588,6 +616,18 @@ func _init() -> void:
 	assert(interrupted_guardian.ruin_guardian_defeated)
 	assert(interrupted_guardian.ruin_guardian_attack_target.is_empty(), "Defeating an enemy must cancel its pending warning.")
 	assert(is_zero_approx(interrupted_guardian.ruin_guardian_attack_windup))
+	var guardian_leash := WorldStateModel.new()
+	guardian_leash.exploration_stage = "defeat_guardian"
+	guardian_leash.register_player("runner")
+	guardian_leash.ruin_guardian_position = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(0.0, 0.0, 4.0)
+	guardian_leash.ruin_guardian_health = 2
+	guardian_leash.positions["runner"] = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(0.0, 0.0, 10.0)
+	assert(not guardian_leash.simulate_creature(0.5, ["runner"]))
+	assert(guardian_leash.ruin_guardian_returning)
+	assert(guardian_leash.ruin_guardian_health == 2)
+	assert(guardian_leash.simulate_creature(2.0, ["runner"]))
+	assert(guardian_leash.ruin_guardian_position == WorldStateModel.RUIN_GUARDIAN_SPAWN)
+	assert(guardian_leash.ruin_guardian_health == WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH)
 
 	var rest_state := WorldStateModel.new()
 	rest_state.quest_stage = "home_repaired"

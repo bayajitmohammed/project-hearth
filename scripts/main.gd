@@ -562,7 +562,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
 	creature_node.position = snapshot.get("creature_position", WorldStateModel.CREATURE_SPAWN)
-	creature_node.scale = Vector3.ONE * (1.12 if float(snapshot.get("creature_attack_windup", 0.0)) > 0.0 else 1.0)
+	creature_node.scale = Vector3.ONE * (
+		1.12 if float(snapshot.get("creature_attack_windup", 0.0)) > 0.0
+		else (0.94 if bool(snapshot.get("creature_returning", false)) else 1.0)
+	)
 	_update_combat_interface(snapshot, creature_defeated)
 	var rumor_unlocked := bool(snapshot.get("map_rumor_unlocked", false))
 	var discoveries: Dictionary = snapshot.get("shared_map_discoveries", {})
@@ -577,7 +580,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	rumor_marker.visible = rumor_unlocked and not bool(discoveries.get("northwood", false))
 	ruin_guardian_node.visible = exploration_stage == "defeat_guardian" and not guardian_defeated
 	ruin_guardian_node.position = snapshot.get("ruin_guardian_position", WorldStateModel.RUIN_GUARDIAN_SPAWN)
-	ruin_guardian_node.scale = Vector3.ONE * (1.12 if float(snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0 else 1.0)
+	ruin_guardian_node.scale = Vector3.ONE * (
+		1.12 if float(snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0
+		else (0.94 if bool(snapshot.get("ruin_guardian_returning", false)) else 1.0)
+	)
 	waystone_marker.visible = exploration_stage == "restore_waystone" and not route_activated
 	home_waystone.visible = route_activated
 	ruin_waystone.visible = bool(discoveries.get("old_stone_ruins", false))
@@ -870,6 +876,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"creature_defeated": world_state.creature_defeated,
 		"creature_attack_windup": world_state.creature_attack_windup,
 		"creature_attack_target": world_state.creature_attack_target,
+		"creature_returning": world_state.creature_returning,
 		"reputation": world_state.reputation,
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
 		"mara_position": world_state.mara_position,
@@ -890,6 +897,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"ruin_guardian_defeated": world_state.ruin_guardian_defeated,
 		"ruin_guardian_attack_windup": world_state.ruin_guardian_attack_windup,
 		"ruin_guardian_attack_target": world_state.ruin_guardian_attack_target,
+		"ruin_guardian_returning": world_state.ruin_guardian_returning,
 		"ruin_waystone_activated": world_state.ruin_waystone_activated,
 		"livelihood_stage": world_state.livelihood_stage,
 		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
@@ -1651,12 +1659,19 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var brace_time := float(snapshot.get("player_brace_time", {}).get(local_token, 0.0))
 	var brace_cooldown := float(snapshot.get("player_brace_cooldown", {}).get(local_token, 0.0))
 	var brace_text := "braced" if brace_time > 0.0 else ("recovering" if brace_cooldown > 0.0 else "ready")
-	var creature_text := "defeated" if creature_defeated else "%d/%d" % [int(snapshot.get("creature_health", 0)), WorldStateModel.CREATURE_MAX_HEALTH]
+	var creature_health := int(snapshot.get("creature_health", 0))
+	var creature_text := "defeated" if creature_defeated else (
+		"returning home (%d/%d)" % [creature_health, WorldStateModel.CREATURE_MAX_HEALTH]
+		if bool(snapshot.get("creature_returning", false))
+		else "%d/%d" % [creature_health, WorldStateModel.CREATURE_MAX_HEALTH]
+	)
 	var guardian_defeated := bool(snapshot.get("ruin_guardian_defeated", false))
-	var guardian_text := "defeated" if guardian_defeated else "%d/%d" % [
-		int(snapshot.get("ruin_guardian_health", WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH)),
-		WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,
-	]
+	var guardian_health := int(snapshot.get("ruin_guardian_health", WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH))
+	var guardian_text := "defeated" if guardian_defeated else (
+		"returning home (%d/%d)" % [guardian_health, WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH]
+		if bool(snapshot.get("ruin_guardian_returning", false))
+		else "%d/%d" % [guardian_health, WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH]
+	)
 	var provision_hint := ""
 	if not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and int(snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
 		provision_hint = " — Q / controller B uses a trail provision"
