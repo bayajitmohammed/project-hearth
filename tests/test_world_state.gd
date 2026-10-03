@@ -9,6 +9,7 @@ func _init() -> void:
 	assert(first_spawn == WorldStateModel.SPAWN_POINT)
 	assert(state.player_relationships["player-a"] == {"mara": 0})
 	assert(state.player_npc_check_in_day["player-a"] == {"mara": 0})
+	assert(state.player_coins["player-a"] == 0)
 
 	state.move_player("player-a", Vector2(0.0, -1.0), 1.5)
 	assert(state.register_player("player-a").z < first_spawn.z)
@@ -172,6 +173,8 @@ func _init() -> void:
 	assert(exploration_state.livelihood_stage == "complete")
 	assert(exploration_state.produce_stall_open)
 	assert(exploration_state.stews_delivered == WorldStateModel.REQUIRED_STEW_DELIVERIES)
+	assert(exploration_state.player_coins["player-a"] == 1)
+	assert(exploration_state.player_coins["player-b"] == 1)
 	assert(exploration_state.neighborhood_morale == 2)
 	assert(exploration_state.reputation == 4)
 	assert(exploration_state.chronicle.size() == 4)
@@ -212,6 +215,8 @@ func _init() -> void:
 	assert(restored_livelihood.neighborhood_morale == milestone_morale)
 	assert(restored_livelihood.chronicle.size() == milestone_chronicle_size)
 	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 6, "cooking": 1, "trade": 4, "building": 3, "combat": 5, "exploration": 2})
+	assert(restored_livelihood.player_coins["player-a"] == 4, "Each accepted market unit must pay its contributing player one coin.")
+	assert(restored_livelihood.player_coins["player-b"] == 1)
 	restored_livelihood.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
 	assert(restored_livelihood.simulate_world_clock(1.0))
 	assert(restored_livelihood.world_day == 3)
@@ -234,6 +239,7 @@ func _init() -> void:
 	assert(not restored_livelihood.daily_food_order_active)
 	assert(restored_livelihood.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
 	assert(restored_livelihood.player_mastery["player-a"] == {"farming": 10, "cooking": 3, "trade": 6, "building": 3, "combat": 5, "exploration": 2})
+	assert(restored_livelihood.player_coins["player-a"] == 6, "Trade II bulk delivery must pay once per accepted unit.")
 	var persisted_daily_order := WorldStateModel.new()
 	persisted_daily_order.load_dictionary(restored_livelihood.to_dictionary())
 	assert(persisted_daily_order.world_day == 4)
@@ -242,6 +248,7 @@ func _init() -> void:
 	assert(persisted_daily_order.daily_food_deliveries == WorldStateModel.REQUIRED_STEW_DELIVERIES)
 	assert(not persisted_daily_order.daily_food_order_active)
 	assert(persisted_daily_order.pantry_stock == WorldStateModel.PANTRY_MAX_STOCK)
+	assert(persisted_daily_order.player_coins["player-a"] == 6)
 
 	var technique_state := WorldStateModel.new()
 	technique_state.load_dictionary({
@@ -274,6 +281,28 @@ func _init() -> void:
 	assert(not technique_state.daily_food_order_active)
 	assert(technique_state.daily_food_deliveries == 2)
 	assert(technique_state.player_mastery["specialist"]["trade"] == 6)
+	assert(technique_state.player_coins["specialist"] == 2)
+
+	var coin_state := WorldStateModel.new()
+	coin_state.livelihood_stage = "complete"
+	coin_state.produce_stall_open = true
+	coin_state.register_player("buyer")
+	coin_state.player_coins["buyer"] = WorldStateModel.TRAIL_PROVISION_PRICE
+	assert(not coin_state.try_buy_trail_provision("buyer"), "A purchase must be made at the supply basket.")
+	assert(coin_state.player_coins["buyer"] == WorldStateModel.TRAIL_PROVISION_PRICE)
+	coin_state.positions["buyer"] = WorldStateModel.SUPPLY_BASKET_POSITION
+	assert(coin_state.try_buy_trail_provision("buyer"))
+	assert(coin_state.player_coins["buyer"] == 0)
+	assert(coin_state.player_provisions["buyer"] == 1)
+	assert(not coin_state.try_buy_trail_provision("buyer"), "Insufficient funds must not grant another provision.")
+	coin_state.downed_players["buyer"] = true
+	coin_state.player_health["buyer"] = 0
+	assert(coin_state.try_return_to_safety("buyer"))
+	assert(coin_state.player_coins["buyer"] == 0, "Returning to safety must not drop personal coin.")
+	var restored_coin_state := WorldStateModel.new()
+	restored_coin_state.load_dictionary(coin_state.to_dictionary())
+	assert(restored_coin_state.player_coins["buyer"] == 0)
+	assert(restored_coin_state.recovery_packs["buyer"]["count"] == 1, "Only provisions, never coin, belong in a recovery pack.")
 
 	exploration_state.mark_world_empty(1000)
 	assert(exploration_state.apply_offline_catch_up(1300) == WorldStateModel.PANTRY_MAX_STOCK)
@@ -485,6 +514,7 @@ func _init() -> void:
 	migrated_daily_order.register_player("returning-player")
 	assert(migrated_daily_order.player_relationships["returning-player"] == {"mara": 0})
 	assert(migrated_daily_order.player_npc_check_in_day["returning-player"] == {"mara": 0})
+	assert(migrated_daily_order.player_coins["returning-player"] == 0)
 
 	var building_state := WorldStateModel.new()
 	building_state.quest_stage = "repair_cottage"

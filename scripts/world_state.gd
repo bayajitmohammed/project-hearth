@@ -31,6 +31,8 @@ const GARDEN_PLOT_POSITIONS := {
 }
 const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
+const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
+const TRAIL_PROVISION_PRICE := 2
 const REQUIRED_STEW_DELIVERIES := 2
 const DAILY_FRESH_MOONROOT_DELIVERIES := 3
 const DAILY_ORDER_FRESH_MOONROOT := "fresh_moonroot"
@@ -154,6 +156,7 @@ var pantry_stock := 0
 var last_world_empty_unix := 0
 var last_catch_up_units := 0
 var player_provisions: Dictionary = {}
+var player_coins: Dictionary = {}
 var recovery_packs: Dictionary = {}
 var festival_stage := "locked"
 var festival_completed := false
@@ -211,6 +214,8 @@ func register_player(player_token: String) -> Vector3:
 		player_npc_check_in_day[player_token] = check_in_days
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
+	if not player_coins.has(player_token):
+		player_coins[player_token] = 0
 	if not festival_ribbons.has(player_token):
 		festival_ribbons[player_token] = 0
 	return positions[player_token]
@@ -371,6 +376,7 @@ func interact(player_token: String) -> bool:
 		or try_deliver_fresh_moonroot(player_token)
 		or try_deliver_hearth_stew(player_token)
 		or try_take_pantry_provision(player_token)
+		or try_buy_trail_provision(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -906,6 +912,18 @@ func try_take_pantry_provision(player_token: String) -> bool:
 	return true
 
 
+func try_buy_trail_provision(player_token: String) -> bool:
+	if livelihood_stage != "complete" or not produce_stall_open:
+		return false
+	if register_player(player_token).distance_to(SUPPLY_BASKET_POSITION) > INTERACTION_RADIUS:
+		return false
+	if int(player_coins.get(player_token, 0)) < TRAIL_PROVISION_PRICE:
+		return false
+	player_coins[player_token] = int(player_coins[player_token]) - TRAIL_PROVISION_PRICE
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	return true
+
+
 func try_use_trail_provision(player_token: String) -> bool:
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
@@ -1042,6 +1060,7 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 		delivery_count = mini(int(materials.get("hearth_stew", 0)), remaining_deliveries)
 	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) - delivery_count
 	_add_mastery(player_token, "trade", delivery_count)
+	_add_coins(player_token, delivery_count)
 	if daily_food_order_active:
 		daily_food_deliveries += delivery_count
 		if daily_food_deliveries >= REQUIRED_STEW_DELIVERIES:
@@ -1075,6 +1094,7 @@ func try_deliver_fresh_moonroot(player_token: String) -> bool:
 	materials["moonroot"] = int(materials.get("moonroot", 0)) - delivery_count
 	daily_food_deliveries += delivery_count
 	_add_mastery(player_token, "trade", delivery_count)
+	_add_coins(player_token, delivery_count)
 	if daily_food_deliveries >= DAILY_FRESH_MOONROOT_DELIVERIES:
 		_complete_daily_food_order()
 	return true
@@ -1161,6 +1181,11 @@ func _add_npc_rapport(player_token: String, npc_id: String, amount: int = 1) -> 
 	player_relationships[player_token] = relationships
 
 
+func _add_coins(player_token: String, amount: int = 1) -> void:
+	register_player(player_token)
+	player_coins[player_token] = int(player_coins.get(player_token, 0)) + maxi(amount, 0)
+
+
 func _all_repairs_complete() -> bool:
 	for is_repaired: bool in repaired_parts.values():
 		if not is_repaired:
@@ -1190,7 +1215,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 11,
+		"version": 12,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1228,6 +1253,7 @@ func to_dictionary() -> Dictionary:
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
 		"player_provisions": player_provisions.duplicate(),
+		"player_coins": player_coins.duplicate(),
 		"recovery_packs": encoded_recovery_packs,
 		"festival_completed": festival_completed,
 		"festival_ribbons": festival_ribbons.duplicate(),
@@ -1357,6 +1383,10 @@ func load_dictionary(data: Dictionary) -> void:
 		last_world_empty_unix = 0
 		player_provisions = {}
 		recovery_packs = {}
+	if save_version >= 12:
+		player_coins = data.get("player_coins", {}).duplicate()
+	else:
+		player_coins = {}
 	if save_version >= 8:
 		festival_completed = bool(data.get("festival_completed", false))
 		festival_ribbons = data.get("festival_ribbons", {}).duplicate()

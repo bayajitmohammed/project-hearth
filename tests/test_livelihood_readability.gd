@@ -14,6 +14,7 @@ func _init() -> void:
 	assert(main.cookfire_marker != null)
 	assert(main.market_marker != null)
 	assert(main.produce_stall != null)
+	assert(main.supply_marker != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
@@ -48,6 +49,8 @@ func _init() -> void:
 	snapshot["player_mastery"]["artisan"] = {"farming": 4, "cooking": 2, "trade": 2, "building": 1, "combat": 1, "exploration": 1}
 	main.receive_snapshot(snapshot)
 	assert(main.produce_stall.visible)
+	assert(main.supply_marker.visible)
+	assert(main.supply_marker.get_node("TrailSupplyMarker").visible)
 	assert(main.quest_title_label.text == "OUR SHARED WORLD")
 	assert("shared world is ready" in main.objective_label.text)
 	assert("Gardener I" in main.mastery_label.text)
@@ -56,6 +59,16 @@ func _init() -> void:
 	assert("Builder I" in main.mastery_label.text)
 	assert("Warden I" in main.mastery_label.text)
 	assert("Pathfinder I" in main.mastery_label.text)
+	assert("Coin 0" in main.progress_label.text)
+
+	snapshot["pantry_stock"] = 0
+	snapshot["player_coins"] = {"artisan": WorldStateModel.TRAIL_PROVISION_PRICE}
+	snapshot["player_provisions"] = {"artisan": 0}
+	snapshot["positions"] = {"artisan": WorldStateModel.SUPPLY_BASKET_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.interaction_prompt.visible)
+	assert("Buy trail provision (2 coin)" in main.interaction_prompt.text)
+	assert("Coin 2" in main.progress_label.text)
 
 	snapshot["daily_food_order_active"] = true
 	snapshot["daily_food_order_day"] = 2
@@ -144,4 +157,7 @@ func _snapshot() -> Dictionary:
 		"daily_food_order_kind": "",
 		"daily_food_deliveries": 0,
 		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0, "building": 0, "combat": 0, "exploration": 0}},
+		"pantry_stock": 0,
+		"player_provisions": {"artisan": 0},
+		"player_coins": {"artisan": 0},
 	}

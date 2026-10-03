@@ -107,6 +107,7 @@ var garden_markers: Dictionary = {}
 var cookfire_marker: Node3D
 var market_marker: Node3D
 var produce_stall: Node3D
+var supply_marker: Node3D
 var recovery_pack_nodes: Dictionary = {}
 var festival_arch: Node3D
 var festival_decorations: Node3D
@@ -552,6 +553,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		int(snapshot.get("max_players", MAX_PLAYERS)),
 		int(snapshot.get("pantry_stock", 0)),
 		int(snapshot.get("player_provisions", {}).get(local_token, 0)),
+		int(snapshot.get("player_coins", {}).get(local_token, 0)),
 		int(snapshot.get("last_catch_up_units", 0)),
 		str(snapshot.get("festival_stage", "locked")),
 		snapshot.get("festival_participants", {}),
@@ -621,6 +623,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		)
 	)
 	produce_stall.visible = bool(snapshot.get("produce_stall_open", false))
+	supply_marker.visible = bool(snapshot.get("produce_stall_open", false))
 	var festival_stage := str(snapshot.get("festival_stage", "locked"))
 	festival_arch.visible = festival_stage != "locked"
 	festival_decorations.visible = bool(snapshot.get("festival_completed", false))
@@ -918,6 +921,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
 		"player_provisions": world_state.player_provisions.duplicate(),
+		"player_coins": world_state.player_coins.duplicate(),
 		"recovery_packs": world_state.recovery_packs.duplicate(true),
 		"festival_stage": world_state.festival_stage,
 		"festival_completed": world_state.festival_completed,
@@ -1073,6 +1077,7 @@ func _build_world() -> void:
 	cookfire_marker = world_nodes["cookfire_marker"]
 	market_marker = world_nodes["market_marker"]
 	produce_stall = world_nodes["produce_stall"]
+	supply_marker = world_nodes["supply_marker"]
 	festival_arch = world_nodes["festival_arch"]
 	festival_decorations = world_nodes["festival_decorations"]
 	festival_checkpoint_nodes = world_nodes["festival_checkpoints"]
@@ -1496,6 +1501,11 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	_append_mobile_target(candidates, market_marker, "Deliver", "interact", WorldStateModel.INTERACTION_RADIUS)
 	if int(latest_snapshot.get("pantry_stock", 0)) > 0:
 		_append_mobile_target(candidates, produce_stall, "Take", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if (
+		bool(latest_snapshot.get("produce_stall_open", false))
+		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) >= WorldStateModel.TRAIL_PROVISION_PRICE
+	):
+		_append_mobile_target(candidates, supply_marker, "Buy", "interact", WorldStateModel.INTERACTION_RADIUS)
 	var festival_stage := str(latest_snapshot.get("festival_stage", "locked"))
 	if festival_stage in ["available", "signup", "results"]:
 		var festival_label := "Start" if festival_stage == "signup" else "Join"
@@ -1737,6 +1747,7 @@ func _update_quest_interface(
 	max_players: int,
 	pantry_stock: int,
 	carried_provisions: int,
+	coins: int,
 	catch_up_units: int,
 	festival_stage: String,
 	festival_participants: Dictionary,
@@ -1831,12 +1842,13 @@ func _update_quest_interface(
 		if livelihood_stage == "complete":
 			quest_title_label.text = "OUR SHARED WORLD"
 			objective_label.text = "The shared world is ready for friends"
-			progress_label.text = "Players %d/%d · Pantry %d/%d · Your trail provisions %d" % [
+			progress_label.text = "Players %d/%d · Pantry %d/%d · Your provisions %d · Coin %d" % [
 				active_player_count,
 				max_players,
 				pantry_stock,
 				WorldStateModel.PANTRY_MAX_STOCK,
 				carried_provisions,
+				coins,
 			]
 			if catch_up_units > 0:
 				dialogue_label.text = "While the empty world slept, the produce stall prepared %d safe catch-up provision%s." % [
@@ -1882,7 +1894,8 @@ func _update_quest_interface(
 			festival_ribbon_count,
 			active_player_count,
 			max_players,
-			pantry_stock
+			pantry_stock,
+			coins
 		)
 
 
@@ -1894,12 +1907,18 @@ func _update_festival_interface(
 	ribbon_count: int,
 	active_player_count: int,
 	max_players: int,
-	pantry_stock: int
+	pantry_stock: int,
+	coins: int
 ) -> void:
 	quest_title_label.text = "GATHER AND CELEBRATE"
 	progress_label.visible = true
-	var shared_status := "Players %d/%d · Pantry %d/%d · Your ribbons %d" % [
-		active_player_count, max_players, pantry_stock, WorldStateModel.PANTRY_MAX_STOCK, ribbon_count
+	var shared_status := "Players %d/%d · Pantry %d/%d · Your ribbons %d · Coin %d" % [
+		active_player_count,
+		max_players,
+		pantry_stock,
+		WorldStateModel.PANTRY_MAX_STOCK,
+		ribbon_count,
+		coins,
 	]
 	match festival_stage:
 		"available":
@@ -2103,6 +2122,16 @@ func _update_interaction_prompt(
 		and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
 		interaction_prompt.text = "%s  ·  Take a trail provision" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
+		livelihood_stage == "complete"
+		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) >= WorldStateModel.TRAIL_PROVISION_PRICE
+		and player_position.distance_to(WorldStateModel.SUPPLY_BASKET_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Buy trail provision (%d coin)" % [
+			action_name, WorldStateModel.TRAIL_PROVISION_PRICE
+		]
 		interaction_prompt.visible = true
 		return
 	if quest_stage == "repair_cottage" and has_repair_kit:

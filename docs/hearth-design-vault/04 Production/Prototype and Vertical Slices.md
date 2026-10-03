@@ -56,6 +56,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Encounter-boundary depth: authored enemies stop pursuing players beyond their home area, return visibly, and recover only after reaching spawn so danger cannot be dragged through peaceful spaces.
 - Repeatable combat depth: defeating the ordinary forest creature makes the area safe for the current world day, then the next day renews that encounter without reviving the one-time ruin guardian.
 - Relationship depth: Mara remembers meaningful story conversations and one optional daily check-in per player, displaying personal rapport without gating any shared quest or reward.
+- Economy depth: accepted market units pay their individual contributor one persistent coin each, and a separate supply basket exchanges two coins for one personal trail provision without replacing free pantry stock.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.
 - Exploration identity depth: the player who reveals a new shared place builds personal Exploration mastery and displays a Pathfinder title, while the discovery and all routes remain shared with newcomers.
 - Building identity depth: successful cottage-part placements build personal Building mastery and display a Builder title, while repair costs, actions, and the finished home remain shared with newcomers.

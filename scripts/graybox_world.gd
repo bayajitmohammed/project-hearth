@@ -69,6 +69,7 @@ static func build(root: Node3D) -> Dictionary:
 		"cookfire_marker": livelihood["cookfire_marker"],
 		"market_marker": livelihood["market_marker"],
 		"produce_stall": livelihood["produce_stall"],
+		"supply_marker": livelihood["supply_marker"],
 		"festival_arch": festival["arch"],
 		"festival_decorations": festival["decorations"],
 		"festival_checkpoints": festival["checkpoints"],
@@ -496,12 +497,28 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 	produce_stall.add_child(stall_label)
 	produce_stall.visible = false
 
+	var supply_basket := Node3D.new()
+	supply_basket.name = "TrailSupplyBasket"
+	supply_basket.position = WorldStateModel.SUPPLY_BASKET_POSITION
+	root.add_child(supply_basket)
+	_add_box(supply_basket, "Basket", Vector3(1.4, 0.7, 1.0), Vector3.ZERO, Color("9b6b43"))
+	var supply_marker := _add_station_marker(
+		supply_basket,
+		"TrailSupplyMarker",
+		Vector3.ZERO,
+		"TRAIL SUPPLIES · 2 COIN",
+		Color("f5cf73")
+	)
+	supply_marker.visible = true
+	supply_basket.visible = false
+
 	return {
 		"garden_plants": garden_plants,
 		"garden_markers": garden_markers,
 		"cookfire_marker": cookfire_marker,
 		"market_marker": market_marker,
 		"produce_stall": produce_stall,
+		"supply_marker": supply_basket,
 	}
 
 

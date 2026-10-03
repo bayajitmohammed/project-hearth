@@ -16,6 +16,7 @@ func _init() -> void:
 	assert("Join the Hearthlight Circuit" in main.objective_label.text)
 	assert("Players 2/8" in main.progress_label.text)
 	assert("Your ribbons 0" in main.progress_label.text)
+	assert("Coin 0" in main.progress_label.text)
 	assert(main.festival_arch.visible)
 	assert(not main.festival_decorations.visible)
 	assert(main.interaction_prompt.visible)

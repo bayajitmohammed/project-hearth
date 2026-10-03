@@ -14,7 +14,8 @@ func _init() -> void:
 	assert(main.quest_title_label.text == "OUR SHARED WORLD")
 	assert("Players 3/8" in main.progress_label.text)
 	assert("Pantry 2/3" in main.progress_label.text)
-	assert("trail provisions 1" in main.progress_label.text)
+	assert("Your provisions 1" in main.progress_label.text)
+	assert("Coin 0" in main.progress_label.text)
 	assert(main.interaction_prompt.visible)
 	assert("Take a trail provision" in main.interaction_prompt.text)
 
@@ -61,7 +62,7 @@ func _init() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/world_state.gd")
 	assert(main_source.contains("const MAX_PLAYERS := 8"), "Slice 5 rooms must admit eight players.")
 	assert(main_source.contains("That player is already active in this room"), "Duplicate active identities need a clear rejection.")
-	assert(main_source.contains("Players %d/%d · Pantry %d/%d · Your trail provisions %d"), "The shared-world HUD must expose room and recovery state.")
+	assert(main_source.contains("Players %d/%d · Pantry %d/%d · Your provisions %d · Coin %d"), "The shared-world HUD must expose room, recovery, and personal coin state.")
 	assert(main_source.contains("Recover %s trail pack"), "Recovery packs need a nearby interaction prompt.")
 	assert(main_source.contains("Take a trail provision"), "The pantry catch-up result needs a nearby interaction prompt.")
 	assert(main_source.contains("request_use_trail_provision"), "Clients need a server-authoritative provision-use request.")
