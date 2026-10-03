@@ -214,6 +214,44 @@ func _init() -> void:
 	assert(restored_festival.remove_festival_participant("player-a"))
 	assert(restored_festival.festival_stage == "available", "An empty interrupted run must reopen enrollment.")
 
+	var clock_state := WorldStateModel.new()
+	clock_state.load_dictionary({
+		"version": 9,
+		"quest_stage": "home_repaired",
+		"neighborhood_event_stage": "complete",
+		"world_day": 2,
+		"world_minute": 11 * 60 + 59,
+	})
+	assert(clock_state.world_time_period() == "Morning")
+	assert(clock_state.mara_position == WorldStateModel.MARA_POSITION)
+	assert(clock_state.mara_activity == "tending the cottage")
+	assert(clock_state.simulate_world_clock(1.0), "Crossing a routine boundary must request a save.")
+	assert(clock_state.world_minute == 12 * 60)
+	assert(clock_state.world_time_period() == "Afternoon")
+	assert(clock_state.mara_position == WorldStateModel.MARA_WELCOME_POSITION)
+	clock_state.produce_stall_open = true
+	assert(clock_state.simulate_world_clock(1.0), "Opening the market must update Mara's afternoon routine.")
+	assert(clock_state.mara_position == WorldStateModel.MARA_MARKET_POSITION)
+	assert(clock_state.mara_activity == "helping at the market")
+	clock_state.mark_world_empty(100)
+	assert(clock_state.apply_offline_catch_up(1100) == 0)
+	assert(clock_state.world_minute == 18 * 60 + 1, "Empty-world calendar catch-up must cap at six hours.")
+	assert(clock_state.world_time_period() == "Evening")
+	var restored_clock := WorldStateModel.new()
+	restored_clock.load_dictionary(clock_state.to_dictionary())
+	assert(restored_clock.world_day == 2)
+	assert(restored_clock.world_minute == clock_state.world_minute)
+	assert(restored_clock.mara_activity == "at the gathering place")
+	var steady_clock := WorldStateModel.new()
+	steady_clock.load_dictionary({
+		"version": 9,
+		"quest_stage": "home_repaired",
+		"neighborhood_event_stage": "complete",
+		"world_minute": 13 * 60 + 1,
+	})
+	assert(not steady_clock.simulate_world_clock(1.0), "Ordinary clock minutes must not save every second.")
+	assert(steady_clock.world_minute == 13 * 60 + 2)
+
 	var migrated_slice_one := WorldStateModel.new()
 	migrated_slice_one.load_dictionary({"version": 3, "quest_stage": "home_repaired", "reputation": 1})
 	assert(migrated_slice_one.neighborhood_event_stage == "invitation")
@@ -254,6 +292,8 @@ func _init() -> void:
 	assert(migrated_slice_five.festival_stage == "available")
 	assert(not migrated_slice_five.festival_completed)
 	assert(migrated_slice_five.festival_ribbons.is_empty())
+	assert(migrated_slice_five.world_day == 1)
+	assert(migrated_slice_five.world_minute == WorldStateModel.WORLD_START_MINUTE)
 
 	var combat_state := WorldStateModel.new()
 	combat_state.register_player("fighter")

@@ -11,6 +11,7 @@ func _init() -> void:
 
 	assert(main.mara_node != null, "Mara's routine needs a movable world node.")
 	assert(main.chronicle_panel != null, "Remembered changes need a visible chronicle panel.")
+	assert(main.world_time_label != null, "The authoritative calendar needs a readable HUD label.")
 	for lantern_id: String in WorldStateModel.WELCOME_LANTERN_POSITIONS:
 		assert(main.welcome_lantern_markers.has(lantern_id))
 		assert(main.welcome_lantern_lights.has(lantern_id))
@@ -50,6 +51,9 @@ func _init() -> void:
 	assert("Chronicle entries: 2" in main.world_change_label.text)
 	assert("repaired the abandoned cottage" in main.chronicle_label.text)
 	assert("lit welcome lanterns" in main.chronicle_label.text)
+	assert(main.world_time_label.visible)
+	assert("Day 1" in main.world_time_label.text)
+	assert("Mara:" in main.world_time_label.text)
 
 	print("PASS: Living-world response is readable")
 	quit()
@@ -71,6 +75,10 @@ func _base_snapshot() -> Dictionary:
 		"reputation": 1,
 		"map_rumor_unlocked": true,
 		"mara_position": WorldStateModel.MARA_POSITION,
+		"mara_activity": "meeting neighbors",
+		"world_day": 1,
+		"world_minute": WorldStateModel.WORLD_START_MINUTE,
+		"world_time_period": "Afternoon",
 		"neighborhood_event_stage": "invitation",
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,

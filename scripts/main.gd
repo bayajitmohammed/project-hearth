@@ -68,6 +68,7 @@ var connect_button: Button
 var offline_button: Button
 var host_button: Button
 var session_status_label: Label
+var world_time_label: Label
 var touch_controls: Control
 var mobile_crosshair: Label
 var mobile_context_button: Button
@@ -276,6 +277,8 @@ func _update_local_player_visibility() -> void:
 
 
 func _simulate_server(delta: float) -> void:
+	if not peer_to_token.is_empty() and world_state.simulate_world_clock(delta):
+		_save_world()
 	for peer_id: int in peer_to_token:
 		var token: String = peer_to_token[peer_id]
 		var pending_input: Vector2 = peer_inputs.get(peer_id, Vector2.ZERO)
@@ -439,6 +442,13 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		welcome_lantern_markers[lantern_id].visible = event_stage == "lighting" and not is_lit
 		welcome_lantern_lights[lantern_id].visible = is_lit
 	mara_node.position = snapshot.get("mara_position", WorldStateModel.MARA_POSITION)
+	world_time_label.text = _world_time_text(
+		int(snapshot.get("world_day", 1)),
+		int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE)),
+		str(snapshot.get("world_time_period", "Afternoon")),
+		str(snapshot.get("mara_activity", "waiting by the cottage"))
+	)
+	world_time_label.visible = true
 	_update_interaction_prompt(
 		quest_stage,
 		has_repair_kit,
@@ -748,6 +758,10 @@ func _snapshot_for_clients() -> Dictionary:
 		"reputation": world_state.reputation,
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
 		"mara_position": world_state.mara_position,
+		"mara_activity": world_state.mara_activity,
+		"world_day": world_state.world_day,
+		"world_minute": world_state.world_minute,
+		"world_time_period": world_state.world_time_period(),
 		"neighborhood_event_stage": world_state.neighborhood_event_stage,
 		"lit_welcome_lanterns": world_state.lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": world_state.neighborhood_morale,
@@ -1031,6 +1045,12 @@ func _build_interface() -> void:
 	session_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_status_label.add_theme_color_override("font_color", Color("a8edf0"))
 	top_stack.add_child(session_status_label)
+	world_time_label = Label.new()
+	world_time_label.name = "WorldTime"
+	world_time_label.visible = false
+	world_time_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	world_time_label.add_theme_color_override("font_color", Color("f4dfae"))
+	top_stack.add_child(world_time_label)
 
 	debug_panel = PanelContainer.new()
 	debug_panel.name = "DebugPanel"
@@ -1736,6 +1756,12 @@ func _mastery_text(mastery: Dictionary) -> String:
 		cooking, " (Cook I)" if cooking > 0 else "",
 		trade, " (Trader I)" if trade > 0 else "",
 	]
+
+
+func _world_time_text(day: int, minute_of_day: int, period: String, activity: String) -> String:
+	var hour := floori(float(minute_of_day) / 60.0)
+	var minute := minute_of_day % 60
+	return "Day %d · %s %02d:%02d · Mara: %s" % [day, period, hour, minute, activity]
 
 
 func _sync_recovery_packs(packs: Dictionary) -> void:

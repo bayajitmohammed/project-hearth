@@ -4,6 +4,7 @@ extends RefCounted
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
+const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
 const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
@@ -69,6 +70,11 @@ const WELCOME_LANTERN_LABELS := {
 const CREATURE_SPAWN := Vector3(9.0, 0.65, -6.5)
 const CREATURE_MAX_HEALTH := 3
 const PLAYER_MAX_HEALTH := 3
+const WORLD_MINUTES_PER_DAY := 1440
+const WORLD_MINUTES_PER_REAL_SECOND := 1.0
+const WORLD_START_MINUTE := 13 * 60
+const OFFLINE_CALENDAR_MAX_MINUTES := 6 * 60
+const WORLD_SAVE_INTERVAL_MINUTES := 30
 
 var collectible_collected := false
 var positions: Dictionary = {}
@@ -117,6 +123,10 @@ var festival_ribbons: Dictionary = {}
 var festival_last_winner := ""
 var festival_participants: Dictionary = {}
 var festival_finishers: Array = []
+var world_day := 1
+var world_minute := WORLD_START_MINUTE
+var world_clock_fraction := 0.0
+var mara_activity := "waiting by the cottage"
 
 
 func register_player(player_token: String) -> Vector3:
@@ -257,6 +267,7 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 				reputation += 1
 				exploration_stage = "follow_rumor"
 				chronicle.append("Together, the neighborhood lit welcome lanterns to celebrate its new residents.")
+				_update_mara_routine()
 			return true
 	return false
 
@@ -310,6 +321,76 @@ func simulate_creature(delta: float, active_tokens: Array) -> bool:
 	if _simulate_ruin_guardian(delta, active_tokens):
 		changed = true
 	return changed
+
+
+func simulate_world_clock(delta: float) -> bool:
+	if delta <= 0.0:
+		return false
+	var previous_day := world_day
+	var previous_checkpoint := floori(float(world_minute) / float(WORLD_SAVE_INTERVAL_MINUTES))
+	var previous_activity := mara_activity
+	world_clock_fraction += delta * WORLD_MINUTES_PER_REAL_SECOND
+	var elapsed_minutes := floori(world_clock_fraction)
+	if elapsed_minutes <= 0:
+		return false
+	world_clock_fraction -= elapsed_minutes
+	_advance_world_minutes(elapsed_minutes)
+	return (
+		world_day != previous_day
+		or floori(float(world_minute) / float(WORLD_SAVE_INTERVAL_MINUTES)) != previous_checkpoint
+		or mara_activity != previous_activity
+	)
+
+
+func _advance_world_minutes(elapsed_minutes: int) -> void:
+	if elapsed_minutes <= 0:
+		return
+	var total_minutes := (
+		(world_day - 1) * WORLD_MINUTES_PER_DAY
+		+ world_minute
+		+ elapsed_minutes
+	)
+	world_day = floori(float(total_minutes) / float(WORLD_MINUTES_PER_DAY)) + 1
+	world_minute = posmod(total_minutes, WORLD_MINUTES_PER_DAY)
+	_update_mara_routine()
+
+
+func world_time_period() -> String:
+	if world_minute >= 6 * 60 and world_minute < 12 * 60:
+		return "Morning"
+	if world_minute >= 12 * 60 and world_minute < 18 * 60:
+		return "Afternoon"
+	if world_minute >= 18 * 60 and world_minute < 22 * 60:
+		return "Evening"
+	return "Night"
+
+
+func _update_mara_routine() -> void:
+	if neighborhood_event_stage == "lighting":
+		mara_position = MARA_WELCOME_POSITION
+		mara_activity = "hosting Welcome Lights"
+		return
+	if neighborhood_event_stage != "complete":
+		mara_position = MARA_POSITION
+		mara_activity = "waiting by the cottage"
+		return
+	match world_time_period():
+		"Morning":
+			mara_position = MARA_POSITION
+			mara_activity = "tending the cottage"
+		"Afternoon":
+			if produce_stall_open:
+				mara_position = MARA_MARKET_POSITION
+				mara_activity = "helping at the market"
+			else:
+				mara_position = MARA_WELCOME_POSITION
+				mara_activity = "meeting neighbors"
+		"Evening":
+			mara_position = MARA_WELCOME_POSITION
+			mara_activity = "at the gathering place"
+		_:
+			mara_position = MARA_POSITION
+			mara_activity = "resting at the cottage"
 
 
 func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
@@ -410,6 +491,7 @@ func apply_offline_catch_up(now_unix: int) -> int:
 		return 0
 	var elapsed_seconds := maxi(now_unix - last_world_empty_unix, 0)
 	last_world_empty_unix = 0
+	_advance_world_minutes(mini(elapsed_seconds, OFFLINE_CALENDAR_MAX_MINUTES))
 	if livelihood_stage != "complete" or not produce_stall_open:
 		return 0
 	var available_space := PANTRY_MAX_STOCK - pantry_stock
@@ -535,6 +617,7 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 		neighborhood_morale += 1
 		reputation += 1
 		chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
+		_update_mara_routine()
 	return true
 
 
@@ -631,7 +714,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 8,
+		"version": 9,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -667,6 +750,8 @@ func to_dictionary() -> Dictionary:
 		"festival_completed": festival_completed,
 		"festival_ribbons": festival_ribbons.duplicate(),
 		"festival_last_winner": festival_last_winner,
+		"world_day": world_day,
+		"world_minute": world_minute,
 		"positions": encoded_positions,
 	}
 
@@ -798,11 +883,18 @@ func load_dictionary(data: Dictionary) -> void:
 		festival_completed = false
 		festival_ribbons = {}
 		festival_last_winner = ""
+	if save_version >= 9:
+		world_day = maxi(int(data.get("world_day", 1)), 1)
+		world_minute = clampi(int(data.get("world_minute", WORLD_START_MINUTE)), 0, WORLD_MINUTES_PER_DAY - 1)
+	else:
+		world_day = 1
+		world_minute = WORLD_START_MINUTE
+	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"
 	festival_participants = {}
 	festival_finishers = []
-	mara_position = MARA_WELCOME_POSITION if neighborhood_event_stage in ["lighting", "complete"] else MARA_POSITION
+	_update_mara_routine()
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
 	for player_token: String in encoded_positions:

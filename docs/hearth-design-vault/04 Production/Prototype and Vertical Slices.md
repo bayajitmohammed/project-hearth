@@ -176,6 +176,7 @@ This is the minimum cumulative Slice 2 implementation, not the final production-
 - [x] Automated state, migration, readability, and legacy regression coverage
 - [x] Two-client Slice 1 networking regression
 - [x] Desktop Web, Android, and Windows debug exports rebuild successfully
+- [x] First depth increment: persistent neighborhood clock, bounded calendar catch-up, and Mara's readable post-event routine
 - [ ] Deferred validation: fresh-player playtest of the cumulative game
 - [ ] Deferred validation: full Desktop Web, Android, and Windows runtime pass
 

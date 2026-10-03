@@ -65,6 +65,8 @@ During normal play the compact quest card shows only the current objective and p
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
 
+The neighborhood HUD also shows a persistent day and time. The clock advances only while someone is playing; waking an empty world advances its calendar by at most six game hours. After Welcome Lights, Mara visibly follows a morning cottage, afternoon market or neighborhood, evening gathering-place, and nighttime cottage routine. Required quest appearances always take priority over her schedule.
+
 After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
 
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner.
@@ -212,6 +214,7 @@ The probes verify explicit enrollment, ordered checkpoints, the server-owned fir
 ## Slice 2 implementation status
 
 - Welcome Lights is a server-authoritative response to the completed cottage repair.
+- A version-9 authoritative neighborhood clock now persists day/time, performs bounded safe calendar catch-up, and drives Mara's post-event daily routine without overriding required quest appearances.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
