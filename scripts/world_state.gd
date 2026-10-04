@@ -38,6 +38,7 @@ const FISHING_BITE_SECONDS := 1.0
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
 const TRAIL_PROVISION_PRICE := 2
+const SUPPLY_BASKET_DAILY_STOCK := 3
 const HEARTHBLOOM_POSITION := Vector3(-14.8, 0.6, 3.0)
 const HEARTHBLOOM_REQUIRED_COINS := 4
 const REQUIRED_STEW_DELIVERIES := 2
@@ -178,6 +179,7 @@ var player_riverfish: Dictionary = {}
 var player_fishing_phase: Dictionary = {}
 var player_fishing_time: Dictionary = {}
 var player_coins: Dictionary = {}
+var supply_basket_stock := 0
 var recovery_packs: Dictionary = {}
 var hearthbloom_contributions := 0
 var hearthbloom_complete := false
@@ -709,6 +711,7 @@ func _advance_world_minutes(elapsed_minutes: int) -> void:
 	if world_day > previous_day:
 		_renew_daily_forest_encounter()
 		if livelihood_stage == "complete" and produce_stall_open:
+			supply_basket_stock = SUPPLY_BASKET_DAILY_STOCK
 			_begin_daily_food_order()
 	_update_mara_routine()
 
@@ -1129,12 +1132,15 @@ func try_take_pantry_provision(player_token: String) -> bool:
 func try_buy_trail_provision(player_token: String) -> bool:
 	if livelihood_stage != "complete" or not produce_stall_open:
 		return false
+	if supply_basket_stock <= 0:
+		return false
 	if register_player(player_token).distance_to(SUPPLY_BASKET_POSITION) > INTERACTION_RADIUS:
 		return false
 	if int(player_coins.get(player_token, 0)) < TRAIL_PROVISION_PRICE:
 		return false
 	player_coins[player_token] = int(player_coins[player_token]) - TRAIL_PROVISION_PRICE
 	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	supply_basket_stock -= 1
 	return true
 
 
@@ -1301,6 +1307,7 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 		if stews_delivered >= REQUIRED_STEW_DELIVERIES:
 			livelihood_stage = "complete"
 			produce_stall_open = true
+			supply_basket_stock = SUPPLY_BASKET_DAILY_STOCK
 			festival_stage = "available"
 			neighborhood_morale += 1
 			reputation += 1
@@ -1446,7 +1453,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 15,
+		"version": 16,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1487,6 +1494,7 @@ func to_dictionary() -> Dictionary:
 		"player_provisions": player_provisions.duplicate(),
 		"player_riverfish": player_riverfish.duplicate(),
 		"player_coins": player_coins.duplicate(),
+		"supply_basket_stock": supply_basket_stock,
 		"recovery_packs": encoded_recovery_packs,
 		"hearthbloom_contributions": hearthbloom_contributions,
 		"hearthbloom_complete": hearthbloom_complete,
@@ -1680,6 +1688,16 @@ func load_dictionary(data: Dictionary) -> void:
 		player_riverfish = data.get("player_riverfish", {}).duplicate()
 	else:
 		player_riverfish = {}
+	if save_version >= 16:
+		supply_basket_stock = clampi(
+			int(data.get("supply_basket_stock", 0)), 0, SUPPLY_BASKET_DAILY_STOCK
+		)
+	else:
+		supply_basket_stock = (
+			SUPPLY_BASKET_DAILY_STOCK
+			if livelihood_stage == "complete" and produce_stall_open
+			else 0
+		)
 	# Cast timing is intentionally session-only and never resumes after a restart.
 	player_fishing_phase = {}
 	player_fishing_time = {}

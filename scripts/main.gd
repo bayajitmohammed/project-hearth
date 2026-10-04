@@ -654,9 +654,19 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		)
 	)
 	var produce_stall_open := bool(snapshot.get("produce_stall_open", false))
+	var supply_basket_stock := int(snapshot.get("supply_basket_stock", 0))
 	var hearthbloom_complete := bool(snapshot.get("hearthbloom_complete", false))
 	produce_stall.visible = produce_stall_open
 	supply_marker.visible = produce_stall_open
+	var supply_label := supply_marker.get_node_or_null("TrailSupplyMarker/Label") as Label3D
+	if supply_label != null:
+		supply_label.text = (
+			"TRAIL SUPPLIES · 2 COIN · %d/%d" % [
+				supply_basket_stock, WorldStateModel.SUPPLY_BASKET_DAILY_STOCK
+			]
+			if supply_basket_stock > 0
+			else "TRAIL SUPPLIES · SOLD OUT TODAY"
+		)
 	hearthbloom_project.visible = produce_stall_open
 	hearthbloom_marker.visible = produce_stall_open and not hearthbloom_complete
 	hearthbloom_blooms.visible = hearthbloom_complete
@@ -692,6 +702,9 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		food_status,
 	])
 	if produce_stall_open:
+		world_status_parts.append(
+			"Supply %d/%d" % [supply_basket_stock, WorldStateModel.SUPPLY_BASKET_DAILY_STOCK]
+		)
 		world_status_parts.append(
 			"Hearthbloom complete"
 			if hearthbloom_complete
@@ -978,6 +991,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_fishing_phase": world_state.player_fishing_phase.duplicate(),
 		"player_fishing_time": world_state.player_fishing_time.duplicate(),
 		"player_coins": world_state.player_coins.duplicate(),
+		"supply_basket_stock": world_state.supply_basket_stock,
 		"recovery_packs": world_state.recovery_packs.duplicate(true),
 		"hearthbloom_contributions": world_state.hearthbloom_contributions,
 		"hearthbloom_complete": world_state.hearthbloom_complete,
@@ -1579,6 +1593,7 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		_append_mobile_target(candidates, produce_stall, "Take", "interact", WorldStateModel.INTERACTION_RADIUS)
 	if (
 		bool(latest_snapshot.get("produce_stall_open", false))
+		and int(latest_snapshot.get("supply_basket_stock", 0)) > 0
 		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) >= WorldStateModel.TRAIL_PROVISION_PRICE
 	):
 		_append_mobile_target(candidates, supply_marker, "Buy", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1925,6 +1940,7 @@ func _update_quest_interface(
 	var kit_count := int(materials.get("repair_kit", 0))
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
+	var supply_stock := int(latest_snapshot.get("supply_basket_stock", 0))
 	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d\nPersonal — Riverfish: %d  Trail provisions: %d" % [
 		wood_count, herb_count, kit_count, moonroot_count, stew_count, riverfish, carried_provisions
 	]
@@ -2007,11 +2023,13 @@ func _update_quest_interface(
 		if livelihood_stage == "complete":
 			quest_title_label.text = "OUR SHARED WORLD"
 			objective_label.text = "The shared world is ready for friends"
-			progress_label.text = "Players %d/%d · Pantry %d/%d · Your provisions %d · Coin %d" % [
+			progress_label.text = "Players %d/%d · Pantry %d/%d · Supply %d/%d · Your provisions %d · Coin %d" % [
 				active_player_count,
 				max_players,
 				pantry_stock,
 				WorldStateModel.PANTRY_MAX_STOCK,
+				supply_stock,
+				WorldStateModel.SUPPLY_BASKET_DAILY_STOCK,
 				carried_provisions,
 				coins,
 			]
@@ -2077,11 +2095,14 @@ func _update_festival_interface(
 ) -> void:
 	quest_title_label.text = "GATHER AND CELEBRATE"
 	progress_label.visible = true
-	var shared_status := "Players %d/%d · Pantry %d/%d · Your ribbons %d · Coin %d" % [
+	var supply_stock := int(latest_snapshot.get("supply_basket_stock", 0))
+	var shared_status := "Players %d/%d · Pantry %d/%d · Supply %d/%d · Your ribbons %d · Coin %d" % [
 		active_player_count,
 		max_players,
 		pantry_stock,
 		WorldStateModel.PANTRY_MAX_STOCK,
+		supply_stock,
+		WorldStateModel.SUPPLY_BASKET_DAILY_STOCK,
 		ribbon_count,
 		coins,
 	]
@@ -2325,6 +2346,7 @@ func _update_interaction_prompt(
 		return
 	if (
 		livelihood_stage == "complete"
+		and int(latest_snapshot.get("supply_basket_stock", 0)) > 0
 		and int(latest_snapshot.get("player_coins", {}).get(local_token, 0)) >= WorldStateModel.TRAIL_PROVISION_PRICE
 		and player_position.distance_to(WorldStateModel.SUPPLY_BASKET_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):

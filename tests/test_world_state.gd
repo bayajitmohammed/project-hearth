@@ -338,12 +338,14 @@ func _init() -> void:
 	coin_state.produce_stall_open = true
 	coin_state.register_player("buyer")
 	coin_state.player_coins["buyer"] = WorldStateModel.TRAIL_PROVISION_PRICE
+	coin_state.supply_basket_stock = WorldStateModel.SUPPLY_BASKET_DAILY_STOCK
 	assert(not coin_state.try_buy_trail_provision("buyer"), "A purchase must be made at the supply basket.")
 	assert(coin_state.player_coins["buyer"] == WorldStateModel.TRAIL_PROVISION_PRICE)
 	coin_state.positions["buyer"] = WorldStateModel.SUPPLY_BASKET_POSITION
 	assert(coin_state.try_buy_trail_provision("buyer"))
 	assert(coin_state.player_coins["buyer"] == 0)
 	assert(coin_state.player_provisions["buyer"] == 1)
+	assert(coin_state.supply_basket_stock == WorldStateModel.SUPPLY_BASKET_DAILY_STOCK - 1)
 	assert(not coin_state.try_buy_trail_provision("buyer"), "Insufficient funds must not grant another provision.")
 	coin_state.downed_players["buyer"] = true
 	coin_state.player_health["buyer"] = 0
@@ -353,6 +355,17 @@ func _init() -> void:
 	restored_coin_state.load_dictionary(coin_state.to_dictionary())
 	assert(restored_coin_state.player_coins["buyer"] == 0)
 	assert(restored_coin_state.recovery_packs["buyer"]["count"] == 1, "Only provisions, never coin, belong in a recovery pack.")
+	assert(restored_coin_state.supply_basket_stock == WorldStateModel.SUPPLY_BASKET_DAILY_STOCK - 1)
+	var daily_supply := WorldStateModel.new()
+	daily_supply.load_dictionary({"version": 15, "livelihood_stage": "complete", "produce_stall_open": true})
+	assert(daily_supply.supply_basket_stock == WorldStateModel.SUPPLY_BASKET_DAILY_STOCK, "Older completed worlds migrate with a full current-day basket.")
+	daily_supply.supply_basket_stock = 0
+	daily_supply.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
+	assert(daily_supply.simulate_world_clock(1.0))
+	assert(daily_supply.supply_basket_stock == WorldStateModel.SUPPLY_BASKET_DAILY_STOCK, "A new day resets rather than stacks supply.")
+	var persisted_supply := WorldStateModel.new()
+	persisted_supply.load_dictionary(daily_supply.to_dictionary())
+	assert(persisted_supply.supply_basket_stock == WorldStateModel.SUPPLY_BASKET_DAILY_STOCK)
 
 	var handoff_state := WorldStateModel.new()
 	for player_token: String in ["giver", "friend-a", "friend-b", "offline-friend"]:

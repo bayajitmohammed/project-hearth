@@ -66,7 +66,7 @@ func _init() -> void:
 	var state_source := FileAccess.get_file_as_string("res://scripts/world_state.gd")
 	assert(main_source.contains("const MAX_PLAYERS := 8"), "Slice 5 rooms must admit eight players.")
 	assert(main_source.contains("That player is already active in this room"), "Duplicate active identities need a clear rejection.")
-	assert(main_source.contains("Players %d/%d · Pantry %d/%d · Your provisions %d · Coin %d"), "The shared-world HUD must expose room, recovery, and personal coin state.")
+	assert(main_source.contains("Players %d/%d · Pantry %d/%d · Supply %d/%d · Your provisions %d · Coin %d"), "The shared-world HUD must expose room, recovery, bounded supply, and personal coin state.")
 	assert(main_source.contains("Recover %s trail pack"), "Recovery packs need a nearby interaction prompt.")
 	assert(main_source.contains("Take a trail provision"), "The pantry catch-up result needs a nearby interaction prompt.")
 	assert(main_source.contains("request_use_trail_provision"), "Clients need a server-authoritative provision-use request.")

@@ -1,0 +1,17 @@
+{
+  "version": 16,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "livelihood_stage": "complete",
+  "produce_stall_open": true,
+  "stews_delivered": 2,
+  "supply_basket_stock": 1,
+  "player_health": {"supply-a": 3, "supply-b": 3},
+  "downed_players": {"supply-a": false, "supply-b": false},
+  "player_coins": {"supply-a": 2, "supply-b": 2},
+  "player_provisions": {"supply-a": 0, "supply-b": 0},
+  "positions": {
+    "supply-a": [11.0, 0.6, 3.5],
+    "supply-b": [11.0, 0.6, 3.5]
+  }
+}

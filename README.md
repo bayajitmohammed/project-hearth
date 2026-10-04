@@ -79,7 +79,7 @@ Rooms now accept up to eight distinct players. After the produce stall opens, an
 
 A standing player carrying a trail provision can press **E** near a healthy standing friend to hand over one provision. Revive and injury aid resolve first, followed by valid world interactions, so a handoff never replaces urgent help or a station action. The nearest eligible friend is chosen deterministically, transferred inventory persists for both identities, and the touch action reads **Give provision**.
 
-Each accepted market unit pays its contributing player one persistent coin. Once the produce stall is open, use **E** at the nearby supply basket to spend two coins on one personal trail provision; free pantry stock remains a separate first-priority pickup. Coin is personal, never drops on defeat, and does not accrue while the room is empty.
+Each accepted market unit pays its contributing player one persistent coin. Once the produce stall is open, use **E** at the nearby supply basket to spend two coins on one personal trail provision; free pantry stock remains separate. The basket holds three shared units per world day. Purchases consume that stock authoritatively, and the next day resets it to three rather than stacking missed stock. Coin is personal, never drops on defeat, and does not accrue while the room is empty.
 
 The open stall also reveals the neighborhood's first optional shared project beside the cottage. Use **E** at the Hearthbloom planter frame to contribute one personal coin at a time. Four total contributions permanently bloom the planter, raise neighborhood morale and reputation once, and record the improvement in the chronicle. One player may finish it over time or friends may pool their earnings; partial progress never decays.
 
@@ -276,6 +276,20 @@ cp tests/fixtures/provision_handoff_ready_world.json /tmp/project-hearth-handoff
 
 The probes verify that both peers observe one authoritative transfer and that their combined personal provision count is conserved.
 
+For the bounded daily-supply race, copy `tests/fixtures/daily_supply_ready_world.json`, start an isolated server on port `9407` with room `SUPPLY`, and run both buyer probes simultaneously:
+
+```sh
+cp tests/fixtures/daily_supply_ready_world.json /tmp/project-hearth-daily-supply.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9407 --room=SUPPLY --save-file=/tmp/project-hearth-daily-supply.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/daily_supply_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9407 --room=SUPPLY --player-token=supply-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/daily_supply_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9407 --room=SUPPLY --player-token=supply-b
+```
+
+The probes verify that simultaneous buyers can purchase the last shared unit only once, conserving both stock and coin.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -347,6 +361,7 @@ The probes verify that both peers observe one authoritative transfer and that th
 - The HUD shows online capacity. Completed produce stalls gain at most three provisions after the room has been empty, using a short prototype interval for practical testing.
 - Trail provisions belong to individual players. Returning to safety while downed leaves a persistent recovery pack that a nearby friend can restore to its owner.
 - Nearby healthy friends can receive one direct trail-provision handoff. Revive, injury aid, and valid world interactions keep priority; deterministic active-player selection conserves inventory and cannot target an offline identity.
+- The coin-funded supply basket now has three shared units per world day. Version-16 persistence retains current stock, older completed worlds migrate full, and a new day resets stock without accumulating missed inventory.
 - Version-7 persistence migrates version-6 worlds without granting retroactive stock, provisions, or packs.
 - Automated state, migration, presentation, legacy-regression, and eight-client capacity coverage pass.
 - Focused desktop Web verification passes in Chromium with no console errors: room connection, WASD movement, camera toggle, pantry interaction, downed return, and recovery-pack presentation all work through the exported build.

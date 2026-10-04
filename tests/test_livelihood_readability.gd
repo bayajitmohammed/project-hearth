@@ -115,6 +115,14 @@ func _init() -> void:
 	assert(main.interaction_prompt.visible)
 	assert("Buy trail provision (2 coin)" in main.interaction_prompt.text)
 	assert("Coin 2" in main.progress_label.text)
+	assert("Supply 3/3" in main.progress_label.text)
+	assert("3/3" in main.supply_marker.get_node("TrailSupplyMarker/Label").text)
+	snapshot["supply_basket_stock"] = 0
+	main.receive_snapshot(snapshot)
+	assert("SOLD OUT TODAY" in main.supply_marker.get_node("TrailSupplyMarker/Label").text)
+	assert("Supply 0/3" in main.world_change_label.text)
+	assert(not main.interaction_prompt.visible)
+	snapshot["supply_basket_stock"] = WorldStateModel.SUPPLY_BASKET_DAILY_STOCK
 
 	snapshot["player_coins"] = {"artisan": 1}
 	snapshot["hearthbloom_contributions"] = 2
@@ -222,6 +230,7 @@ func _snapshot() -> Dictionary:
 		"player_fishing_phase": {"artisan": "idle"},
 		"player_fishing_time": {"artisan": 0.0},
 		"player_coins": {"artisan": 0},
+		"supply_basket_stock": WorldStateModel.SUPPLY_BASKET_DAILY_STOCK,
 		"player_outing_kits": {"artisan": WorldStateModel.OUTING_KIT_VANGUARD},
 		"hearthbloom_contributions": 0,
 		"hearthbloom_complete": false,
