@@ -8,6 +8,11 @@ const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
 const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
 const TRAILWORK_BENCH_POSITION := Vector3(-14.8, 0.6, 7.0)
+const HOMESTEAD_LANTERN_POSITIONS := {
+	"west_garden": Vector3(-16.0, 0.6, 11.5),
+	"east_garden": Vector3(-4.0, 0.6, 11.5),
+	"pond_path": Vector3(-16.0, 0.6, -0.5),
+}
 const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
@@ -182,6 +187,11 @@ var player_npc_check_in_day: Dictionary = {}
 var player_mara_keepsakes: Dictionary = {}
 var player_survey_day: Dictionary = {}
 var player_outing_kits: Dictionary = {}
+var built_homestead_lanterns := {
+	"west_garden": false,
+	"east_garden": false,
+	"pond_path": false,
+}
 var pantry_stock := 0
 var last_world_empty_unix := 0
 var last_catch_up_units := 0
@@ -394,6 +404,23 @@ func try_craft_trail_provision(player_token: String) -> bool:
 	return true
 
 
+func try_build_homestead_lantern(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	var player_position := register_player(player_token)
+	if bool(downed_players.get(player_token, false)) or int(materials.get("wood", 0)) < 1:
+		return false
+	for socket_id: String in HOMESTEAD_LANTERN_POSITIONS:
+		if bool(built_homestead_lanterns.get(socket_id, false)):
+			continue
+		if player_position.distance_to(HOMESTEAD_LANTERN_POSITIONS[socket_id]) <= INTERACTION_RADIUS:
+			materials["wood"] = int(materials["wood"]) - 1
+			built_homestead_lanterns[socket_id] = true
+			_add_mastery(player_token, "building")
+			return true
+	return false
+
+
 func try_repair_cottage(player_token: String) -> bool:
 	if quest_stage != "repair_cottage" or int(materials.get("repair_kit", 0)) < 1:
 		return false
@@ -455,6 +482,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_take_pantry_provision(player_token)
 		or try_buy_trail_provision(player_token)
 		or try_contribute_hearthbloom(player_token)
+		or try_build_homestead_lantern(player_token)
 		or try_switch_outing_kit(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
@@ -1543,7 +1571,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 19,
+		"version": 20,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1581,6 +1609,7 @@ func to_dictionary() -> Dictionary:
 		"player_mara_keepsakes": player_mara_keepsakes.duplicate(),
 		"player_survey_day": player_survey_day.duplicate(),
 		"player_outing_kits": player_outing_kits.duplicate(),
+		"built_homestead_lanterns": built_homestead_lanterns.duplicate(),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
 		"player_provisions": player_provisions.duplicate(),
@@ -1789,6 +1818,13 @@ func load_dictionary(data: Dictionary) -> void:
 		player_outing_kits = data.get("player_outing_kits", {}).duplicate()
 	else:
 		player_outing_kits = {}
+	if save_version >= 20:
+		var saved_homestead_lanterns: Dictionary = data.get("built_homestead_lanterns", {})
+		for socket_id: String in HOMESTEAD_LANTERN_POSITIONS:
+			built_homestead_lanterns[socket_id] = bool(saved_homestead_lanterns.get(socket_id, false))
+	else:
+		for socket_id: String in HOMESTEAD_LANTERN_POSITIONS:
+			built_homestead_lanterns[socket_id] = false
 	if save_version >= 15:
 		player_riverfish = data.get("player_riverfish", {}).duplicate()
 	else:

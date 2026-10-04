@@ -20,6 +20,7 @@ static func build(root: Node3D) -> Dictionary:
 	var repair_result_nodes := _add_repair_results(root)
 	var outing_kit_rack := _add_outing_kit_rack(root)
 	var trailwork_bench := _add_trailwork_bench(root)
+	var homestead_lanterns := _add_homestead_lanterns(root)
 	var welcome_lanterns := _add_welcome_lanterns(root)
 	var creature := _add_creature(root)
 	var rumor_marker := _add_rumor_marker(root)
@@ -61,6 +62,8 @@ static func build(root: Node3D) -> Dictionary:
 		"outing_kit_marker": outing_kit_rack["marker"],
 		"trailwork_bench": trailwork_bench["root"],
 		"trailwork_marker": trailwork_bench["marker"],
+		"homestead_lantern_markers": homestead_lanterns["markers"],
+		"homestead_lanterns": homestead_lanterns["lanterns"],
 		"cottage_rest_marker": cottage_rest_marker,
 		"welcome_lantern_markers": welcome_lanterns["markers"],
 		"welcome_lantern_lights": welcome_lanterns["lights"],
@@ -152,6 +155,44 @@ static func _add_trailwork_bench(root: Node3D) -> Dictionary:
 	bench.visible = false
 	marker.visible = false
 	return {"root": bench, "marker": marker}
+
+
+static func _add_homestead_lanterns(root: Node3D) -> Dictionary:
+	var markers := {}
+	var lanterns := {}
+	for socket_id: String in WorldStateModel.HOMESTEAD_LANTERN_POSITIONS:
+		var position: Vector3 = WorldStateModel.HOMESTEAD_LANTERN_POSITIONS[socket_id]
+		var marker := _add_station_marker(
+			root,
+			"HomesteadLanternSocket_%s" % socket_id,
+			position,
+			"",
+			Color("7fd7c6")
+		)
+		marker.visible = false
+		markers[socket_id] = marker
+
+		var lantern := Node3D.new()
+		lantern.name = "HomesteadLantern_%s" % socket_id
+		lantern.position = position
+		root.add_child(lantern)
+		_add_box(lantern, "Post", Vector3(0.18, 2.2, 0.18), Vector3(0.0, 0.55, 0.0), Color("624733"))
+		_add_box(lantern, "Arm", Vector3(0.75, 0.16, 0.16), Vector3(0.27, 1.58, 0.0), Color("624733"))
+		var glow := _add_cylinder(lantern, "Glow", 0.24, 0.45, Vector3(0.55, 1.3, 0.0), Color("ffd777"), 12)
+		var glow_material := glow.material_override as StandardMaterial3D
+		glow_material.emission_enabled = true
+		glow_material.emission = Color("ffb84d")
+		glow_material.emission_energy_multiplier = 2.5
+		var light := OmniLight3D.new()
+		light.name = "WarmLight"
+		light.position = Vector3(0.55, 1.3, 0.0)
+		light.light_color = Color("ffd18a")
+		light.light_energy = 0.65
+		light.omni_range = 3.5
+		lantern.add_child(light)
+		lantern.visible = false
+		lanterns[socket_id] = lantern
+	return {"markers": markers, "lanterns": lanterns}
 
 
 static func _add_environment(root: Node3D) -> Dictionary:

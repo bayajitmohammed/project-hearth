@@ -86,6 +86,22 @@ func _init() -> void:
 	assert(caught_up_forage.gathered_resources.values().all(func(value: bool) -> bool: return not value))
 	assert(caught_up_forage.materials["wood"] == 0 and caught_up_forage.materials["herb"] == 0, "Empty time renews forage but never gathers it.")
 	assert(caught_up_forage.player_provisions["player-a"] == 0, "Empty time never trailcrafts supplies.")
+	var homestead_build := WorldStateModel.new()
+	homestead_build.load_dictionary(state.to_dictionary())
+	homestead_build.materials["wood"] = 1
+	homestead_build.positions["player-a"] = WorldStateModel.HOMESTEAD_LANTERN_POSITIONS["east_garden"]
+	assert(homestead_build.try_build_homestead_lantern("player-a"))
+	assert(homestead_build.materials["wood"] == 0)
+	assert(homestead_build.built_homestead_lanterns["east_garden"])
+	assert(homestead_build.player_mastery["player-a"]["building"] == 4)
+	assert(not homestead_build.try_build_homestead_lantern("player-a"), "A filled building socket cannot duplicate credit.")
+	var restored_homestead_build := WorldStateModel.new()
+	restored_homestead_build.load_dictionary(homestead_build.to_dictionary())
+	assert(restored_homestead_build.built_homestead_lanterns["east_garden"])
+	assert(restored_homestead_build.player_mastery["player-a"]["building"] == 4)
+	var migrated_homestead_build := WorldStateModel.new()
+	migrated_homestead_build.load_dictionary({"version": 19, "built_homestead_lanterns": {"east_garden": true}})
+	assert(migrated_homestead_build.built_homestead_lanterns.values().all(func(value: bool) -> bool: return not value), "Older worlds start with all new building sockets empty.")
 
 	state.positions["player-a"] = state.mara_position
 	assert(state.interact_with_mara("player-a"))

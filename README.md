@@ -69,6 +69,8 @@ The repaired cottage also opens **Willowmere Pond**. Use **E** at its blue marke
 
 The repaired cottage also renews the authored forest wood and herb nodes at the start of each world day. Gathered forage enters the shared project bag. At the cottage **Trailwork Bench**, press **C** (or use the contextual touch action) to spend one shared wood and one shared herb on one personal trail provision. Missed days never stack materials, empty-world catch-up never gathers them, and crafting awards no passive progression or currency.
 
+Three teal building sockets around the repaired homestead provide the first bounded claimed-plot construction. Use **E** (or **Build lantern** on touch) to spend one shared wood and place a permanent warm trail lantern. The placer earns one personal Building mastery point; the lantern is shared, grants no power or income, never decays, and remains available to everyone in offline, LAN-hosted, and dedicated worlds.
+
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
@@ -349,6 +351,20 @@ cp tests/fixtures/trailcraft_ready_world.json /tmp/project-hearth-trailcraft.jso
 ```
 
 The probes verify that simultaneous crafters each receive one personal provision while consuming exactly the four shared ingredients once.
+
+For the shared homestead-building race, copy `tests/fixtures/homestead_build_ready_world.json`, start an isolated server on port `9417` with room `BUILD`, and run both builders simultaneously:
+
+```sh
+cp tests/fixtures/homestead_build_ready_world.json /tmp/project-hearth-homestead-build.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9417 --room=BUILD --save-file=/tmp/project-hearth-homestead-build.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/homestead_build_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9417 --room=BUILD --player-token=builder-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/homestead_build_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9417 --room=BUILD --player-token=builder-b
+```
+
+The probes verify that simultaneous placements competing for the final shared wood produce exactly one persistent lantern and one personal Building credit.
 
 ## Slice 0 platform status
 

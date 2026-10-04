@@ -96,6 +96,8 @@ var outing_kit_rack: Node3D
 var outing_kit_marker: Node3D
 var trailwork_bench: Node3D
 var trailwork_marker: Node3D
+var homestead_lantern_markers: Dictionary = {}
+var homestead_lanterns: Dictionary = {}
 var cottage_rest_marker: Node3D
 var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
@@ -525,6 +527,11 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	outing_kit_marker.visible = quest_stage == "home_repaired"
 	trailwork_bench.visible = quest_stage == "home_repaired"
 	trailwork_marker.visible = quest_stage == "home_repaired"
+	var built_homestead_lanterns: Dictionary = snapshot.get("built_homestead_lanterns", {})
+	for socket_id: String in homestead_lantern_markers:
+		var lantern_built := bool(built_homestead_lanterns.get(socket_id, false))
+		homestead_lantern_markers[socket_id].visible = quest_stage == "home_repaired" and not lantern_built
+		homestead_lanterns[socket_id].visible = lantern_built
 	var local_health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var local_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
 	cottage_rest_marker.visible = (
@@ -734,6 +741,13 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	if quest_stage == "home_repaired":
 		world_status_parts.append(
 			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
+		)
+		var built_lantern_count := 0
+		for lantern_built: bool in built_homestead_lanterns.values():
+			if lantern_built:
+				built_lantern_count += 1
+		world_status_parts.append(
+			"Homestead lanterns %d/%d" % [built_lantern_count, WorldStateModel.HOMESTEAD_LANTERN_POSITIONS.size()]
 		)
 	if route_activated:
 		world_status_parts.append(
@@ -1009,6 +1023,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"ruin_waystone_activated": world_state.ruin_waystone_activated,
 		"player_survey_day": world_state.player_survey_day.duplicate(),
 		"daily_survey_position": world_state.daily_survey_position(),
+		"built_homestead_lanterns": world_state.built_homestead_lanterns.duplicate(),
 		"livelihood_stage": world_state.livelihood_stage,
 		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
 		"stews_delivered": world_state.stews_delivered,
@@ -1180,6 +1195,8 @@ func _build_world() -> void:
 	outing_kit_marker = world_nodes["outing_kit_marker"]
 	trailwork_bench = world_nodes["trailwork_bench"]
 	trailwork_marker = world_nodes["trailwork_marker"]
+	homestead_lantern_markers = world_nodes["homestead_lantern_markers"]
+	homestead_lanterns = world_nodes["homestead_lanterns"]
 	cottage_rest_marker = world_nodes["cottage_rest_marker"]
 	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
@@ -1622,6 +1639,15 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		and int(shared_materials.get("herb", 0)) > 0
 	):
 		_append_mobile_target(candidates, trailwork_bench, "Craft provision", "craft", WorldStateModel.INTERACTION_RADIUS)
+	if quest_stage == "home_repaired" and int(shared_materials.get("wood", 0)) > 0:
+		for socket_id: String in homestead_lantern_markers:
+			_append_mobile_target(
+				candidates,
+				homestead_lantern_markers[socket_id],
+				"Build lantern",
+				"interact",
+				WorldStateModel.INTERACTION_RADIUS
+			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2282,6 +2308,15 @@ func _update_interaction_prompt(
 		interaction_prompt.text = "C  ·  Craft a trail provision (1 wood + 1 herb)"
 		interaction_prompt.visible = true
 		return
+	if quest_stage == "home_repaired" and int(trailwork_materials.get("wood", 0)) > 0:
+		var built_lanterns: Dictionary = latest_snapshot.get("built_homestead_lanterns", {})
+		for socket_id: String in WorldStateModel.HOMESTEAD_LANTERN_POSITIONS:
+			if bool(built_lanterns.get(socket_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.HOMESTEAD_LANTERN_POSITIONS[socket_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Place a homestead lantern (1 wood)" % action_name
+				interaction_prompt.visible = true
+				return
 	var guardian_defeated := bool(latest_snapshot.get("ruin_guardian_defeated", false))
 	var route_activated := bool(latest_snapshot.get("ruin_waystone_activated", false))
 	if guardian_defeated and player_position.distance_to(WorldStateModel.RUIN_WAYSTONE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:

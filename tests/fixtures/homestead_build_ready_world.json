@@ -1,0 +1,21 @@
+{
+  "version": 20,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "materials": {"wood": 1, "herb": 0, "repair_kit": 0, "moonroot": 0, "hearth_stew": 0},
+  "built_homestead_lanterns": {
+    "west_garden": false,
+    "east_garden": false,
+    "pond_path": false
+  },
+  "player_mastery": {
+    "builder-a": {"building": 0},
+    "builder-b": {"building": 0}
+  },
+  "player_health": {"builder-a": 3, "builder-b": 3},
+  "downed_players": {"builder-a": false, "builder-b": false},
+  "positions": {
+    "builder-a": [-16.0, 0.6, 11.5],
+    "builder-b": [-4.0, 0.6, 11.5]
+  }
+}

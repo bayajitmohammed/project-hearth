@@ -26,6 +26,8 @@ func _init() -> void:
 	assert(main.outing_kit_marker != null)
 	assert(main.trailwork_bench != null)
 	assert(main.trailwork_marker != null)
+	assert(main.homestead_lantern_markers.size() == WorldStateModel.HOMESTEAD_LANTERN_POSITIONS.size())
+	assert(main.homestead_lanterns.size() == WorldStateModel.HOMESTEAD_LANTERN_POSITIONS.size())
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"artisan": WorldStateModel.FISHING_SPOT_POSITION}
@@ -89,6 +91,16 @@ func _init() -> void:
 	snapshot["positions"] = {"artisan": WorldStateModel.RESOURCE_POSITIONS["wood_1"]}
 	main.receive_snapshot(snapshot)
 	assert("Gather Wood" in main.interaction_prompt.text)
+	snapshot["positions"] = {"artisan": WorldStateModel.HOMESTEAD_LANTERN_POSITIONS["east_garden"]}
+	main.receive_snapshot(snapshot)
+	assert(main.homestead_lantern_markers["east_garden"].visible)
+	assert(not main.homestead_lanterns["east_garden"].visible)
+	assert("Place a homestead lantern" in main.interaction_prompt.text)
+	snapshot["built_homestead_lanterns"]["east_garden"] = true
+	main.receive_snapshot(snapshot)
+	assert(not main.homestead_lantern_markers["east_garden"].visible)
+	assert(main.homestead_lanterns["east_garden"].visible)
+	assert("Homestead lanterns 1/3" in main.world_change_label.text)
 
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)
@@ -263,6 +275,7 @@ func _snapshot() -> Dictionary:
 		"player_coins": {"artisan": 0},
 		"supply_basket_stock": WorldStateModel.SUPPLY_BASKET_DAILY_STOCK,
 		"player_outing_kits": {"artisan": WorldStateModel.OUTING_KIT_VANGUARD},
+		"built_homestead_lanterns": {"west_garden": false, "east_garden": false, "pond_path": false},
 		"hearthbloom_contributions": 0,
 		"hearthbloom_complete": false,
 	}
