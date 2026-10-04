@@ -1,0 +1,12 @@
+{
+  "version": 15,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "player_health": {"handoff-giver": 3, "handoff-recipient": 3},
+  "downed_players": {"handoff-giver": false, "handoff-recipient": false},
+  "player_provisions": {"handoff-giver": 3, "handoff-recipient": 0},
+  "positions": {
+    "handoff-giver": [0.0, 0.6, 10.0],
+    "handoff-recipient": [1.0, 0.6, 10.0]
+  }
+}

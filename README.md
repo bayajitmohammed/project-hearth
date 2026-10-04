@@ -77,6 +77,8 @@ After Welcome Lights, follow the road north beyond the original forest boundary.
 
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Use a provision while injured for one health, or press **E** near an injured standing friend to spend one of your provisions on their recovery. An injured standing player can also press **E** at the repaired cottage bedroll to rest and recover fully without advancing time or affecting companions. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner. On Android, **Aid friend**, **Rest**, and **Use provision** appear as contextual actions when eligible.
 
+A standing player carrying a trail provision can press **E** near a healthy standing friend to hand over one provision. Revive and injury aid resolve first, followed by valid world interactions, so a handoff never replaces urgent help or a station action. The nearest eligible friend is chosen deterministically, transferred inventory persists for both identities, and the touch action reads **Give provision**.
+
 Each accepted market unit pays its contributing player one persistent coin. Once the produce stall is open, use **E** at the nearby supply basket to spend two coins on one personal trail provision; free pantry stock remains a separate first-priority pickup. Coin is personal, never drops on defeat, and does not accrue while the room is empty.
 
 The open stall also reveals the neighborhood's first optional shared project beside the cottage. Use **E** at the Hearthbloom planter frame to contribute one personal coin at a time. Four total contributions permanently bloom the planter, raise neighborhood morale and reputation once, and record the improvement in the chronicle. One player may finish it over time or friends may pool their earnings; partial progress never decays.
@@ -260,6 +262,20 @@ cp tests/fixtures/fishing_ready_world.json /tmp/project-hearth-fishing-network.j
 
 The probes verify simultaneous personal cast phases, an early reel that cannot disturb a companion, one server-awarded catch, and independent Fishing mastery.
 
+For the direct provision-handoff regression, copy `tests/fixtures/provision_handoff_ready_world.json`, start an isolated server on port `9405` with room `HANDOFF`, and run both probes simultaneously:
+
+```sh
+cp tests/fixtures/provision_handoff_ready_world.json /tmp/project-hearth-handoff-network.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9405 --room=HANDOFF --save-file=/tmp/project-hearth-handoff-network.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/provision_handoff_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9405 --room=HANDOFF --player-token=handoff-giver
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/provision_handoff_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9405 --room=HANDOFF --player-token=handoff-recipient
+```
+
+The probes verify that both peers observe one authoritative transfer and that their combined personal provision count is conserved.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -330,6 +346,7 @@ The probes verify simultaneous personal cast phases, an early reel that cannot d
 - Authoritative rooms accept up to eight distinct active player identities; reconnecting resumes persistent state and a second active copy of the same identity is rejected.
 - The HUD shows online capacity. Completed produce stalls gain at most three provisions after the room has been empty, using a short prototype interval for practical testing.
 - Trail provisions belong to individual players. Returning to safety while downed leaves a persistent recovery pack that a nearby friend can restore to its owner.
+- Nearby healthy friends can receive one direct trail-provision handoff. Revive, injury aid, and valid world interactions keep priority; deterministic active-player selection conserves inventory and cannot target an offline identity.
 - Version-7 persistence migrates version-6 worlds without granting retroactive stock, provisions, or packs.
 - Automated state, migration, presentation, legacy-regression, and eight-client capacity coverage pass.
 - Focused desktop Web verification passes in Chromium with no console errors: room connection, WASD movement, camera toggle, pantry interaction, downed return, and recovery-pack presentation all work through the exported build.

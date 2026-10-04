@@ -394,10 +394,10 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
-func interact(player_token: String) -> bool:
+func interact(player_token: String, active_tokens: Array = []) -> bool:
 	return (
-		try_revive_player(player_token)
-		or try_aid_injured_friend(player_token)
+		try_revive_player(player_token, active_tokens)
+		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_rest_at_cottage(player_token)
@@ -417,6 +417,7 @@ func interact(player_token: String) -> bool:
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
 		or try_light_welcome_lantern(player_token)
+		or try_give_trail_provision(player_token, active_tokens)
 	)
 
 
@@ -481,7 +482,7 @@ func try_cook_riverfish(player_token: String) -> bool:
 	return true
 
 
-func try_aid_injured_friend(helper_token: String) -> bool:
+func try_aid_injured_friend(helper_token: String, active_tokens: Array = []) -> bool:
 	var helper_position := register_player(helper_token)
 	if bool(downed_players.get(helper_token, false)):
 		return false
@@ -489,6 +490,8 @@ func try_aid_injured_friend(helper_token: String) -> bool:
 		return false
 	for target_token: String in positions:
 		if target_token == helper_token or bool(downed_players.get(target_token, false)):
+			continue
+		if not active_tokens.is_empty() and target_token not in active_tokens:
 			continue
 		var target_health := int(player_health.get(target_token, PLAYER_MAX_HEALTH))
 		if target_health >= PLAYER_MAX_HEALTH:
@@ -499,6 +502,35 @@ func try_aid_injured_friend(helper_token: String) -> bool:
 		player_health[target_token] = mini(target_health + 1, PLAYER_MAX_HEALTH)
 		return true
 	return false
+
+
+func try_give_trail_provision(giver_token: String, active_tokens: Array) -> bool:
+	var giver_position := register_player(giver_token)
+	if bool(downed_players.get(giver_token, false)):
+		return false
+	if int(player_provisions.get(giver_token, 0)) <= 0:
+		return false
+	var ordered_tokens := active_tokens.duplicate()
+	ordered_tokens.sort()
+	var recipient_token := ""
+	var recipient_distance := INF
+	for candidate_token: String in ordered_tokens:
+		if candidate_token == giver_token or not positions.has(candidate_token):
+			continue
+		if bool(downed_players.get(candidate_token, false)):
+			continue
+		if int(player_health.get(candidate_token, PLAYER_MAX_HEALTH)) < PLAYER_MAX_HEALTH:
+			continue
+		var distance := giver_position.distance_to(positions[candidate_token])
+		if distance > INTERACTION_RADIUS or distance >= recipient_distance:
+			continue
+		recipient_token = candidate_token
+		recipient_distance = distance
+	if recipient_token.is_empty():
+		return false
+	player_provisions[giver_token] = int(player_provisions[giver_token]) - 1
+	player_provisions[recipient_token] = int(player_provisions.get(recipient_token, 0)) + 1
+	return true
 
 
 func try_rest_at_cottage(player_token: String) -> bool:
@@ -1032,12 +1064,14 @@ func _guardian_interceptor_for(
 	return nearest_token
 
 
-func try_revive_player(helper_token: String) -> bool:
+func try_revive_player(helper_token: String, active_tokens: Array = []) -> bool:
 	register_player(helper_token)
 	if bool(downed_players.get(helper_token, false)):
 		return false
 	for player_token: String in downed_players:
 		if player_token == helper_token or not bool(downed_players[player_token]):
+			continue
+		if not active_tokens.is_empty() and player_token not in active_tokens:
 			continue
 		if positions[helper_token].distance_to(register_player(player_token)) <= INTERACTION_RADIUS:
 			downed_players[player_token] = false

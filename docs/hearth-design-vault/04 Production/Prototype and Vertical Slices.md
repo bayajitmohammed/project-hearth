@@ -49,6 +49,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Mastery depth: tier-II Farming, Cooking, and Trade techniques batch only eligible nearby/prepared work, preserve per-unit credit, and leave every base action available to newcomers.
 - Home recovery depth: the repaired cottage is a personal safe recovery point. Standing injured players may rest to recover fully without advancing time or affecting companions; downed and field recovery rules remain distinct.
 - Cooperative recovery depth: a prepared standing player may spend one carried trail provision to restore one health to a nearby injured friend; downed friends still require revival.
+- Cooperative inventory depth: a standing player may hand one trail provision to the nearest nearby healthy friend after urgent recovery and valid world interactions have had priority. Transfers conserve personal inventory and grant no progression or currency.
 - Combat pacing depth: each successful basic attack begins a short per-player authoritative recovery, preventing input spam without coupling companions or granting progression power.
 - Alternate combat depth: every newcomer can trade speed for impact with a two-damage Power Strike whose longer personal recovery keeps its sustained damage below repeated basic attacks.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.

@@ -354,6 +354,35 @@ func _init() -> void:
 	assert(restored_coin_state.player_coins["buyer"] == 0)
 	assert(restored_coin_state.recovery_packs["buyer"]["count"] == 1, "Only provisions, never coin, belong in a recovery pack.")
 
+	var handoff_state := WorldStateModel.new()
+	for player_token: String in ["giver", "friend-a", "friend-b", "offline-friend"]:
+		handoff_state.register_player(player_token)
+	handoff_state.positions["giver"] = Vector3(0.0, 0.6, 10.0)
+	handoff_state.positions["friend-a"] = Vector3(-1.0, 0.6, 10.0)
+	handoff_state.positions["friend-b"] = Vector3(1.0, 0.6, 10.0)
+	handoff_state.positions["offline-friend"] = Vector3(0.2, 0.6, 10.0)
+	handoff_state.player_provisions["giver"] = 3
+	handoff_state.player_health["friend-a"] = 2
+	assert(handoff_state.interact("giver", ["giver", "friend-a", "friend-b"]), "An injured friend must receive field aid before a handoff.")
+	assert(handoff_state.player_health["friend-a"] == 3)
+	assert(handoff_state.player_provisions["giver"] == 2)
+	assert(handoff_state.player_provisions["friend-a"] == 0)
+	handoff_state.player_health["offline-friend"] = 2
+	assert(handoff_state.interact("giver", ["giver", "friend-a", "friend-b"]))
+	assert(handoff_state.player_provisions["giver"] == 1)
+	assert(handoff_state.player_provisions["friend-a"] == 1, "Equal-distance handoffs choose the lexically first identity.")
+	assert(handoff_state.player_provisions["friend-b"] == 0)
+	assert(handoff_state.player_provisions["offline-friend"] == 0, "Inactive identities cannot receive a handoff from their saved position.")
+	assert(handoff_state.player_health["offline-friend"] == 2, "Inactive identities cannot consume live field aid.")
+	assert(not handoff_state.try_give_trail_provision("giver", ["giver"]), "Solo play has no handoff target.")
+	assert(handoff_state.player_provisions.values().reduce(func(total: int, count: int) -> int: return total + count, 0) == 2)
+	var restored_handoff := WorldStateModel.new()
+	restored_handoff.load_dictionary(handoff_state.to_dictionary())
+	for player_token: String in ["giver", "friend-a", "friend-b", "offline-friend"]:
+		restored_handoff.register_player(player_token)
+	assert(restored_handoff.player_provisions["giver"] == 1)
+	assert(restored_handoff.player_provisions["friend-a"] == 1)
+
 	var project_state := WorldStateModel.new()
 	project_state.livelihood_stage = "complete"
 	project_state.produce_stall_open = true

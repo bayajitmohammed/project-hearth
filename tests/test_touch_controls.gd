@@ -88,6 +88,7 @@ func _init() -> void:
 	assert(main_source.contains("_append_mobile_target(candidates, outing_kit_marker, \"Switch kit\""), "Touch players need the contextual home-loadout action.")
 	assert(main_source.contains("_append_mobile_target(candidates, fishing_marker, fishing_action"), "Touch players need contextual Cast and Reel actions at Willowmere Pond.")
 	assert(main_source.contains("fishing_action = \"Reel now!\""), "The touch action must clearly expose the bite window.")
+	assert(main_source.contains("\"Give provision\""), "Touch players need a contextual provision handoff for healthy friends.")
 
 	print("PASS: Split-screen Minecraft-style Android touch controls")
 	quit()

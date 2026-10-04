@@ -431,7 +431,7 @@ func request_use_trail_provision() -> void:
 
 
 func _try_interaction(player_token: String) -> void:
-	if world_state.interact(player_token):
+	if world_state.interact(player_token, peer_to_token.values()):
 		_save_world()
 		_publish_snapshot()
 
@@ -1606,6 +1606,8 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 			_append_mobile_target(candidates, player_nodes[player_token], "Revive", "interact", WorldStateModel.INTERACTION_RADIUS)
 		elif can_offer_field_aid and int(player_health.get(player_token, WorldStateModel.PLAYER_MAX_HEALTH)) < WorldStateModel.PLAYER_MAX_HEALTH:
 			_append_mobile_target(candidates, player_nodes[player_token], "Aid friend", "interact", WorldStateModel.INTERACTION_RADIUS)
+		elif can_offer_field_aid:
+			_append_mobile_target(candidates, player_nodes[player_token], "Give provision", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, creature_node, "", "attack", 2.0)
 	_append_mobile_target(candidates, ruin_guardian_node, "", "attack", 2.0)
 	return candidates
@@ -1728,6 +1730,34 @@ func _local_can_use_trail_provision() -> bool:
 	var health := int(latest_snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var provisions := int(latest_snapshot.get("player_provisions", {}).get(local_token, 0))
 	return not is_downed and health < WorldStateModel.PLAYER_MAX_HEALTH and provisions > 0
+
+
+func _local_provision_handoff_target() -> String:
+	if bool(latest_snapshot.get("downed_players", {}).get(local_token, false)):
+		return ""
+	if int(latest_snapshot.get("player_provisions", {}).get(local_token, 0)) <= 0:
+		return ""
+	var positions: Dictionary = latest_snapshot.get("positions", {})
+	if not positions.has(local_token):
+		return ""
+	var local_position: Vector3 = positions[local_token]
+	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	var player_health: Dictionary = latest_snapshot.get("player_health", {})
+	var ordered_tokens := positions.keys()
+	ordered_tokens.sort()
+	var nearest_token := ""
+	var nearest_distance := INF
+	for candidate_token: String in ordered_tokens:
+		if candidate_token == local_token or bool(downed_players.get(candidate_token, false)):
+			continue
+		if int(player_health.get(candidate_token, WorldStateModel.PLAYER_MAX_HEALTH)) < WorldStateModel.PLAYER_MAX_HEALTH:
+			continue
+		var distance := local_position.distance_to(positions[candidate_token])
+		if distance > WorldStateModel.INTERACTION_RADIUS or distance >= nearest_distance:
+			continue
+		nearest_token = candidate_token
+		nearest_distance = distance
+	return nearest_token
 
 
 func _local_can_brace() -> bool:
@@ -2338,6 +2368,13 @@ func _update_interaction_prompt(
 		and int(latest_snapshot.get("player_npc_check_in_day", {}).get(local_token, {}).get("mara", 0)) < int(latest_snapshot.get("world_day", 1))
 	):
 		interaction_prompt.text = "%s  ·  Check in with Mara" % action_name
+		interaction_prompt.visible = true
+		return
+	var handoff_target := _local_provision_handoff_target()
+	if not handoff_target.is_empty():
+		interaction_prompt.text = "%s  ·  Give 1 trail provision to %s" % [
+			action_name, _festival_player_name(handoff_target)
+		]
 		interaction_prompt.visible = true
 		return
 	if _local_can_use_trail_provision():
