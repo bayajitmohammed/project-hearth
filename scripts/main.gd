@@ -107,6 +107,7 @@ var waystone_glows: Dictionary = {}
 var garden_plants: Dictionary = {}
 var garden_markers: Dictionary = {}
 var cookfire_marker: Node3D
+var riverfish_creel: Node3D
 var fishing_spot: Node3D
 var fishing_marker: Node3D
 var fishing_bobber: MeshInstance3D
@@ -612,6 +613,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
 	var local_riverfish := int(snapshot.get("player_riverfish", {}).get(local_token, 0))
+	var shared_riverfish_stock := int(snapshot.get("shared_riverfish_stock", 0))
 	var stews_delivered := int(snapshot.get("stews_delivered", 0))
 	var active_stew_deliveries := (
 		int(snapshot.get("daily_food_deliveries", 0)) if daily_food_order_active else stews_delivered
@@ -622,10 +624,20 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		and moonroot_count >= 2
 		and stew_count + active_stew_deliveries < WorldStateModel.REQUIRED_STEW_DELIVERIES
 	)
-	cookfire_marker.visible = can_cook_required_stew or local_riverfish > 0
+	cookfire_marker.visible = can_cook_required_stew or local_riverfish > 0 or shared_riverfish_stock > 0
 	var cookfire_label := cookfire_marker.get_node_or_null("Label") as Label3D
 	if cookfire_label != null:
-		cookfire_label.text = "COOK HEARTH STEW" if can_cook_required_stew else "COOK RIVERFISH"
+		cookfire_label.text = (
+			"COOK HEARTH STEW"
+			if can_cook_required_stew
+			else ("COOK RIVERFISH" if local_riverfish > 0 else "COOK SHARED RIVERFISH")
+		)
+	riverfish_creel.visible = quest_stage == "home_repaired"
+	var creel_label := riverfish_creel.get_node_or_null("RiverfishCreelMarker/Label") as Label3D
+	if creel_label != null:
+		creel_label.text = "SHARED FISH CREEL · %d/%d" % [
+			shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY
+		]
 	var fishing_phase := str(snapshot.get("player_fishing_phase", {}).get(local_token, "idle"))
 	fishing_spot.visible = quest_stage == "home_repaired"
 	fishing_marker.visible = quest_stage == "home_repaired"
@@ -701,6 +713,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		"Morale: %d" % int(snapshot.get("neighborhood_morale", 0)),
 		food_status,
 	])
+	if quest_stage == "home_repaired":
+		world_status_parts.append(
+			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
+		)
 	if produce_stall_open:
 		world_status_parts.append(
 			"Supply %d/%d" % [supply_basket_stock, WorldStateModel.SUPPLY_BASKET_DAILY_STOCK]
@@ -988,6 +1004,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"last_catch_up_units": world_state.last_catch_up_units,
 		"player_provisions": world_state.player_provisions.duplicate(),
 		"player_riverfish": world_state.player_riverfish.duplicate(),
+		"shared_riverfish_stock": world_state.shared_riverfish_stock,
 		"player_fishing_phase": world_state.player_fishing_phase.duplicate(),
 		"player_fishing_time": world_state.player_fishing_time.duplicate(),
 		"player_coins": world_state.player_coins.duplicate(),
@@ -1149,6 +1166,7 @@ func _build_world() -> void:
 	garden_plants = world_nodes["garden_plants"]
 	garden_markers = world_nodes["garden_markers"]
 	cookfire_marker = world_nodes["cookfire_marker"]
+	riverfish_creel = world_nodes["riverfish_creel"]
 	fishing_spot = world_nodes["fishing_spot"]
 	fishing_marker = world_nodes["fishing_marker"]
 	fishing_bobber = world_nodes["fishing_bobber"]
@@ -1588,6 +1606,11 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	var cookfire_label := cookfire_marker.get_node_or_null("Label") as Label3D
 	var cook_action := "Cook fish" if cookfire_label != null and "RIVERFISH" in cookfire_label.text else "Cook stew"
 	_append_mobile_target(candidates, cookfire_marker, cook_action, "interact", WorldStateModel.INTERACTION_RADIUS)
+	if (
+		int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+		and int(latest_snapshot.get("shared_riverfish_stock", 0)) < WorldStateModel.RIVERFISH_CREEL_CAPACITY
+	):
+		_append_mobile_target(candidates, riverfish_creel, "Store fish", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, market_marker, "Deliver", "interact", WorldStateModel.INTERACTION_RADIUS)
 	if int(latest_snapshot.get("pantry_stock", 0)) > 0:
 		_append_mobile_target(candidates, produce_stall, "Take", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1941,8 +1964,10 @@ func _update_quest_interface(
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
 	var supply_stock := int(latest_snapshot.get("supply_basket_stock", 0))
-	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d\nPersonal — Riverfish: %d  Trail provisions: %d" % [
-		wood_count, herb_count, kit_count, moonroot_count, stew_count, riverfish, carried_provisions
+	var creel_stock := int(latest_snapshot.get("shared_riverfish_stock", 0))
+	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d\nPersonal — Riverfish: %d  Trail provisions: %d · Shared creel: %d/%d" % [
+		wood_count, herb_count, kit_count, moonroot_count, stew_count, riverfish, carried_provisions,
+		creel_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY
 	]
 	craft_button.visible = quest_stage == "repair_cottage" and kit_count == 0
 	craft_button.disabled = wood_count < 2 or herb_count < 1
@@ -2316,10 +2341,27 @@ func _update_interaction_prompt(
 			interaction_prompt.visible = true
 			return
 	if (
-		int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+		(
+			int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+			or int(latest_snapshot.get("shared_riverfish_stock", 0)) > 0
+		)
 		and player_position.distance_to(WorldStateModel.COOKFIRE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
-		interaction_prompt.text = "%s  ·  Cook riverfish into a trail provision" % action_name
+		interaction_prompt.text = "%s  ·  %s" % [
+			action_name,
+			"Cook riverfish into a trail provision"
+			if int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+			else "Cook shared riverfish into a trail provision",
+		]
+		interaction_prompt.visible = true
+		return
+	if (
+		quest_stage == "home_repaired"
+		and int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+		and int(latest_snapshot.get("shared_riverfish_stock", 0)) < WorldStateModel.RIVERFISH_CREEL_CAPACITY
+		and player_position.distance_to(WorldStateModel.RIVERFISH_CREEL_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Store 1 riverfish in the shared creel" % action_name
 		interaction_prompt.visible = true
 		return
 	if (

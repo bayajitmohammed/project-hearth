@@ -332,6 +332,29 @@ func _init() -> void:
 	restored_fishing.register_player("angler")
 	assert(restored_fishing.player_riverfish["angler"] == 0)
 	assert(restored_fishing.player_mastery["angler"]["fishing"] == 1)
+	var creel_state := WorldStateModel.new()
+	creel_state.quest_stage = "home_repaired"
+	creel_state.register_player("fisher")
+	creel_state.register_player("cook")
+	creel_state.player_riverfish["fisher"] = 2
+	creel_state.positions["fisher"] = WorldStateModel.RIVERFISH_CREEL_POSITION
+	assert(creel_state.try_store_riverfish("fisher"))
+	assert(creel_state.player_riverfish["fisher"] == 1)
+	assert(creel_state.shared_riverfish_stock == 1)
+	creel_state.positions["cook"] = WorldStateModel.COOKFIRE_POSITION
+	assert(creel_state.try_cook_riverfish("cook"))
+	assert(creel_state.shared_riverfish_stock == 0)
+	assert(creel_state.player_provisions["cook"] == 1)
+	assert(creel_state.player_mastery["cook"]["cooking"] == 1)
+	creel_state.shared_riverfish_stock = WorldStateModel.RIVERFISH_CREEL_CAPACITY
+	assert(not creel_state.try_store_riverfish("fisher"), "A full creel must conserve the player's fish.")
+	assert(creel_state.player_riverfish["fisher"] == 1)
+	var restored_creel := WorldStateModel.new()
+	restored_creel.load_dictionary(creel_state.to_dictionary())
+	assert(restored_creel.shared_riverfish_stock == WorldStateModel.RIVERFISH_CREEL_CAPACITY)
+	var migrated_creel := WorldStateModel.new()
+	migrated_creel.load_dictionary({"version": 16, "shared_riverfish_stock": 7})
+	assert(migrated_creel.shared_riverfish_stock == 0, "Older worlds must not receive retroactive shared fish.")
 
 	var coin_state := WorldStateModel.new()
 	coin_state.livelihood_stage = "complete"

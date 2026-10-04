@@ -1,0 +1,14 @@
+{
+  "version": 17,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "shared_riverfish_stock": 1,
+  "player_health": {"creel-a": 3, "creel-b": 3},
+  "downed_players": {"creel-a": false, "creel-b": false},
+  "player_provisions": {"creel-a": 0, "creel-b": 0},
+  "player_riverfish": {"creel-a": 0, "creel-b": 0},
+  "positions": {
+    "creel-a": [-6.5, 0.6, 5.0],
+    "creel-b": [-6.5, 0.6, 5.0]
+  }
+}

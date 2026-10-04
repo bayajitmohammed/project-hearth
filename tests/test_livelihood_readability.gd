@@ -12,6 +12,7 @@ func _init() -> void:
 
 	assert(main.garden_plants.size() == WorldStateModel.GARDEN_PLOT_POSITIONS.size())
 	assert(main.cookfire_marker != null)
+	assert(main.riverfish_creel != null)
 	assert(main.fishing_spot != null)
 	assert(main.fishing_marker != null)
 	assert(main.fishing_bobber != null)
@@ -48,6 +49,21 @@ func _init() -> void:
 	assert("Cook riverfish" in main.interaction_prompt.text)
 	assert("Riverfish: 1" in main.inventory_label.text)
 	assert("Angler I" in main.mastery_label.text)
+	snapshot["positions"] = {"artisan": WorldStateModel.RIVERFISH_CREEL_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.riverfish_creel.visible)
+	assert("0/8" in main.riverfish_creel.get_node("RiverfishCreelMarker/Label").text)
+	assert("Store 1 riverfish" in main.interaction_prompt.text)
+	snapshot["player_riverfish"]["artisan"] = 0
+	snapshot["shared_riverfish_stock"] = 1
+	snapshot["positions"] = {"artisan": WorldStateModel.COOKFIRE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("COOK SHARED RIVERFISH" in main.cookfire_marker.get_node("Label").text)
+	assert("Cook shared riverfish" in main.interaction_prompt.text)
+	assert("Shared creel: 1/8" in main.inventory_label.text)
+	assert("Creel 1/8" in main.world_change_label.text)
+	snapshot["player_riverfish"]["artisan"] = 1
+	snapshot["shared_riverfish_stock"] = 0
 
 	snapshot["positions"] = {"artisan": WorldStateModel.GEAR_RACK_POSITION}
 	main.receive_snapshot(snapshot)
@@ -227,6 +243,7 @@ func _snapshot() -> Dictionary:
 		"pantry_stock": 0,
 		"player_provisions": {"artisan": 0},
 		"player_riverfish": {"artisan": 0},
+		"shared_riverfish_stock": 0,
 		"player_fishing_phase": {"artisan": "idle"},
 		"player_fishing_time": {"artisan": 0.0},
 		"player_coins": {"artisan": 0},

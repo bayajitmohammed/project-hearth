@@ -26,6 +26,8 @@ Friends create parallel roles and interactions: one distracts a creature while a
 
 The first direct inventory handoff lets a standing player give one carried trail provision to the nearest nearby standing friend who is already healthy. Downed friends are revived first, injured friends are aided first, and valid world interactions remain ahead of a handoff, so an ordinary interaction cannot quietly replace an urgent or intended action. Equal-distance recipients resolve by stable player identity. The transfer conserves exactly one item, grants no mastery or coin, and is simply unavailable when playing alone.
 
+The repaired cottage also gains an eight-fish shared creel. Friends may store riverfish one at a time and another player may later cook that stock into a personal trail provision. The creel is persistent but never fills itself while the room is empty; it supports asynchronous preparation without turning every personal item into remotely accessible storage.
+
 ## Scaling from two to eight
 
 Encounters scale their mix of threats and simultaneous jobs, not just health. Objectives expose more parallel tasks for larger groups. Loot is personal, shared project credit is automatic, and players can join or leave between moments without resetting the outing. Major irreversible choices require clear group consent.

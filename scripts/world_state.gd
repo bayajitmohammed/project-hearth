@@ -36,6 +36,8 @@ const FISHING_SPOT_POSITION := Vector3(-13.8, 0.6, -3.0)
 const FISHING_WAIT_SECONDS := 1.5
 const FISHING_BITE_SECONDS := 1.0
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
+const RIVERFISH_CREEL_POSITION := Vector3(-3.5, 0.6, 5.0)
+const RIVERFISH_CREEL_CAPACITY := 8
 const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
 const TRAIL_PROVISION_PRICE := 2
 const SUPPLY_BASKET_DAILY_STOCK := 3
@@ -179,6 +181,7 @@ var player_riverfish: Dictionary = {}
 var player_fishing_phase: Dictionary = {}
 var player_fishing_time: Dictionary = {}
 var player_coins: Dictionary = {}
+var shared_riverfish_stock := 0
 var supply_basket_stock := 0
 var recovery_packs: Dictionary = {}
 var hearthbloom_contributions := 0
@@ -408,6 +411,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
 		or try_cook_riverfish(player_token)
+		or try_store_riverfish(player_token)
 		or try_fishing_interaction(player_token)
 		or try_deliver_fresh_moonroot(player_token)
 		or try_deliver_hearth_stew(player_token)
@@ -476,11 +480,31 @@ func try_cook_riverfish(player_token: String) -> bool:
 		return false
 	if bool(downed_players.get(player_token, false)):
 		return false
-	if int(player_riverfish.get(player_token, 0)) <= 0:
+	var personal_fish := int(player_riverfish.get(player_token, 0))
+	if personal_fish <= 0 and shared_riverfish_stock <= 0:
 		return false
-	player_riverfish[player_token] = int(player_riverfish[player_token]) - 1
+	if personal_fish > 0:
+		player_riverfish[player_token] = personal_fish - 1
+	else:
+		shared_riverfish_stock -= 1
 	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
 	_add_mastery(player_token, "cooking")
+	return true
+
+
+func try_store_riverfish(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(RIVERFISH_CREEL_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(player_riverfish.get(player_token, 0)) <= 0:
+		return false
+	if shared_riverfish_stock >= RIVERFISH_CREEL_CAPACITY:
+		return false
+	player_riverfish[player_token] = int(player_riverfish[player_token]) - 1
+	shared_riverfish_stock += 1
 	return true
 
 
@@ -1453,7 +1477,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 16,
+		"version": 17,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1494,6 +1518,7 @@ func to_dictionary() -> Dictionary:
 		"player_provisions": player_provisions.duplicate(),
 		"player_riverfish": player_riverfish.duplicate(),
 		"player_coins": player_coins.duplicate(),
+		"shared_riverfish_stock": shared_riverfish_stock,
 		"supply_basket_stock": supply_basket_stock,
 		"recovery_packs": encoded_recovery_packs,
 		"hearthbloom_contributions": hearthbloom_contributions,
@@ -1688,6 +1713,12 @@ func load_dictionary(data: Dictionary) -> void:
 		player_riverfish = data.get("player_riverfish", {}).duplicate()
 	else:
 		player_riverfish = {}
+	if save_version >= 17:
+		shared_riverfish_stock = clampi(
+			int(data.get("shared_riverfish_stock", 0)), 0, RIVERFISH_CREEL_CAPACITY
+		)
+	else:
+		shared_riverfish_stock = 0
 	if save_version >= 16:
 		supply_basket_stock = clampi(
 			int(data.get("supply_basket_stock", 0)), 0, SUPPLY_BASKET_DAILY_STOCK

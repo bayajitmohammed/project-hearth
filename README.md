@@ -65,7 +65,7 @@ On desktop, the mouse is captured after connecting and ordinary mouse movement l
 
 After repairing the cottage, use **E** at the outdoor gear rack to freely switch your personal outing kit. **Vanguard** keeps the balanced combat timings. **Guardian** gives a longer brace window and shorter brace cooldown but adds recovery to both successful attack types. A standing Guardian who braces within two metres of both a companion and attacking creature will spend that brace to intercept one hit; the threatened player's own brace resolves first. Kits never change damage, health, range, or available actions, persist with the player, and can always be switched back at home.
 
-The repaired cottage also opens **Willowmere Pond**. Use **E** at its blue marker to cast, wait for the explicit **BITE** cue, then use **E** again during the one-second window to catch one personal riverfish. Reeling early or missing the cue safely resets only your cast. Cook a riverfish at the cottage fire for one personal trail provision and Cooking mastery; a currently required hearth stew always takes interaction priority. Fishing mastery displays the identity title **Angler I** but does not change timing or yield.
+The repaired cottage also opens **Willowmere Pond**. Use **E** at its blue marker to cast, wait for the explicit **BITE** cue, then use **E** again during the one-second window to catch one personal riverfish. Reeling early or missing the cue safely resets only your cast. Cook a riverfish at the cottage fire for one personal trail provision and Cooking mastery; a currently required hearth stew always takes interaction priority. Players may instead store fish one at a time in the nearby eight-fish shared creel. When a cook carries no fish, the fire draws one from that persistent shared stock. Fishing mastery displays the identity title **Angler I** but does not change timing or yield.
 
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
@@ -290,6 +290,20 @@ cp tests/fixtures/daily_supply_ready_world.json /tmp/project-hearth-daily-supply
 
 The probes verify that simultaneous buyers can purchase the last shared unit only once, conserving both stock and coin.
 
+For the shared-creel conservation race, copy `tests/fixtures/shared_creel_ready_world.json`, start an isolated server on port `9409` with room `CREEL`, and run both cook probes simultaneously:
+
+```sh
+cp tests/fixtures/shared_creel_ready_world.json /tmp/project-hearth-shared-creel.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9409 --room=CREEL --save-file=/tmp/project-hearth-shared-creel.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/shared_creel_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9409 --room=CREEL --player-token=creel-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/shared_creel_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9409 --room=CREEL --player-token=creel-b
+```
+
+The probes verify that simultaneous cooks consume the final shared fish only once, granting exactly one provision and one Cooking mastery credit.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -350,6 +364,7 @@ The probes verify that simultaneous buyers can purchase the last shared unit onl
 - Completion opens a visible produce stall, improves morale and reputation, and adds a fourth chronicle entry.
 - Beginning with the next in-game day, all four moonroot plots regrow. Clear days request three fresh moonroot, gentle-rain days request two hearth stews, and overcast days alternate by day parity. The HUD explains the choice. Completing any request awards normal personal mastery and adds one bounded pantry provision without repeating milestone reputation, morale, or chronicle rewards.
 - Willowmere Pond adds independent server-authoritative cast, wait, bite, early-reel, and missed-bite states. Successful catches persist as personal riverfish and Fishing mastery; the cookfire converts one fish into one personal trail provision while preserving required-stew priority. Version-15 saves persist catches but deliberately exclude in-progress casts.
+- The repaired cottage adds a bounded eight-fish shared creel. Version-17 persistence conserves its stock, older worlds migrate empty, and the cookfire uses shared fish only when the cook carries none.
 - Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.
 - State, migration, presentation, legacy regression, the original two-client probe, and a networked end-to-end livelihood probe pass.
 - Focused Mac inspection of the active need and completed stall passes after correcting garden-label overlap, chronicle height, and the home-waystone placement.

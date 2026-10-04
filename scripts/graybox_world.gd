@@ -70,6 +70,7 @@ static func build(root: Node3D) -> Dictionary:
 		"garden_plants": livelihood["garden_plants"],
 		"garden_markers": livelihood["garden_markers"],
 		"cookfire_marker": livelihood["cookfire_marker"],
+		"riverfish_creel": livelihood["riverfish_creel"],
 		"fishing_spot": livelihood["fishing_spot"],
 		"fishing_marker": livelihood["fishing_marker"],
 		"fishing_bobber": livelihood["fishing_bobber"],
@@ -539,6 +540,21 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 	flame_material.emission_energy_multiplier = 2.4
 	var cookfire_marker := _add_station_marker(root, "CookfireMarker", WorldStateModel.COOKFIRE_POSITION, "COOK HEARTH STEW", Color("ffb83d"))
 
+	var riverfish_creel := Node3D.new()
+	riverfish_creel.name = "RiverfishCreel"
+	riverfish_creel.position = WorldStateModel.RIVERFISH_CREEL_POSITION
+	root.add_child(riverfish_creel)
+	_add_cylinder(riverfish_creel, "Creel", 0.65, 0.75, Vector3(0.0, -0.12, 0.0), Color("8f6942"), 12)
+	_add_box(riverfish_creel, "Lid", Vector3(1.15, 0.18, 0.85), Vector3(0.0, 0.35, 0.0), Color("b58a56"))
+	_add_station_marker(
+		riverfish_creel,
+		"RiverfishCreelMarker",
+		Vector3.ZERO,
+		"SHARED FISH CREEL · 0/8",
+		Color("79d4dc")
+	)
+	riverfish_creel.visible = false
+
 	_add_box(root, "MarketCrate", Vector3(1.8, 0.9, 1.3), WorldStateModel.MARKET_CRATE_POSITION, Color("8c603e"))
 	var market_marker := _add_station_marker(root, "MarketDeliveryMarker", WorldStateModel.MARKET_CRATE_POSITION, "DELIVER STEW", Color("6ed9b5"))
 
@@ -622,6 +638,7 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 		"garden_plants": garden_plants,
 		"garden_markers": garden_markers,
 		"cookfire_marker": cookfire_marker,
+		"riverfish_creel": riverfish_creel,
 		"fishing_spot": fishing_spot,
 		"fishing_marker": fishing_marker,
 		"fishing_bobber": fishing_bobber,

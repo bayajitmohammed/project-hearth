@@ -87,6 +87,7 @@ func _init() -> void:
 	assert(main_source.contains("_append_mobile_target(candidates, hearthbloom_marker, \"Contribute\""), "Touch players need the contextual shared-project contribution action.")
 	assert(main_source.contains("_append_mobile_target(candidates, outing_kit_marker, \"Switch kit\""), "Touch players need the contextual home-loadout action.")
 	assert(main_source.contains("_append_mobile_target(candidates, fishing_marker, fishing_action"), "Touch players need contextual Cast and Reel actions at Willowmere Pond.")
+	assert(main_source.contains("_append_mobile_target(candidates, riverfish_creel, \"Store fish\""), "Touch players need a contextual shared-creel deposit action.")
 	assert(main_source.contains("fishing_action = \"Reel now!\""), "The touch action must clearly expose the bite window.")
 	assert(main_source.contains("\"Give provision\""), "Touch players need a contextual provision handoff for healthy friends.")
 
