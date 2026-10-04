@@ -898,6 +898,9 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_attack_recovery": world_state.player_attack_recovery.duplicate(),
 		"player_brace_time": world_state.player_brace_time.duplicate(),
 		"player_brace_cooldown": world_state.player_brace_cooldown.duplicate(),
+		"guardian_intercept_player": world_state.guardian_intercept_player,
+		"guardian_intercept_target": world_state.guardian_intercept_target,
+		"guardian_intercept_time": world_state.guardian_intercept_time,
 		"creature_position": world_state.creature_position,
 		"creature_health": world_state.creature_health,
 		"creature_defeated": world_state.creature_defeated,
@@ -1464,10 +1467,10 @@ func _update_mobile_targeting() -> void:
 		"font_color", Color(1.0, 0.72, 0.48, 0.92) if is_attack else Color(0.65, 1.0, 0.9, 0.92)
 	)
 	if is_attack:
-		if _local_is_targeted_by_attack() and _local_can_brace():
+		if (_local_is_targeted_by_attack() or _local_has_guardian_intercept_opportunity()) and _local_can_brace():
 			mobile_context_target = {
 				"kind": "brace",
-				"label": "Brace",
+				"label": "Brace" if _local_is_targeted_by_attack() else "Intercept",
 				"screen_position": mobile_context_target.get("screen_position", center),
 			}
 		elif _local_can_attack():
@@ -1708,6 +1711,46 @@ func _local_is_targeted_by_attack() -> bool:
 	)
 
 
+func _local_has_guardian_intercept_opportunity() -> bool:
+	if str(latest_snapshot.get("player_outing_kits", {}).get(local_token, WorldStateModel.OUTING_KIT_VANGUARD)) != WorldStateModel.OUTING_KIT_GUARDIAN:
+		return false
+	var positions: Dictionary = latest_snapshot.get("positions", {})
+	if not positions.has(local_token):
+		return false
+	var local_position: Vector3 = positions[local_token]
+	if float(latest_snapshot.get("creature_attack_windup", 0.0)) > 0.0:
+		if _local_is_near_intercept_target(
+			local_position,
+			str(latest_snapshot.get("creature_attack_target", "")),
+			latest_snapshot.get("creature_position", Vector3.INF),
+			positions
+		):
+			return true
+	if float(latest_snapshot.get("ruin_guardian_attack_windup", 0.0)) > 0.0:
+		if _local_is_near_intercept_target(
+			local_position,
+			str(latest_snapshot.get("ruin_guardian_attack_target", "")),
+			latest_snapshot.get("ruin_guardian_position", Vector3.INF),
+			positions
+		):
+			return true
+	return false
+
+
+func _local_is_near_intercept_target(
+	local_position: Vector3,
+	attack_target: String,
+	enemy_position: Vector3,
+	positions: Dictionary
+) -> bool:
+	if attack_target.is_empty() or attack_target == local_token or not positions.has(attack_target):
+		return false
+	return (
+		local_position.distance_to(positions[attack_target]) <= WorldStateModel.GUARDIAN_INTERCEPT_RADIUS
+		and local_position.distance_to(enemy_position) <= WorldStateModel.GUARDIAN_INTERCEPT_RADIUS
+	)
+
+
 func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> void:
 	var health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var is_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
@@ -1748,6 +1791,13 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 		threat_text += "\nWARNING: ruin guardian targets %s" % _combat_player_name(guardian_target)
 		if guardian_target == local_token:
 			local_warnings.append("RUIN GUARDIAN ATTACK — BRACE OR MOVE")
+	if float(snapshot.get("guardian_intercept_time", 0.0)) > 0.0:
+		if str(snapshot.get("guardian_intercept_player", "")) == local_token:
+			local_warnings.append("YOU INTERCEPTED A HIT FOR YOUR COMPANION")
+		elif str(snapshot.get("guardian_intercept_target", "")) == local_token:
+			local_warnings.append("A GUARDIAN INTERCEPTED THE HIT")
+	elif _local_has_guardian_intercept_opportunity() and _local_can_brace():
+		local_warnings.append("COMPANION TARGETED — BRACE TO INTERCEPT")
 	combat_warning_label.text = "\n".join(local_warnings)
 	combat_warning_label.visible = not local_warnings.is_empty()
 	combat_label.text = "Health: %d/%d%s%s  Kit: %s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s%s" % [

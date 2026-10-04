@@ -89,6 +89,8 @@ const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
 const GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS := 0.2
 const GUARDIAN_BRACE_WINDOW_SECONDS := 1.0
 const GUARDIAN_BRACE_COOLDOWN_SECONDS := 1.25
+const GUARDIAN_INTERCEPT_RADIUS := 2.0
+const GUARDIAN_INTERCEPT_FEEDBACK_SECONDS := 1.2
 const OUTING_KIT_VANGUARD := "vanguard"
 const OUTING_KIT_GUARDIAN := "guardian"
 const ENEMY_ATTACK_WINDUP_SECONDS := 0.6
@@ -120,6 +122,9 @@ var downed_players: Dictionary = {}
 var player_attack_recovery: Dictionary = {}
 var player_brace_time: Dictionary = {}
 var player_brace_cooldown: Dictionary = {}
+var guardian_intercept_player := ""
+var guardian_intercept_target := ""
+var guardian_intercept_time := 0.0
 var creature_position := CREATURE_SPAWN
 var creature_health := CREATURE_MAX_HEALTH
 var creature_defeated := false
@@ -531,6 +536,7 @@ func reset_player_combat_timers(player_token: String) -> void:
 
 func simulate_creature(delta: float, active_tokens: Array) -> bool:
 	_update_player_combat_timers(delta, active_tokens)
+	_update_guardian_intercept_feedback(delta)
 	var changed := _simulate_forest_creature(delta, active_tokens)
 	if _simulate_ruin_guardian(delta, active_tokens):
 		changed = true
@@ -552,6 +558,13 @@ func _update_player_combat_timers(delta: float, active_tokens: Array) -> void:
 			float(player_brace_cooldown.get(player_token, 0.0)) - delta,
 			0.0
 		)
+
+
+func _update_guardian_intercept_feedback(delta: float) -> void:
+	guardian_intercept_time = maxf(guardian_intercept_time - delta, 0.0)
+	if guardian_intercept_time <= 0.0:
+		guardian_intercept_player = ""
+		guardian_intercept_target = ""
 
 
 func simulate_world_clock(delta: float) -> bool:
@@ -726,7 +739,7 @@ func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
 			if not _enemy_target_in_strike_range(committed_target, active_tokens, creature_position, 1.15):
 				return false
 			creature_attack_cooldown = 1.0
-			_apply_enemy_hit(committed_target)
+			_apply_enemy_hit(committed_target, active_tokens, creature_position)
 			return true
 		creature_attack_windup = 0.0
 		creature_attack_target = ""
@@ -780,7 +793,7 @@ func _simulate_ruin_guardian(delta: float, active_tokens: Array) -> bool:
 			if not _enemy_target_in_strike_range(committed_target, active_tokens, ruin_guardian_position, 1.3):
 				return false
 			ruin_guardian_attack_cooldown = 1.1
-			_apply_enemy_hit(committed_target)
+			_apply_enemy_hit(committed_target, active_tokens, ruin_guardian_position)
 			return true
 		ruin_guardian_attack_windup = 0.0
 		ruin_guardian_attack_target = ""
@@ -890,14 +903,56 @@ func _enemy_target_in_strike_range(
 	)
 
 
-func _apply_enemy_hit(player_token: String) -> void:
+func _apply_enemy_hit(player_token: String, active_tokens: Array, enemy_position: Vector3) -> void:
 	if float(player_brace_time.get(player_token, 0.0)) > 0.0:
 		player_brace_time[player_token] = 0.0
+		return
+	var interceptor := _guardian_interceptor_for(player_token, active_tokens, enemy_position)
+	if not interceptor.is_empty():
+		player_brace_time[interceptor] = 0.0
+		guardian_intercept_player = interceptor
+		guardian_intercept_target = player_token
+		guardian_intercept_time = GUARDIAN_INTERCEPT_FEEDBACK_SECONDS
 		return
 	player_health[player_token] = maxi(int(player_health[player_token]) - 1, 0)
 	if int(player_health[player_token]) == 0:
 		downed_players[player_token] = true
 		player_brace_time[player_token] = 0.0
+
+
+func _guardian_interceptor_for(
+	target_token: String,
+	active_tokens: Array,
+	enemy_position: Vector3
+) -> String:
+	if not positions.has(target_token):
+		return ""
+	var target_position: Vector3 = positions[target_token]
+	var ordered_tokens := active_tokens.duplicate()
+	ordered_tokens.sort()
+	var nearest_token := ""
+	var nearest_distance := INF
+	for candidate_token: String in ordered_tokens:
+		if candidate_token == target_token:
+			continue
+		if not positions.has(candidate_token):
+			continue
+		if bool(downed_players.get(candidate_token, false)):
+			continue
+		if str(player_outing_kits.get(candidate_token, OUTING_KIT_VANGUARD)) != OUTING_KIT_GUARDIAN:
+			continue
+		if float(player_brace_time.get(candidate_token, 0.0)) <= 0.0:
+			continue
+		var candidate_position: Vector3 = positions[candidate_token]
+		var target_distance := candidate_position.distance_to(target_position)
+		if target_distance > GUARDIAN_INTERCEPT_RADIUS:
+			continue
+		if candidate_position.distance_to(enemy_position) > GUARDIAN_INTERCEPT_RADIUS:
+			continue
+		if target_distance < nearest_distance:
+			nearest_distance = target_distance
+			nearest_token = candidate_token
+	return nearest_token
 
 
 func try_revive_player(helper_token: String) -> bool:

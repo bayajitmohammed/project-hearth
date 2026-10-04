@@ -61,6 +61,21 @@ func _init() -> void:
 	main.latest_snapshot["creature_attack_windup"] = WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS
 	main.latest_snapshot["creature_attack_target"] = "touch-player"
 	assert(main._local_is_targeted_by_attack(), "Touch targeting must reserve Brace for an incoming local attack.")
+	main.latest_snapshot = {
+		"positions": {
+			"touch-player": WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0),
+			"companion": WorldStateModel.CREATURE_SPAWN,
+		},
+		"player_health": {"touch-player": 3, "companion": 3},
+		"downed_players": {"touch-player": false, "companion": false},
+		"player_outing_kits": {"touch-player": WorldStateModel.OUTING_KIT_GUARDIAN},
+		"player_brace_time": {"touch-player": 0.0},
+		"player_brace_cooldown": {"touch-player": 0.0},
+		"creature_position": WorldStateModel.CREATURE_SPAWN,
+		"creature_attack_windup": WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS,
+		"creature_attack_target": "companion",
+	}
+	assert(main._local_has_guardian_intercept_opportunity(), "A nearby touch Guardian must receive the contextual Intercept action for a companion's incoming hit.")
 	assert(InputMap.has_action("brace"), "Desktop, controller, and Web builds need one shared brace action.")
 	assert(InputMap.has_action("power_strike"), "Desktop, controller, and Web builds need one shared Power Strike action.")
 	var main_source := FileAccess.get_file_as_string("res://scripts/main.gd")

@@ -723,6 +723,77 @@ func _init() -> void:
 	assert(not downed_bracer.try_brace("downed"), "Downed players cannot brace.")
 	assert(not brace_state.to_dictionary().has("player_brace_time"), "Brace timing must remain transient across saves.")
 	assert(not brace_state.to_dictionary().has("creature_attack_windup"), "Enemy wind-ups must remain transient across saves.")
+
+	var intercept_state := WorldStateModel.new()
+	for token: String in ["traveler", "guardian"]:
+		intercept_state.register_player(token)
+	intercept_state.positions["traveler"] = WorldStateModel.CREATURE_SPAWN
+	intercept_state.positions["guardian"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	intercept_state.player_outing_kits["guardian"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	assert(not intercept_state.simulate_creature(0.1, ["traveler", "guardian"]))
+	assert(intercept_state.creature_attack_target == "traveler")
+	assert(intercept_state.try_brace("guardian"))
+	assert(intercept_state.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["traveler", "guardian"]))
+	assert(intercept_state.player_health["traveler"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(is_zero_approx(intercept_state.player_brace_time["guardian"]), "An interception must spend the Guardian's brace.")
+	assert(intercept_state.guardian_intercept_player == "guardian")
+	assert(intercept_state.guardian_intercept_target == "traveler")
+	assert(intercept_state.guardian_intercept_time == WorldStateModel.GUARDIAN_INTERCEPT_FEEDBACK_SECONDS)
+	assert(not intercept_state.to_dictionary().has("guardian_intercept_player"), "Interception feedback must remain transient across saves.")
+	intercept_state.positions["traveler"] = WorldStateModel.SPAWN_POINT
+	intercept_state.positions["guardian"] = WorldStateModel.SPAWN_POINT
+	intercept_state.simulate_creature(WorldStateModel.GUARDIAN_INTERCEPT_FEEDBACK_SECONDS, ["traveler", "guardian"])
+	assert(intercept_state.guardian_intercept_player.is_empty())
+	assert(intercept_state.guardian_intercept_target.is_empty())
+
+	var self_brace_priority := WorldStateModel.new()
+	for token: String in ["traveler", "guardian"]:
+		self_brace_priority.register_player(token)
+	self_brace_priority.positions["traveler"] = WorldStateModel.CREATURE_SPAWN
+	self_brace_priority.positions["guardian"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	self_brace_priority.player_outing_kits["guardian"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	assert(not self_brace_priority.simulate_creature(0.1, ["traveler", "guardian"]))
+	assert(self_brace_priority.try_brace("traveler"))
+	assert(self_brace_priority.try_brace("guardian"))
+	assert(self_brace_priority.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["traveler", "guardian"]))
+	assert(is_zero_approx(self_brace_priority.player_brace_time["traveler"]))
+	assert(self_brace_priority.player_brace_time["guardian"] > 0.0, "The target's own brace must resolve before Guardian interception.")
+	assert(self_brace_priority.guardian_intercept_player.is_empty())
+
+	var deterministic_intercept := WorldStateModel.new()
+	for token: String in ["traveler", "guardian-a", "guardian-b"]:
+		deterministic_intercept.register_player(token)
+	deterministic_intercept.positions["traveler"] = WorldStateModel.CREATURE_SPAWN
+	deterministic_intercept.positions["guardian-a"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	deterministic_intercept.positions["guardian-b"] = WorldStateModel.CREATURE_SPAWN + Vector3(-1.0, 0.0, 0.0)
+	for token: String in ["guardian-a", "guardian-b"]:
+		deterministic_intercept.player_outing_kits[token] = WorldStateModel.OUTING_KIT_GUARDIAN
+	assert(not deterministic_intercept.simulate_creature(0.1, ["traveler", "guardian-b", "guardian-a"]))
+	assert(deterministic_intercept.try_brace("guardian-a"))
+	assert(deterministic_intercept.try_brace("guardian-b"))
+	assert(deterministic_intercept.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["traveler", "guardian-b", "guardian-a"]))
+	assert(deterministic_intercept.guardian_intercept_player == "guardian-a", "Equal-distance interception must use stable player identity order.")
+	assert(is_zero_approx(deterministic_intercept.player_brace_time["guardian-a"]))
+	assert(deterministic_intercept.player_brace_time["guardian-b"] > 0.0)
+
+	var ineligible_intercept := WorldStateModel.new()
+	for token: String in ["traveler", "vanguard", "far-guardian", "downed-guardian"]:
+		ineligible_intercept.register_player(token)
+	ineligible_intercept.positions["traveler"] = WorldStateModel.CREATURE_SPAWN
+	ineligible_intercept.positions["vanguard"] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	ineligible_intercept.positions["far-guardian"] = WorldStateModel.CREATURE_SPAWN + Vector3(WorldStateModel.GUARDIAN_INTERCEPT_RADIUS + 0.1, 0.0, 0.0)
+	ineligible_intercept.positions["downed-guardian"] = WorldStateModel.CREATURE_SPAWN + Vector3(-1.0, 0.0, 0.0)
+	ineligible_intercept.player_outing_kits["far-guardian"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	ineligible_intercept.player_outing_kits["downed-guardian"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	ineligible_intercept.downed_players["downed-guardian"] = true
+	ineligible_intercept.player_brace_time["downed-guardian"] = WorldStateModel.GUARDIAN_BRACE_WINDOW_SECONDS
+	var ineligible_tokens := ["traveler", "vanguard", "far-guardian", "downed-guardian"]
+	assert(not ineligible_intercept.simulate_creature(0.1, ineligible_tokens))
+	assert(ineligible_intercept.try_brace("vanguard"))
+	assert(ineligible_intercept.try_brace("far-guardian"))
+	assert(ineligible_intercept.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ineligible_tokens))
+	assert(ineligible_intercept.player_health["traveler"] == WorldStateModel.PLAYER_MAX_HEALTH - 1, "Vanguards and distant Guardians must not intercept.")
+	assert(ineligible_intercept.guardian_intercept_player.is_empty())
 	var evasion_state := WorldStateModel.new()
 	evasion_state.register_player("evader")
 	evasion_state.positions["evader"] = WorldStateModel.CREATURE_SPAWN
@@ -769,6 +840,19 @@ func _init() -> void:
 	assert(guardian_brace.try_brace("ruins-defender"))
 	assert(guardian_brace.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["ruins-defender"]))
 	assert(guardian_brace.player_health["ruins-defender"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	var ruins_intercept := WorldStateModel.new()
+	ruins_intercept.exploration_stage = "defeat_guardian"
+	for token: String in ["ruins-traveler", "ruins-protector"]:
+		ruins_intercept.register_player(token)
+	ruins_intercept.positions["ruins-traveler"] = WorldStateModel.RUIN_GUARDIAN_SPAWN
+	ruins_intercept.positions["ruins-protector"] = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(1.0, 0.0, 0.0)
+	ruins_intercept.player_outing_kits["ruins-protector"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	assert(not ruins_intercept.simulate_creature(0.1, ["ruins-traveler", "ruins-protector"]))
+	assert(ruins_intercept.ruin_guardian_attack_target == "ruins-traveler")
+	assert(ruins_intercept.try_brace("ruins-protector"))
+	assert(ruins_intercept.simulate_creature(WorldStateModel.ENEMY_ATTACK_WINDUP_SECONDS, ["ruins-traveler", "ruins-protector"]))
+	assert(ruins_intercept.player_health["ruins-traveler"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(ruins_intercept.guardian_intercept_player == "ruins-protector")
 	var interrupted_guardian := WorldStateModel.new()
 	interrupted_guardian.exploration_stage = "defeat_guardian"
 	interrupted_guardian.register_player("finisher")

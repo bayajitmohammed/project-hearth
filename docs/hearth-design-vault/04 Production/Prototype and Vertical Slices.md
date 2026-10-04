@@ -53,6 +53,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Alternate combat depth: every newcomer can trade speed for impact with a two-damage Power Strike whose longer personal recovery keeps its sustained damage below repeated basic attacks.
 - Defensive combat depth: a timed per-player brace blocks one incoming creature hit, is consumed on contact, and uses a short personal cooldown without granting progression power.
 - Loadout depth: the repaired-home gear rack lets every player freely switch between balanced Vanguard timing and a Guardian trade-off with easier bracing but slower attack recovery; the personal choice persists without gating actions or damage.
+- Cooperative loadout depth: a nearby standing Guardian can spend an active brace to intercept one telegraphed hit for a companion. Self-brace resolves first, and deterministic distance and identity ordering keep all authoritative play modes consistent.
 - Combat readability depth: forest-creature and ruin-guardian strikes name a target during a short authoritative wind-up, giving that player time to brace or leave range while companions keep acting.
 - Encounter-boundary depth: authored enemies stop pursuing players beyond their home area, return visibly, and recover only after reaching spawn so danger cannot be dragged through peaceful spaces.
 - Repeatable combat depth: defeating the ordinary forest creature makes the area safe for the current world day, then the next day renews that encounter without reviving the one-time ruin guardian.

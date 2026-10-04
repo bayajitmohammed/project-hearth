@@ -41,6 +41,8 @@ The repaired cottage unlocks a gear rack where every player may freely swap thei
 
 The equipped kit persists with that player, is never dropped, and can only be changed while standing at the home rack. Both kits are available immediately after the shared cottage repair, require no mastery or currency, and may be swapped without cost. This establishes a reversible situational loadout and a cooperative role preference—not a permanent class or higher tier of power.
 
+Guardian's first cooperative action is **interception**. While actively braced, a standing Guardian within two metres of both a companion and the attacking creature may spend that brace to prevent the companion's hit. The companion's own brace has priority; otherwise the closest eligible Guardian is chosen deterministically. Vanguard cannot intercept, and interception grants no mastery, damage, health, range, or permanent benefit. This makes the slower kit meaningfully protective only through timing and formation.
+
 ## First mastery conveniences
 
 The first tier-II techniques reduce repeated inputs without improving combat statistics or excluding newcomers:

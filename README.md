@@ -63,7 +63,7 @@ Press **Connect**, move with WASD or the arrow keys, and press **E** (or control
 
 On desktop, the mouse is captured after connecting and ordinary mouse movement looks around—no button needs to be held. Press **Escape** to release the cursor and click the game to capture it again. Controller uses the **right stick**. On Android, touch anywhere on the left half to place the floating movement stick, drag anywhere on the right half to look, and use the center crosshair to aim. Tap a nearby creature for a basic attack; while aiming at it, the contextual action offers **Brace** during an incoming attack or **Power strike** otherwise. Other valid targets use the same contextual action area. Crafting remains in the quest card when available. The game starts in first person. Desktop players can press **V** or click the controller's right stick to switch to a close over-the-shoulder third-person camera. Use the mouse wheel to adjust its distance. Movement follows the camera direction.
 
-After repairing the cottage, use **E** at the outdoor gear rack to freely switch your personal outing kit. **Vanguard** keeps the balanced combat timings. **Guardian** gives a longer brace window and shorter brace cooldown but adds recovery to both successful attack types. Kits never change damage, health, range, or available actions, persist with the player, and can always be switched back at home.
+After repairing the cottage, use **E** at the outdoor gear rack to freely switch your personal outing kit. **Vanguard** keeps the balanced combat timings. **Guardian** gives a longer brace window and shorter brace cooldown but adds recovery to both successful attack types. A standing Guardian who braces within two metres of both a companion and attacking creature will spend that brace to intercept one hit; the threatened player's own brace resolves first. Kits never change damage, health, range, or available actions, persist with the player, and can always be switched back at home.
 
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
@@ -230,6 +230,20 @@ cp tests/fixtures/outing_kits_ready_world.json /tmp/project-hearth-outing-kits-n
 
 The probes verify that each kit choice synchronizes to both clients, remains independent per identity, and can be freely reversed without altering a companion's loadout.
 
+For the cooperative Guardian-intercept regression, copy `tests/fixtures/guardian_intercept_ready_world.json`, start an isolated server on port `9401` with room `INTERCEPT`, and run both combat probes simultaneously:
+
+```sh
+cp tests/fixtures/guardian_intercept_ready_world.json /tmp/project-hearth-guardian-intercept-network.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9401 --room=INTERCEPT --save-file=/tmp/project-hearth-guardian-intercept-network.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/guardian_intercept_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9401 --room=INTERCEPT --player-token=intercept-target
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/guardian_intercept_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9401 --room=INTERCEPT --player-token=intercept-guardian
+```
+
+The probes verify that one synchronized Guardian brace protects the nearby Vanguard, is consumed exactly once, and leaves the targeted player at full health.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -257,6 +271,7 @@ The probes verify that each kit choice synchronizes to both clients, remains ind
 - Forest-creature and ruin-guardian attacks now expose a short server-authoritative wind-up and locked target. The target can brace or leave strike range before resolution; wind-up state is shared live across offline, LAN-hosted, and dedicated play but is never persisted.
 - Every newcomer can use a server-authoritative Power Strike for two damage at the cost of a longer personal recovery. It shares basic-attack range and grants one Combat mastery credit per successful action, with no cost for an invalid attempt.
 - The repaired-home gear rack supports the first persistent personal loadout choice. Vanguard preserves the established timings; Guardian improves brace timing while slowing successful attack recovery, and every player can switch freely without mastery or currency.
+- A nearby standing Guardian can now spend an active brace to intercept one telegraphed creature hit for a companion. The target's own brace has priority, and deterministic distance and identity ordering keeps the same result in offline, LAN-hosted, and dedicated play.
 - Authored enemies remain inside server-authoritative home areas. When every standing player disengages beyond the boundary, pending pressure ends, the enemy visibly returns to spawn, and its health resets only on arrival.
 - A defeated forest creature remains gone for the rest of the current world day and returns at full health on the next day, including after bounded empty-room catch-up. The ruin guardian remains a persistent one-time story defeat.
 - Mara persistently remembers each player's meaningful story conversations. After Welcome Lights, each identity may check in once per world day for personal rapport and warmer recognition; this does not gate shared progress, power, or rewards.

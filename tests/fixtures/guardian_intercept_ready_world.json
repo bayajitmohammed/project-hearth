@@ -1,0 +1,12 @@
+{
+  "version": 14,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "player_health": {"intercept-target": 3, "intercept-guardian": 3},
+  "downed_players": {"intercept-target": false, "intercept-guardian": false},
+  "player_outing_kits": {"intercept-target": "vanguard", "intercept-guardian": "guardian"},
+  "positions": {
+    "intercept-target": [9.0, 0.6, 0.5],
+    "intercept-guardian": [10.0, 0.6, 0.5]
+  }
+}

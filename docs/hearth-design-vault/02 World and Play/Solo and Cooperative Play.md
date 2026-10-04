@@ -22,7 +22,7 @@ Browser builds can play offline or join LAN and networked rooms, but do not host
 
 ## What friends change
 
-Friends create parallel roles and interactions: one distracts a creature while another completes an objective; players carry complementary tools; a prepared player can spend a trail provision to aid an injured friend; group choices provoke conversation; rescues, celebrations, and mistakes create stories. Cooperation opens approaches rather than only reducing difficulty.
+Friends create parallel roles and interactions: one distracts a creature while another completes an objective; players carry complementary tools; a nearby braced Guardian can intercept one telegraphed hit for a companion; a prepared player can spend a trail provision to aid an injured friend; group choices provoke conversation; rescues, celebrations, and mistakes create stories. Cooperation opens approaches rather than only reducing difficulty. Guardian interception never replaces solo defense: every player can still brace or evade, and the threatened player's own brace resolves first.
 
 ## Scaling from two to eight
 
