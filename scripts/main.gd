@@ -104,6 +104,7 @@ var waystone_marker: Node3D
 var home_waystone: Node3D
 var ruin_waystone: Node3D
 var waystone_glows: Dictionary = {}
+var trail_survey_marker: Node3D
 var garden_plants: Dictionary = {}
 var garden_markers: Dictionary = {}
 var cookfire_marker: Node3D
@@ -610,6 +611,15 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	ruin_waystone.visible = bool(discoveries.get("old_stone_ruins", false))
 	for glow: MeshInstance3D in waystone_glows.values():
 		glow.visible = route_activated
+	var survey_day := int(snapshot.get("world_day", 1))
+	var local_survey_day := int(snapshot.get("player_survey_day", {}).get(local_token, 0))
+	trail_survey_marker.position = snapshot.get(
+		"daily_survey_position", WorldStateModel.DAILY_SURVEY_POSITIONS[0]
+	)
+	trail_survey_marker.visible = route_activated and not local_downed and local_survey_day < survey_day
+	var survey_label := trail_survey_marker.get_node_or_null("SurveyMarker/Label") as Label3D
+	if survey_label != null:
+		survey_label.text = "NORTHWOOD TRAIL SURVEY · DAY %d" % survey_day
 	for plot_id: String in garden_plants:
 		var harvested := bool(harvested_garden.get(plot_id, false))
 		garden_plants[plot_id].visible = food_order_active and not harvested
@@ -720,6 +730,10 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	if quest_stage == "home_repaired":
 		world_status_parts.append(
 			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
+		)
+	if route_activated:
+		world_status_parts.append(
+			"Survey D%d %s" % [survey_day, "recorded" if local_survey_day >= survey_day else "ready"]
 		)
 	if produce_stall_open:
 		world_status_parts.append(
@@ -989,6 +1003,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"ruin_guardian_attack_target": world_state.ruin_guardian_attack_target,
 		"ruin_guardian_returning": world_state.ruin_guardian_returning,
 		"ruin_waystone_activated": world_state.ruin_waystone_activated,
+		"player_survey_day": world_state.player_survey_day.duplicate(),
+		"daily_survey_position": world_state.daily_survey_position(),
 		"livelihood_stage": world_state.livelihood_stage,
 		"harvested_garden_plots": world_state.harvested_garden_plots.duplicate(),
 		"stews_delivered": world_state.stews_delivered,
@@ -1168,6 +1184,7 @@ func _build_world() -> void:
 	home_waystone = world_nodes["home_waystone"]
 	ruin_waystone = world_nodes["ruin_waystone"]
 	waystone_glows = world_nodes["waystone_glows"]
+	trail_survey_marker = world_nodes["trail_survey_marker"]
 	garden_plants = world_nodes["garden_plants"]
 	garden_markers = world_nodes["garden_markers"]
 	cookfire_marker = world_nodes["cookfire_marker"]
@@ -1599,6 +1616,8 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	if bool(latest_snapshot.get("ruin_waystone_activated", false)):
 		_append_mobile_target(candidates, home_waystone, "Travel", "interact", WorldStateModel.INTERACTION_RADIUS)
 		_append_mobile_target(candidates, ruin_waystone, "Travel", "interact", WorldStateModel.INTERACTION_RADIUS)
+		if int(latest_snapshot.get("player_survey_day", {}).get(local_token, 0)) < int(latest_snapshot.get("world_day", 1)):
+			_append_mobile_target(candidates, trail_survey_marker, "Record survey", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for garden_node: Node3D in garden_plants.values():
 		_append_mobile_target(candidates, garden_node, "Harvest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	var fishing_phase := str(latest_snapshot.get("player_fishing_phase", {}).get(local_token, "idle"))
@@ -2244,6 +2263,14 @@ func _update_interaction_prompt(
 		return
 	if route_activated and player_position.distance_to(WorldStateModel.HOME_WAYSTONE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
 		interaction_prompt.text = "%s  ·  Travel to Old Stone Ruins" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
+		route_activated
+		and int(latest_snapshot.get("player_survey_day", {}).get(local_token, 0)) < int(latest_snapshot.get("world_day", 1))
+		and player_position.distance_to(latest_snapshot.get("daily_survey_position", Vector3.INF)) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Record today's Northwood trail survey" % action_name
 		interaction_prompt.visible = true
 		return
 	var livelihood_stage := str(latest_snapshot.get("livelihood_stage", "locked"))

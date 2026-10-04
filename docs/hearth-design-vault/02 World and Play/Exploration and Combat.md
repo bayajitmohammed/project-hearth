@@ -12,6 +12,8 @@ The map begins incomplete. Players learn from roads, rumors, high points, NPC di
 
 Travel should feel risky and interesting on the first visit, then convenient. Repaired routes, mounts, boats, and discovered waypoints make repeat journeys faster.
 
+After the Old Stone Ruins waystone route is restored, Northwood offers one deterministic **trail survey** each world day. The shared marker rotates among a small authored set, but every standing player may record it once that day for one personal Exploration mastery point; one companion never consumes another's opportunity. The last recorded day persists per identity. Empty-world calendar catch-up may change which marker is current, but never records a survey or awards mastery. This makes repeat travel purposeful without privatizing the shared map or adding passive progression.
+
 ## Combat
 
 Combat is accessible 3D action in either the default first-person view or the close over-the-shoulder third-person view: basic attack, charged or alternate action, dodge or guard, tool use, and a small ability loadout. Weapons and magic offer distinct roles without permanent classes.

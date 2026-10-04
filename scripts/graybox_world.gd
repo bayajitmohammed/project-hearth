@@ -24,6 +24,7 @@ static func build(root: Node3D) -> Dictionary:
 	var rumor_marker := _add_rumor_marker(root)
 	var ruin_guardian := _add_ruin_guardian(root)
 	var waystones := _add_waystones(root)
+	var trail_survey_marker := _add_trail_survey_marker(root)
 	var livelihood := _add_livelihood_stations(root)
 	var festival := _add_hearthlight_festival(root)
 
@@ -67,6 +68,7 @@ static func build(root: Node3D) -> Dictionary:
 		"home_waystone": waystones["home"],
 		"ruin_waystone": waystones["ruin"],
 		"waystone_glows": waystones["glows"],
+		"trail_survey_marker": trail_survey_marker,
 		"garden_plants": livelihood["garden_plants"],
 		"garden_markers": livelihood["garden_markers"],
 		"cookfire_marker": livelihood["cookfire_marker"],
@@ -463,6 +465,30 @@ static func _add_waystones(root: Node3D) -> Dictionary:
 		"marker": marker,
 		"glows": {"home": home_data["glow"], "ruin": ruin_data["glow"]},
 	}
+
+
+static func _add_trail_survey_marker(root: Node3D) -> Node3D:
+	var survey := Node3D.new()
+	survey.name = "NorthwoodTrailSurvey"
+	survey.position = WorldStateModel.DAILY_SURVEY_POSITIONS[0]
+	root.add_child(survey)
+	_add_box(survey, "SurveyPost", Vector3(0.18, 1.7, 0.18), Vector3(0.0, 0.25, 0.0), Color("75533a"))
+	var compass := _add_cylinder(
+		survey, "SurveyCompass", 0.42, 0.14, Vector3(0.0, 1.15, 0.0), Color("73d9c6"), 12
+	)
+	var compass_material := compass.material_override as StandardMaterial3D
+	compass_material.emission_enabled = true
+	compass_material.emission = Color("287b74")
+	compass_material.emission_energy_multiplier = 1.8
+	_add_station_marker(
+		survey,
+		"SurveyMarker",
+		Vector3.ZERO,
+		"NORTHWOOD TRAIL SURVEY",
+		Color("8be8d8")
+	)
+	survey.visible = false
+	return survey
 
 
 static func _add_waystone(root: Node3D, node_name: String, position: Vector3) -> Dictionary:

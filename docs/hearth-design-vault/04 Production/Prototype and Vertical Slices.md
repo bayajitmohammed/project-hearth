@@ -67,6 +67,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Shared-project depth: after the stall opens, players may contribute personal coin one unit at a time toward a persistent four-coin Hearthbloom planter that changes the homestead without granting power or requiring companions.
 - Combat identity depth: successful damaging attacks build personal Combat mastery and display a Warden title, while all combat statistics and base actions remain identical for newcomers.
 - Exploration identity depth: the player who reveals a new shared place builds personal Exploration mastery and displays a Pathfinder title, while the discovery and all routes remain shared with newcomers.
+- Repeatable exploration depth: after route restoration, one deterministic Northwood survey marker rotates each world day and remains individually recordable by every player without passive or exclusive map progress.
 - Building identity depth: successful cottage-part placements build personal Building mastery and display a Builder title, while repair costs, actions, and the finished home remain shared with newcomers.
 - Living-world atmosphere: the authoritative day selects one deterministic safe forecast shared by every mode, while clients render the clock as readable day/night ambience. Renewable food orders respond to that forecast without adding punitive weather effects.
 - Verified on Mac: native client, desktop Web, and Android emulator can connect, move, collect once, and retain state.

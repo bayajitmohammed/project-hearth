@@ -18,6 +18,11 @@ const REGION_SEED := 73021
 const NORTHWOOD_REVEAL_Z := -16.0
 const RUINS_POSITION := Vector3(0.0, 0.6, -40.0)
 const RUINS_REVEAL_RADIUS := 7.0
+const DAILY_SURVEY_POSITIONS := [
+	Vector3(-10.0, 0.6, -24.0),
+	Vector3(10.0, 0.6, -29.0),
+	Vector3(-7.0, 0.6, -37.0),
+]
 const RUIN_GUARDIAN_SPAWN := Vector3(0.0, 0.65, -34.0)
 const RUIN_GUARDIAN_MAX_HEALTH := 5
 const HOME_WAYSTONE_POSITION := Vector3(8.0, 0.6, 8.5)
@@ -174,6 +179,7 @@ var player_mastery: Dictionary = {}
 var player_relationships: Dictionary = {}
 var player_npc_check_in_day: Dictionary = {}
 var player_mara_keepsakes: Dictionary = {}
+var player_survey_day: Dictionary = {}
 var player_outing_kits: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
@@ -247,6 +253,8 @@ func register_player(player_token: String) -> Vector3:
 		player_mara_keepsakes[player_token] = (
 			int(player_relationships[player_token].get("mara", 0)) >= MARA_KEEPSAKE_RAPPORT
 		)
+	if not player_survey_day.has(player_token):
+		player_survey_day[player_token] = 0
 	if str(player_outing_kits.get(player_token, "")) not in [OUTING_KIT_VANGUARD, OUTING_KIT_GUARDIAN]:
 		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
@@ -414,6 +422,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_rest_at_cottage(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
+		or try_record_trail_survey(player_token)
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
 		or try_cook_riverfish(player_token)
@@ -477,6 +486,25 @@ func simulate_fishing(delta: float, active_tokens: Array) -> void:
 func reset_player_fishing(player_token: String) -> void:
 	player_fishing_phase[player_token] = "idle"
 	player_fishing_time[player_token] = 0.0
+
+
+func daily_survey_position() -> Vector3:
+	var survey_index := posmod(REGION_SEED + world_day * 17, DAILY_SURVEY_POSITIONS.size())
+	return DAILY_SURVEY_POSITIONS[survey_index]
+
+
+func try_record_trail_survey(player_token: String) -> bool:
+	if not ruin_waystone_activated:
+		return false
+	if register_player(player_token).distance_to(daily_survey_position()) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(player_survey_day.get(player_token, 0)) >= world_day:
+		return false
+	player_survey_day[player_token] = world_day
+	_add_mastery(player_token, "exploration")
+	return true
 
 
 func try_cook_riverfish(player_token: String) -> bool:
@@ -1485,7 +1513,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 18,
+		"version": 19,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1521,6 +1549,7 @@ func to_dictionary() -> Dictionary:
 		"player_relationships": player_relationships.duplicate(true),
 		"player_npc_check_in_day": player_npc_check_in_day.duplicate(true),
 		"player_mara_keepsakes": player_mara_keepsakes.duplicate(),
+		"player_survey_day": player_survey_day.duplicate(),
 		"player_outing_kits": player_outing_kits.duplicate(),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
@@ -1722,6 +1751,10 @@ func load_dictionary(data: Dictionary) -> void:
 			player_mara_keepsakes[player_token] = (
 				int(player_relationships[player_token].get("mara", 0)) >= MARA_KEEPSAKE_RAPPORT
 			)
+	if save_version >= 19:
+		player_survey_day = data.get("player_survey_day", {}).duplicate()
+	else:
+		player_survey_day = {}
 	if save_version >= 14:
 		player_outing_kits = data.get("player_outing_kits", {}).duplicate()
 	else:

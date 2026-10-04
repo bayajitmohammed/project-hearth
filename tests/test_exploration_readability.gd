@@ -13,6 +13,7 @@ func _init() -> void:
 	assert(main.ruin_guardian_node != null)
 	assert(main.waystone_marker.get_node_or_null("Label") != null)
 	assert(main.home_waystone != null and main.ruin_waystone != null)
+	assert(main.trail_survey_marker != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"explorer": Vector3(0.0, 0.6, -20.0)}
@@ -82,6 +83,17 @@ func _init() -> void:
 	assert("waystone route active" in main.map_label.text)
 	assert("Travel to Old Stone Ruins" in main.interaction_prompt.text)
 
+	snapshot["positions"] = {"explorer": snapshot["daily_survey_position"]}
+	main.receive_snapshot(snapshot)
+	assert(main.trail_survey_marker.visible)
+	assert("DAY 1" in main.trail_survey_marker.get_node("SurveyMarker/Label").text)
+	assert("Record today's Northwood trail survey" in main.interaction_prompt.text)
+	assert("Survey D1 ready" in main.world_change_label.text)
+	snapshot["player_survey_day"]["explorer"] = 1
+	main.receive_snapshot(snapshot)
+	assert(not main.trail_survey_marker.visible)
+	assert("Survey D1 recorded" in main.world_change_label.text)
+
 	print("PASS: Beyond the Road is readable")
 	quit()
 
@@ -115,4 +127,6 @@ func _snapshot() -> Dictionary:
 		"ruin_guardian_health": WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,
 		"ruin_guardian_defeated": false,
 		"ruin_waystone_activated": false,
+		"player_survey_day": {"explorer": 0},
+		"daily_survey_position": WorldStateModel.DAILY_SURVEY_POSITIONS[0],
 	}

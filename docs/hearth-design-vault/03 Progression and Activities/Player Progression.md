@@ -69,6 +69,8 @@ The player who first reveals Northwood or the Old Stone Ruins for the shared map
 
 The map discovery itself remains shared immediately with the room. This identity layer does not change movement speed, waystone access, combat, reveal distance, or any route available to a newcomer. Future repeatable exploration work can provide more opportunities for personal credit without taking shared discoveries away from the group.
 
+The first repeatable Exploration work is a daily Northwood trail survey after the waystone route is restored. All players see the same day's marker, while each identity may record it once for one normal mastery point. Surveying changes no route, movement speed, reveal radius, loot, or companion availability, and an empty world cannot complete it.
+
 ## First building mastery identity
 
 Each cottage part successfully placed during the shared repair grants one personal **Building mastery** point to the player who performs that placement. The first point displays the identity title **Builder I**. An already repaired part, an out-of-range attempt, or an interaction outside the repair stage grants nothing.

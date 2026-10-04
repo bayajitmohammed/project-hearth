@@ -1,0 +1,25 @@
+{
+  "version": 19,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true},
+  "exploration_stage": "complete",
+  "ruin_guardian_defeated": true,
+  "ruin_guardian_health": 0,
+  "ruin_waystone_activated": true,
+  "world_day": 1,
+  "world_minute": 780,
+  "player_mastery": {
+    "survey-a": {"exploration": 2},
+    "survey-b": {"exploration": 0}
+  },
+  "player_survey_day": {"survey-a": 0, "survey-b": 0},
+  "player_health": {"survey-a": 3, "survey-b": 3},
+  "downed_players": {"survey-a": false, "survey-b": false},
+  "positions": {
+    "survey-a": [-10.0, 0.6, -24.0],
+    "survey-b": [-10.0, 0.6, -24.0]
+  }
+}

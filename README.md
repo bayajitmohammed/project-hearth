@@ -75,7 +75,7 @@ Mara remembers each player's own meaningful conversations and one optional check
 
 The neighborhood HUD also shows a persistent day and time. The clock advances only while someone is playing; waking an empty world advances its calendar by at most six game hours. After Welcome Lights, Mara visibly follows a morning cottage, afternoon market or neighborhood, evening gathering-place, and nighttime cottage routine. Required quest appearances always take priority over her schedule.
 
-After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
+After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. It also reveals one rotating Northwood trail-survey marker per world day; every player may record that shared marker once for personal Exploration mastery without consuming anyone else's opportunity. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
 
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Use a provision while injured for one health, or press **E** near an injured standing friend to spend one of your provisions on their recovery. An injured standing player can also press **E** at the repaired cottage bedroll to rest and recover fully without advancing time or affecting companions. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner. On Android, **Aid friend**, **Rest**, and **Use provision** appear as contextual actions when eligible.
 
@@ -320,6 +320,20 @@ cp tests/fixtures/mara_keepsake_ready_world.json /tmp/project-hearth-mara-keepsa
 
 The probes verify that the third rapport point awards one persistent charm and that both peers immediately render the new keepsake.
 
+For the daily personal-survey regression, copy `tests/fixtures/daily_survey_ready_world.json`, start an isolated server on port `9413` with room `SURVEY`, and run both surveyors simultaneously:
+
+```sh
+cp tests/fixtures/daily_survey_ready_world.json /tmp/project-hearth-daily-survey.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9413 --room=SURVEY --save-file=/tmp/project-hearth-daily-survey.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/daily_survey_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9413 --room=SURVEY --player-token=survey-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/daily_survey_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9413 --room=SURVEY --player-token=survey-b
+```
+
+The probes verify that both players can record the same daily marker once and receive their own conserved Exploration credit.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -368,6 +382,7 @@ The probes verify that the third rapport point awards one persistent charm and t
 - Northwood and the ruins reveal for the entire room through a visible shared map.
 - A server-authoritative ruin guardian creates the first-journey combat obstacle; existing cooperative revive remains available, and a downed solo player can return safely to the cottage.
 - Defeating the guardian allows the group to restore a persistent waystone route between home and the ruins. The discovery and restoration enter the shared chronicle and survive version-5 save/load; version-4 saves migrate into the new journey.
+- The restored route reveals one deterministic Northwood trail survey per day. Version-19 persistence remembers each identity's last recorded day, while the shared marker remains independently available to every companion and empty-world time grants no mastery.
 - Automated state, migration, presentation, legacy-regression, and two-client networking checks pass.
 - Exported desktop Web: the complete fresh-world journey passes in Chromium, including shared discovery, repeated solo guardian failure/return, eventual combat success, and waystone restoration.
 
