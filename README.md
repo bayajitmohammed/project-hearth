@@ -71,6 +71,8 @@ During normal play the compact quest card shows only the current objective and p
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
 
+Mara remembers each player's own meaningful conversations and one optional check-in per world day. Reaching three personal rapport grants that identity one permanent **Woven Hearth Charm**. The relationship HUD names it and a small warm charm appears on the player's model for companions; it grants no power, access, currency, or extra copies.
+
 The neighborhood HUD also shows a persistent day and time. The clock advances only while someone is playing; waking an empty world advances its calendar by at most six game hours. After Welcome Lights, Mara visibly follows a morning cottage, afternoon market or neighborhood, evening gathering-place, and nighttime cottage routine. Required quest appearances always take priority over her schedule.
 
 After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
@@ -304,6 +306,20 @@ cp tests/fixtures/shared_creel_ready_world.json /tmp/project-hearth-shared-creel
 
 The probes verify that simultaneous cooks consume the final shared fish only once, granting exactly one provision and one Cooking mastery credit.
 
+For Mara's personal keepsake milestone, copy `tests/fixtures/mara_keepsake_ready_world.json`, start an isolated server on port `9411` with room `KEEPSAKE`, and run both visibility probes simultaneously:
+
+```sh
+cp tests/fixtures/mara_keepsake_ready_world.json /tmp/project-hearth-mara-keepsake.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9411 --room=KEEPSAKE --save-file=/tmp/project-hearth-mara-keepsake.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/mara_keepsake_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9411 --room=KEEPSAKE --player-token=keepsake-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/mara_keepsake_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9411 --room=KEEPSAKE --player-token=keepsake-b
+```
+
+The probes verify that the third rapport point awards one persistent charm and that both peers immediately render the new keepsake.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -334,7 +350,7 @@ The probes verify that simultaneous cooks consume the final shared fish only onc
 - A nearby standing Guardian can now spend an active brace to intercept one telegraphed creature hit for a companion. The target's own brace has priority, and deterministic distance and identity ordering keeps the same result in offline, LAN-hosted, and dedicated play.
 - Authored enemies remain inside server-authoritative home areas. When every standing player disengages beyond the boundary, pending pressure ends, the enemy visibly returns to spawn, and its health resets only on arrival.
 - A defeated forest creature remains gone for the rest of the current world day and returns at full health on the next day, including after bounded empty-room catch-up. The ruin guardian remains a persistent one-time story defeat.
-- Mara persistently remembers each player's meaningful story conversations. After Welcome Lights, each identity may check in once per world day for personal rapport and warmer recognition; this does not gate shared progress, power, or rewards.
+- Mara persistently remembers each player's meaningful story conversations. After Welcome Lights, each identity may check in once per world day for personal rapport and warmer recognition. Three rapport awards one visible Woven Hearth Charm; Version-18 persistence retains the cosmetic and migrates already-qualified identities without gating shared progress or power.
 - Market deliveries now pay one persistent personal coin per accepted unit. The supply basket sells trail provisions for two coins through the same authoritative offline, LAN-hosted, and dedicated-world rules.
 - The four-coin Hearthbloom planter is the first optional contribution-funded homestead project. Its partial and completed states persist, and completion produces one visible shared change plus one-time morale, reputation, and chronicle recognition without player power.
 - The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light. Weather never punishes absence or changes movement or combat; after the produce stall opens, it safely frames the current renewable food request.

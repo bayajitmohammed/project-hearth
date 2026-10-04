@@ -38,6 +38,7 @@ const FISHING_BITE_SECONDS := 1.0
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const RIVERFISH_CREEL_POSITION := Vector3(-3.5, 0.6, 5.0)
 const RIVERFISH_CREEL_CAPACITY := 8
+const MARA_KEEPSAKE_RAPPORT := 3
 const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
 const TRAIL_PROVISION_PRICE := 2
 const SUPPLY_BASKET_DAILY_STOCK := 3
@@ -172,6 +173,7 @@ var daily_food_deliveries := 0
 var player_mastery: Dictionary = {}
 var player_relationships: Dictionary = {}
 var player_npc_check_in_day: Dictionary = {}
+var player_mara_keepsakes: Dictionary = {}
 var player_outing_kits: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
@@ -241,6 +243,10 @@ func register_player(player_token: String) -> Vector3:
 		if not check_in_days.has("mara"):
 			check_in_days["mara"] = 0
 		player_npc_check_in_day[player_token] = check_in_days
+	if not player_mara_keepsakes.has(player_token):
+		player_mara_keepsakes[player_token] = (
+			int(player_relationships[player_token].get("mara", 0)) >= MARA_KEEPSAKE_RAPPORT
+		)
 	if str(player_outing_kits.get(player_token, "")) not in [OUTING_KIT_VANGUARD, OUTING_KIT_GUARDIAN]:
 		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
@@ -1441,6 +1447,8 @@ func _add_npc_rapport(player_token: String, npc_id: String, amount: int = 1) -> 
 	var relationships: Dictionary = player_relationships[player_token]
 	relationships[npc_id] = int(relationships.get(npc_id, 0)) + maxi(amount, 0)
 	player_relationships[player_token] = relationships
+	if npc_id == "mara" and int(relationships[npc_id]) >= MARA_KEEPSAKE_RAPPORT:
+		player_mara_keepsakes[player_token] = true
 
 
 func _add_coins(player_token: String, amount: int = 1) -> void:
@@ -1477,7 +1485,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 17,
+		"version": 18,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1512,6 +1520,7 @@ func to_dictionary() -> Dictionary:
 		"player_mastery": player_mastery.duplicate(true),
 		"player_relationships": player_relationships.duplicate(true),
 		"player_npc_check_in_day": player_npc_check_in_day.duplicate(true),
+		"player_mara_keepsakes": player_mara_keepsakes.duplicate(),
 		"player_outing_kits": player_outing_kits.duplicate(),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
@@ -1705,6 +1714,14 @@ func load_dictionary(data: Dictionary) -> void:
 		daily_food_deliveries = 0
 	player_relationships = data.get("player_relationships", {}).duplicate(true)
 	player_npc_check_in_day = data.get("player_npc_check_in_day", {}).duplicate(true)
+	if save_version >= 18:
+		player_mara_keepsakes = data.get("player_mara_keepsakes", {}).duplicate()
+	else:
+		player_mara_keepsakes = {}
+		for player_token: String in player_relationships:
+			player_mara_keepsakes[player_token] = (
+				int(player_relationships[player_token].get("mara", 0)) >= MARA_KEEPSAKE_RAPPORT
+			)
 	if save_version >= 14:
 		player_outing_kits = data.get("player_outing_kits", {}).duplicate()
 	else:

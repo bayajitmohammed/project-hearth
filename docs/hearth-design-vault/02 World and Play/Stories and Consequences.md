@@ -12,7 +12,9 @@ Hand-authored characters and story chains provide meaning. Reusable requests and
 
 The event director favors unresolved people and places the players already know. Outcomes change relationships, access, appearance, or local conditions and enter the shared chronicle.
 
-The first personal relationship memory belongs to **Mara**. A player gains one rapport point when they personally complete a meaningful story conversation with her. After Welcome Lights, every player may also check in with Mara once per authoritative world day for one point; one companion's conversation never consumes another's opportunity. Rapport persists with that identity and displays increasingly warm recognition, but this first layer grants no power, exclusive reward, quest ownership, or access that could separate friends. Shared story state remains shared immediately.
+The first personal relationship memory belongs to **Mara**. A player gains one rapport point when they personally complete a meaningful story conversation with her. After Welcome Lights, every player may also check in with Mara once per authoritative world day for one point; one companion's conversation never consumes another's opportunity. Rapport persists with that identity and displays increasingly warm recognition, but grants no power, quest ownership, or access that could separate friends. Shared story state remains shared immediately.
+
+At three rapport, Mara gives that player one permanent **Woven Hearth Charm**. It is an identity-only keepsake: the relationship HUD names it and a small warm charm appears on that player's model for companions to recognize. It cannot be spent, dropped, duplicated, or used to gate shared content, and later rapport does not award additional copies. Existing identities already at three rapport receive it when an older save migrates.
 
 ## Failure and death
 

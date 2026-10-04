@@ -61,6 +61,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Encounter-boundary depth: authored enemies stop pursuing players beyond their home area, return visibly, and recover only after reaching spawn so danger cannot be dragged through peaceful spaces.
 - Repeatable combat depth: defeating the ordinary forest creature makes the area safe for the current world day, then the next day renews that encounter without reviving the one-time ruin guardian.
 - Relationship depth: Mara remembers meaningful story conversations and one optional daily check-in per player, displaying personal rapport without gating any shared quest or reward.
+- Relationship milestone depth: reaching three personal Mara rapport awards one persistent Woven Hearth Charm, visible to its owner and companions but granting no power or private access.
 - Economy depth: accepted market units pay their individual contributor one persistent coin each, and a separate supply basket exchanges two coins for one personal trail provision without replacing free pantry stock.
 - Local-supply depth: the coin basket holds three shared provisions per world day. Purchases consume conserved stock, a new day resets rather than stacks it, and empty time never buys or multiplies goods.
 - Shared-project depth: after the stall opens, players may contribute personal coin one unit at a time toward a persistent four-coin Hearthbloom planter that changes the homestead without granting power or requiring companions.

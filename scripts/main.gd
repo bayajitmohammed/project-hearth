@@ -487,6 +487,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		_status("Connected — welcome back to your shared world")
 	var seen_tokens := {}
 	var positions: Dictionary = snapshot.get("positions", {})
+	var mara_keepsakes: Dictionary = snapshot.get("player_mara_keepsakes", {})
 	for token: String in positions:
 		seen_tokens[token] = true
 		var position: Vector3 = positions[token]
@@ -494,6 +495,9 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		var player_node := _get_or_create_player_node(token)
 		player_target_positions[token] = position
 		player_node.scale = Vector3(1.0, 0.35, 1.0) if bool(snapshot.get("downed_players", {}).get(token, false)) else Vector3.ONE
+		var mara_charm := player_node.get_node_or_null("MaraKeepsake") as MeshInstance3D
+		if mara_charm != null:
+			mara_charm.visible = bool(mara_keepsakes.get(token, false))
 		if is_new_player:
 			player_node.position = position
 	for token: String in player_nodes.keys():
@@ -999,6 +1003,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_mastery": world_state.player_mastery.duplicate(true),
 		"player_relationships": world_state.player_relationships.duplicate(true),
 		"player_npc_check_in_day": world_state.player_npc_check_in_day.duplicate(true),
+		"player_mara_keepsakes": world_state.player_mara_keepsakes.duplicate(),
 		"player_outing_kits": world_state.player_outing_kits.duplicate(),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
@@ -2466,10 +2471,16 @@ func _update_relationship_interface(snapshot: Dictionary) -> void:
 		int(snapshot.get("player_npc_check_in_day", {}).get(local_token, {}).get("mara", 0))
 		>= int(snapshot.get("world_day", 1))
 	)
-	relationship_label.text = "MARA REMEMBERS YOU · %s · %d%s" % [
+	var keepsake_text := (
+		" · Woven Hearth Charm"
+		if bool(snapshot.get("player_mara_keepsakes", {}).get(local_token, false))
+		else ""
+	)
+	relationship_label.text = "MARA REMEMBERS YOU · %s · %d%s%s" % [
 		recognition,
 		rapport,
 		" · checked in today" if checked_in_today else "",
+		keepsake_text,
 	]
 
 
@@ -2611,6 +2622,21 @@ func _get_or_create_player_node(player_token: String) -> MeshInstance3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color("4c77d6") if player_token == local_token else Color("d66d4c")
 	player_mesh.material_override = material
+	var mara_charm := MeshInstance3D.new()
+	mara_charm.name = "MaraKeepsake"
+	var charm_mesh := SphereMesh.new()
+	charm_mesh.radius = 0.11
+	charm_mesh.height = 0.22
+	mara_charm.mesh = charm_mesh
+	mara_charm.position = Vector3(0.43, 0.35, -0.32)
+	var charm_material := StandardMaterial3D.new()
+	charm_material.albedo_color = Color("f2bb57")
+	charm_material.emission_enabled = true
+	charm_material.emission = Color("bc6f32")
+	charm_material.emission_energy_multiplier = 1.7
+	mara_charm.material_override = charm_material
+	mara_charm.visible = false
+	player_mesh.add_child(mara_charm)
 	player_mesh.visible = player_token != local_token or camera_mode == CAMERA_THIRD_PERSON
 	add_child(player_mesh)
 	player_nodes[player_token] = player_mesh

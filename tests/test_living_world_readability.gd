@@ -63,10 +63,19 @@ func _init() -> void:
 	complete_snapshot["positions"] = {"reader": WorldStateModel.MARA_WELCOME_POSITION}
 	complete_snapshot["player_relationships"] = {"reader": {"mara": 3}}
 	complete_snapshot["player_npc_check_in_day"] = {"reader": {"mara": 0}}
+	complete_snapshot["player_mara_keepsakes"] = {"reader": true}
 	main.receive_snapshot(complete_snapshot)
 	assert("Familiar neighbor · 3" in main.relationship_label.text)
+	assert("Woven Hearth Charm" in main.relationship_label.text)
+	assert(main.player_nodes["reader"].get_node("MaraKeepsake").visible)
 	assert(main.interaction_prompt.visible)
 	assert("Check in with Mara" in main.interaction_prompt.text)
+	complete_snapshot["positions"]["neighbor"] = WorldStateModel.MARA_WELCOME_POSITION + Vector3.RIGHT
+	complete_snapshot["player_health"]["neighbor"] = WorldStateModel.PLAYER_MAX_HEALTH
+	complete_snapshot["downed_players"]["neighbor"] = false
+	complete_snapshot["player_mara_keepsakes"]["neighbor"] = true
+	main.receive_snapshot(complete_snapshot)
+	assert(main.player_nodes["neighbor"].get_node("MaraKeepsake").visible)
 	complete_snapshot["player_relationships"]["reader"]["mara"] = 4
 	complete_snapshot["player_npc_check_in_day"]["reader"]["mara"] = 1
 	main.receive_snapshot(complete_snapshot)
@@ -111,6 +120,7 @@ func _base_snapshot() -> Dictionary:
 		"world_weather_label": "Overcast",
 		"player_relationships": {"reader": {"mara": 0}},
 		"player_npc_check_in_day": {"reader": {"mara": 0}},
+		"player_mara_keepsakes": {"reader": false},
 		"neighborhood_event_stage": "invitation",
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,

@@ -35,6 +35,8 @@ Mastery mainly unlocks new actions, recipes, tools, conveniences, and cosmetic s
 
 Each track has a reachable functional cap; long-term rewards become titles, appearance, collections, and reputation. Group activities scale to the group, while experienced players contribute through more options and knowledge—not overwhelming statistics.
 
+Relationship progression follows the same compatibility rule. Mara's first milestone at three rapport grants one persistent Woven Hearth Charm, shown in the relationship readout and on the player's model. The charm is recognition and expression only: it changes no statistics, actions, access, rewards, or group state.
+
 The first Fishing identity comes from successfully reeling a riverfish during Willowmere Pond's bite window. Each catch grants one personal Fishing mastery point, and the first point displays **Angler I**. Casting, reeling early, or missing the bite grants nothing. Fishing mastery does not change bite timing, catch yield, access to the pond, or the usefulness of a newcomer; it initially records practiced identity only.
 
 ## First outing-kit choice

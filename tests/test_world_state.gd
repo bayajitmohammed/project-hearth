@@ -9,6 +9,7 @@ func _init() -> void:
 	assert(first_spawn == WorldStateModel.SPAWN_POINT)
 	assert(state.player_relationships["player-a"] == {"mara": 0})
 	assert(state.player_npc_check_in_day["player-a"] == {"mara": 0})
+	assert(not state.player_mara_keepsakes["player-a"])
 	assert(state.player_coins["player-a"] == 0)
 	assert(state.player_outing_kits["player-a"] == WorldStateModel.OUTING_KIT_VANGUARD)
 
@@ -56,7 +57,9 @@ func _init() -> void:
 	assert(state.neighborhood_event_stage == "lighting")
 	assert(state.mara_position == WorldStateModel.MARA_WELCOME_POSITION)
 	assert(state.player_relationships["player-a"]["mara"] == 3)
+	assert(state.player_mara_keepsakes["player-a"], "Three Mara rapport must award the keepsake once.")
 	state.register_player("player-b")
+	assert(not state.player_mara_keepsakes["player-b"])
 	state.positions["player-a"] = WorldStateModel.WELCOME_LANTERN_POSITIONS["cottage"]
 	assert(state.try_light_welcome_lantern("player-a"))
 	assert(not state.try_light_welcome_lantern("player-a"), "A lit lantern must not accept duplicate credit.")
@@ -99,6 +102,15 @@ func _init() -> void:
 	assert(restored.player_relationships["player-a"]["mara"] == 4)
 	assert(restored.player_relationships["player-b"]["mara"] == 1)
 	assert(restored.player_npc_check_in_day["player-a"]["mara"] == 1)
+	assert(restored.player_mara_keepsakes["player-a"])
+	assert(not restored.player_mara_keepsakes["player-b"])
+	var migrated_keepsake := WorldStateModel.new()
+	migrated_keepsake.load_dictionary({
+		"version": 17,
+		"player_relationships": {"trusted": {"mara": 3}, "newcomer": {"mara": 2}},
+	})
+	assert(migrated_keepsake.player_mara_keepsakes["trusted"])
+	assert(not migrated_keepsake.player_mara_keepsakes["newcomer"])
 	var next_day_relationship := WorldStateModel.new()
 	next_day_relationship.load_dictionary(state.to_dictionary())
 	assert(next_day_relationship.simulate_world_clock(WorldStateModel.WORLD_MINUTES_PER_DAY))

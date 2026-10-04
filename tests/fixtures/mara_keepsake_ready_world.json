@@ -1,0 +1,24 @@
+{
+  "version": 18,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
+  "world_day": 1,
+  "world_minute": 780,
+  "player_relationships": {
+    "keepsake-a": {"mara": 3},
+    "keepsake-b": {"mara": 2}
+  },
+  "player_npc_check_in_day": {
+    "keepsake-a": {"mara": 1},
+    "keepsake-b": {"mara": 0}
+  },
+  "player_mara_keepsakes": {"keepsake-a": true, "keepsake-b": false},
+  "player_health": {"keepsake-a": 3, "keepsake-b": 3},
+  "downed_players": {"keepsake-a": false, "keepsake-b": false},
+  "positions": {
+    "keepsake-a": [0.0, 0.6, 6.0],
+    "keepsake-b": [4.0, 0.6, 4.0]
+  }
+}
