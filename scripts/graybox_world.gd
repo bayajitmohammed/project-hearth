@@ -19,6 +19,7 @@ static func build(root: Node3D) -> Dictionary:
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
 	var outing_kit_rack := _add_outing_kit_rack(root)
+	var trailwork_bench := _add_trailwork_bench(root)
 	var welcome_lanterns := _add_welcome_lanterns(root)
 	var creature := _add_creature(root)
 	var rumor_marker := _add_rumor_marker(root)
@@ -58,6 +59,8 @@ static func build(root: Node3D) -> Dictionary:
 		"repair_results": repair_result_nodes,
 		"outing_kit_rack": outing_kit_rack["root"],
 		"outing_kit_marker": outing_kit_rack["marker"],
+		"trailwork_bench": trailwork_bench["root"],
+		"trailwork_marker": trailwork_bench["marker"],
 		"cottage_rest_marker": cottage_rest_marker,
 		"welcome_lantern_markers": welcome_lanterns["markers"],
 		"welcome_lantern_lights": welcome_lanterns["lights"],
@@ -127,6 +130,28 @@ static func _add_outing_kit_rack(root: Node3D) -> Dictionary:
 	rack.visible = false
 	marker.visible = false
 	return {"root": rack, "marker": marker}
+
+
+static func _add_trailwork_bench(root: Node3D) -> Dictionary:
+	var bench := Node3D.new()
+	bench.name = "TrailworkBench"
+	bench.position = WorldStateModel.TRAILWORK_BENCH_POSITION
+	root.add_child(bench)
+	_add_box(bench, "BenchTop", Vector3(2.15, 0.22, 0.9), Vector3(0.0, 0.55, 0.0), Color("79563c"))
+	for x_position: float in [-0.78, 0.78]:
+		_add_box(bench, "BenchLeg", Vector3(0.18, 1.1, 0.18), Vector3(x_position, 0.0, 0.0), Color("59402f"))
+	_add_cylinder(bench, "HerbBundle", 0.24, 0.5, Vector3(-0.55, 0.83, 0.0), Color("75bd72"), 7)
+	_add_box(bench, "WoodBundle", Vector3(0.75, 0.18, 0.34), Vector3(0.5, 0.78, 0.0), Color("a87548"), Vector3(0.0, 12.0, 0.0))
+	var marker := _add_station_marker(
+		bench,
+		"TrailworkMarker",
+		Vector3.ZERO,
+		"TRAILWORK BENCH",
+		Color("a8e5b1")
+	)
+	bench.visible = false
+	marker.visible = false
+	return {"root": bench, "marker": marker}
 
 
 static func _add_environment(root: Node3D) -> Dictionary:

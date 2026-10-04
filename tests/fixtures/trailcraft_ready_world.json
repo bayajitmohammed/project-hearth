@@ -1,0 +1,20 @@
+{
+  "version": 19,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "materials": {"wood": 2, "herb": 2, "repair_kit": 0, "moonroot": 0, "hearth_stew": 0},
+  "gathered_resources": {
+    "wood_1": true,
+    "wood_2": true,
+    "wood_3": true,
+    "herb_1": true,
+    "herb_2": true
+  },
+  "player_provisions": {"trailcraft-a": 0, "trailcraft-b": 0},
+  "player_health": {"trailcraft-a": 3, "trailcraft-b": 3},
+  "downed_players": {"trailcraft-a": false, "trailcraft-b": false},
+  "positions": {
+    "trailcraft-a": [-14.8, 0.6, 7.0],
+    "trailcraft-b": [-14.8, 0.6, 7.0]
+  }
+}

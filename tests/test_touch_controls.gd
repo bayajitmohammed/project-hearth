@@ -86,6 +86,8 @@ func _init() -> void:
 	assert(main_source.contains("_append_mobile_target(candidates, supply_marker, \"Buy\""), "Touch players need the contextual supply-basket purchase action.")
 	assert(main_source.contains("_append_mobile_target(candidates, hearthbloom_marker, \"Contribute\""), "Touch players need the contextual shared-project contribution action.")
 	assert(main_source.contains("_append_mobile_target(candidates, outing_kit_marker, \"Switch kit\""), "Touch players need the contextual home-loadout action.")
+	assert(main_source.contains("_append_mobile_target(candidates, trailwork_bench, \"Craft provision\", \"craft\""), "Touch players need the contextual trailcraft action.")
+	assert(main_source.contains("\"craft\":\n\t\t\t_request_craft()"), "Touch trailcraft must use the authoritative craft request.")
 	assert(main_source.contains("_append_mobile_target(candidates, fishing_marker, fishing_action"), "Touch players need contextual Cast and Reel actions at Willowmere Pond.")
 	assert(main_source.contains("_append_mobile_target(candidates, trail_survey_marker, \"Record survey\""), "Touch players need the contextual daily survey action.")
 	assert(main_source.contains("_append_mobile_target(candidates, riverfish_creel, \"Store fish\""), "Touch players need a contextual shared-creel deposit action.")

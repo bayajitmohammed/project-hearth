@@ -24,6 +24,8 @@ func _init() -> void:
 	assert(main.hearthbloom_blooms != null)
 	assert(main.outing_kit_rack != null)
 	assert(main.outing_kit_marker != null)
+	assert(main.trailwork_bench != null)
+	assert(main.trailwork_marker != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"artisan": WorldStateModel.FISHING_SPOT_POSITION}
@@ -75,6 +77,18 @@ func _init() -> void:
 	main.receive_snapshot(snapshot)
 	assert("Equip Vanguard kit" in main.interaction_prompt.text)
 	assert("Kit: Guardian" in main.combat_label.text)
+
+	snapshot["materials"]["wood"] = 1
+	snapshot["materials"]["herb"] = 1
+	snapshot["positions"] = {"artisan": WorldStateModel.TRAILWORK_BENCH_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.trailwork_bench.visible)
+	assert(main.trailwork_marker.visible)
+	assert(main.trailwork_marker.get_node("Label").text == "TRAILWORK BENCH")
+	assert("Craft a trail provision" in main.interaction_prompt.text)
+	snapshot["positions"] = {"artisan": WorldStateModel.RESOURCE_POSITIONS["wood_1"]}
+	main.receive_snapshot(snapshot)
+	assert("Gather Wood" in main.interaction_prompt.text)
 
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)

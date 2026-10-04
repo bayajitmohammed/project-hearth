@@ -52,6 +52,41 @@ func _init() -> void:
 	assert(state.neighborhood_event_stage == "invitation")
 	assert(state.chronicle == ["The newcomers repaired the abandoned cottage and made it their home."])
 
+	var trailcraft_state := WorldStateModel.new()
+	trailcraft_state.load_dictionary(state.to_dictionary())
+	for resource_id: String in WorldStateModel.RESOURCE_POSITIONS:
+		trailcraft_state.gathered_resources[resource_id] = true
+	trailcraft_state.materials["wood"] = 0
+	trailcraft_state.materials["herb"] = 0
+	assert(trailcraft_state.simulate_world_clock(WorldStateModel.WORLD_MINUTES_PER_DAY))
+	assert(trailcraft_state.gathered_resources.values().all(func(value: bool) -> bool: return not value), "A new day renews the authored forest forage.")
+	trailcraft_state.positions["player-a"] = WorldStateModel.RESOURCE_POSITIONS["wood_1"]
+	assert(trailcraft_state.try_gather_resource("player-a"))
+	trailcraft_state.positions["player-a"] = WorldStateModel.RESOURCE_POSITIONS["herb_1"]
+	assert(trailcraft_state.try_gather_resource("player-a"))
+	trailcraft_state.positions["player-a"] = WorldStateModel.TRAILWORK_BENCH_POSITION
+	assert(trailcraft_state.craft("player-a"))
+	assert(trailcraft_state.materials["wood"] == 0 and trailcraft_state.materials["herb"] == 0)
+	assert(trailcraft_state.player_provisions["player-a"] == 1)
+	assert(not trailcraft_state.craft("player-a"), "Trailcraft cannot duplicate a provision without both inputs.")
+	trailcraft_state.materials["wood"] = 1
+	trailcraft_state.materials["herb"] = 1
+	trailcraft_state.downed_players["player-a"] = true
+	assert(not trailcraft_state.craft("player-a"), "A downed player cannot trailcraft.")
+	assert(trailcraft_state.materials["wood"] == 1 and trailcraft_state.materials["herb"] == 1)
+	var caught_up_forage := WorldStateModel.new()
+	caught_up_forage.load_dictionary(state.to_dictionary())
+	for resource_id: String in WorldStateModel.RESOURCE_POSITIONS:
+		caught_up_forage.gathered_resources[resource_id] = true
+	caught_up_forage.materials["wood"] = 0
+	caught_up_forage.materials["herb"] = 0
+	caught_up_forage.world_minute = WorldStateModel.WORLD_MINUTES_PER_DAY - 1
+	caught_up_forage.last_world_empty_unix = 1000
+	caught_up_forage.apply_offline_catch_up(1060)
+	assert(caught_up_forage.gathered_resources.values().all(func(value: bool) -> bool: return not value))
+	assert(caught_up_forage.materials["wood"] == 0 and caught_up_forage.materials["herb"] == 0, "Empty time renews forage but never gathers it.")
+	assert(caught_up_forage.player_provisions["player-a"] == 0, "Empty time never trailcrafts supplies.")
+
 	state.positions["player-a"] = state.mara_position
 	assert(state.interact_with_mara("player-a"))
 	assert(state.neighborhood_event_stage == "lighting")

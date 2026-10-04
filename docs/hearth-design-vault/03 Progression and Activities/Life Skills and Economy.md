@@ -12,6 +12,12 @@ Gathering, farming, fishing, and exploration provide materials. Cooking and craf
 
 Each step should make a visible difference; the game avoids long processing chains and inventory micromanagement.
 
+## Renewable forest forage and trailcraft
+
+After the cottage is repaired, the five authored forest wood and herb nodes renew together at the start of each authoritative world day. Gathered materials remain in the shared project bag so companions can forage in parallel or leave ingredients for whoever returns home first. A missed or empty day never stacks extra materials: calendar catch-up may make the current day's nodes available, but it does not gather them.
+
+At the cottage **trailwork bench**, a nearby standing player may spend one shared wood and one shared herb to make one personal trail provision. The original repair-kit recipe keeps priority while the cottage tutorial is active. Trailcraft grants no mastery, coin, reputation, or shared-project credit; it simply gives gathering and crafting a renewable preparation purpose in offline, LAN-hosted, and dedicated worlds. Each craft conserves its inputs and output, so friends may divide foraging and preparation without creating passive supplies.
+
 ## First fishing loop
 
 Repairing the cottage makes its simple shared fishing gear available at **Willowmere Pond**. Each standing player may cast independently. The authoritative world provides a short wait followed by a clearly named one-second bite window; reeling early ends that cast without a catch, while missing the window lets the fish go and returns the player to ready. Cast timing is transient, never advances while the room is empty, and one player's cast cannot consume or reset another's.

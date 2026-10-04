@@ -67,6 +67,8 @@ After repairing the cottage, use **E** at the outdoor gear rack to freely switch
 
 The repaired cottage also opens **Willowmere Pond**. Use **E** at its blue marker to cast, wait for the explicit **BITE** cue, then use **E** again during the one-second window to catch one personal riverfish. Reeling early or missing the cue safely resets only your cast. Cook a riverfish at the cottage fire for one personal trail provision and Cooking mastery; a currently required hearth stew always takes interaction priority. Players may instead store fish one at a time in the nearby eight-fish shared creel. When a cook carries no fish, the fire draws one from that persistent shared stock. Fishing mastery displays the identity title **Angler I** but does not change timing or yield.
 
+The repaired cottage also renews the authored forest wood and herb nodes at the start of each world day. Gathered forage enters the shared project bag. At the cottage **Trailwork Bench**, press **C** (or use the contextual touch action) to spend one shared wood and one shared herb on one personal trail provision. Missed days never stack materials, empty-world catch-up never gathers them, and crafting awards no passive progression or currency.
+
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
@@ -333,6 +335,20 @@ cp tests/fixtures/daily_survey_ready_world.json /tmp/project-hearth-daily-survey
 ```
 
 The probes verify that both players can record the same daily marker once and receive their own conserved Exploration credit.
+
+For the shared trailcraft conservation regression, copy `tests/fixtures/trailcraft_ready_world.json`, start an isolated server on port `9415` with room `TRAILCRAFT`, and run both crafters simultaneously:
+
+```sh
+cp tests/fixtures/trailcraft_ready_world.json /tmp/project-hearth-trailcraft.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9415 --room=TRAILCRAFT --save-file=/tmp/project-hearth-trailcraft.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/trailcraft_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9415 --room=TRAILCRAFT --player-token=trailcraft-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/trailcraft_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9415 --room=TRAILCRAFT --player-token=trailcraft-b
+```
+
+The probes verify that simultaneous crafters each receive one personal provision while consuming exactly the four shared ingredients once.
 
 ## Slice 0 platform status
 

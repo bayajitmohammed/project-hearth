@@ -7,6 +7,7 @@ const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
 const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
+const TRAILWORK_BENCH_POSITION := Vector3(-14.8, 0.6, 7.0)
 const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
@@ -347,7 +348,7 @@ func interact_with_mara(player_token: String) -> bool:
 
 
 func try_gather_resource(player_token: String) -> bool:
-	if quest_stage == "meet_mara" or quest_stage == "home_repaired":
+	if quest_stage == "meet_mara":
 		return false
 	var player_position: Vector3 = register_player(player_token)
 	for resource_id: String in RESOURCE_POSITIONS:
@@ -369,6 +370,27 @@ func craft_repair_kit() -> bool:
 	materials["wood"] = int(materials["wood"]) - 2
 	materials["herb"] = int(materials["herb"]) - 1
 	materials["repair_kit"] = 1
+	return true
+
+
+func craft(player_token: String) -> bool:
+	if craft_repair_kit():
+		return true
+	return try_craft_trail_provision(player_token)
+
+
+func try_craft_trail_provision(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(TRAILWORK_BENCH_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(materials.get("wood", 0)) < 1 or int(materials.get("herb", 0)) < 1:
+		return false
+	materials["wood"] = int(materials["wood"]) - 1
+	materials["herb"] = int(materials["herb"]) - 1
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
 	return true
 
 
@@ -768,6 +790,7 @@ func _advance_world_minutes(elapsed_minutes: int) -> void:
 	world_minute = posmod(total_minutes, WORLD_MINUTES_PER_DAY)
 	if world_day > previous_day:
 		_renew_daily_forest_encounter()
+		_renew_daily_forest_resources()
 		if livelihood_stage == "complete" and produce_stall_open:
 			supply_basket_stock = SUPPLY_BASKET_DAILY_STOCK
 			_begin_daily_food_order()
@@ -784,6 +807,13 @@ func _renew_daily_forest_encounter() -> void:
 	creature_attack_windup = 0.0
 	creature_attack_target = ""
 	creature_returning = false
+
+
+func _renew_daily_forest_resources() -> void:
+	if quest_stage != "home_repaired":
+		return
+	for resource_id: String in RESOURCE_POSITIONS:
+		gathered_resources[resource_id] = false
 
 
 func _begin_daily_food_order() -> void:

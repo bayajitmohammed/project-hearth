@@ -94,6 +94,8 @@ var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
 var outing_kit_rack: Node3D
 var outing_kit_marker: Node3D
+var trailwork_bench: Node3D
+var trailwork_marker: Node3D
 var cottage_rest_marker: Node3D
 var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
@@ -191,7 +193,7 @@ func _update_local_authority_input() -> void:
 	if Input.is_action_just_pressed("interact"):
 		_try_interaction(local_token)
 	if Input.is_action_just_pressed("craft"):
-		_try_craft_repair_kit()
+		_try_craft(local_token)
 	if Input.is_action_just_pressed("attack"):
 		_try_attack(local_token)
 	if Input.is_action_just_pressed("power_strike"):
@@ -383,13 +385,13 @@ func request_collect() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func request_craft_repair_kit() -> void:
+func request_craft() -> void:
 	if not is_server:
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	if not peer_to_token.has(sender_id):
 		return
-	_try_craft_repair_kit()
+	_try_craft(peer_to_token[sender_id])
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -444,8 +446,8 @@ func _try_collect(player_token: String) -> void:
 		_publish_snapshot()
 
 
-func _try_craft_repair_kit() -> void:
-	if world_state.craft_repair_kit():
+func _try_craft(player_token: String) -> void:
+	if world_state.craft(player_token):
 		_save_world()
 		_publish_snapshot()
 
@@ -521,6 +523,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		repair_result_nodes[part_id].visible = is_repaired
 	outing_kit_rack.visible = quest_stage == "home_repaired"
 	outing_kit_marker.visible = quest_stage == "home_repaired"
+	trailwork_bench.visible = quest_stage == "home_repaired"
+	trailwork_marker.visible = quest_stage == "home_repaired"
 	var local_health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var local_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
 	cottage_rest_marker.visible = (
@@ -1174,6 +1178,8 @@ func _build_world() -> void:
 	repair_result_nodes = world_nodes["repair_results"]
 	outing_kit_rack = world_nodes["outing_kit_rack"]
 	outing_kit_marker = world_nodes["outing_kit_marker"]
+	trailwork_bench = world_nodes["trailwork_bench"]
+	trailwork_marker = world_nodes["trailwork_marker"]
 	cottage_rest_marker = world_nodes["cottage_rest_marker"]
 	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
@@ -1601,7 +1607,7 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	var event_stage := str(latest_snapshot.get("neighborhood_event_stage", "locked"))
 	if quest_stage in ["meet_mara", "return_to_mara"] or (quest_stage == "home_repaired" and event_stage == "invitation"):
 		_append_mobile_target(candidates, mara_node, "Talk", "interact", WorldStateModel.INTERACTION_RADIUS)
-	if quest_stage not in ["meet_mara", "home_repaired"]:
+	if quest_stage != "meet_mara":
 		for resource_node: Node3D in resource_nodes.values():
 			_append_mobile_target(candidates, resource_node, "Pick up", "interact", WorldStateModel.INTERACTION_RADIUS)
 	if collectible_mesh != null and collectible_mesh.visible:
@@ -1609,6 +1615,13 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for repair_node: Node3D in repair_nodes.values():
 		_append_mobile_target(candidates, repair_node, "Repair", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, outing_kit_marker, "Switch kit", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var shared_materials: Dictionary = latest_snapshot.get("materials", {})
+	if (
+		quest_stage == "home_repaired"
+		and int(shared_materials.get("wood", 0)) > 0
+		and int(shared_materials.get("herb", 0)) > 0
+	):
+		_append_mobile_target(candidates, trailwork_bench, "Craft provision", "craft", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1716,6 +1729,8 @@ func _handle_mobile_world_tap(screen_position: Vector2) -> void:
 	match str(target.get("kind", "")):
 		"attack":
 			_request_attack()
+		"craft":
+			_request_craft()
 		"collect":
 			_request_collect()
 		_:
@@ -1732,6 +1747,8 @@ func _activate_mobile_context_target() -> void:
 			_request_power_strike()
 		"collect":
 			_request_collect()
+		"craft":
+			_request_craft()
 		"provision":
 			_request_use_provision()
 		_:
@@ -1754,9 +1771,9 @@ func _request_collect() -> void:
 
 func _request_craft() -> void:
 	if local_authority_player:
-		_try_craft_repair_kit()
+		_try_craft(local_token)
 	elif client_connected:
-		request_craft_repair_kit.rpc_id(1)
+		request_craft.rpc_id(1)
 
 
 func _request_attack() -> void:
@@ -2255,6 +2272,16 @@ func _update_interaction_prompt(
 		interaction_prompt.text = "%s  ·  Equip %s kit" % [action_name, next_kit]
 		interaction_prompt.visible = true
 		return
+	var trailwork_materials: Dictionary = latest_snapshot.get("materials", {})
+	if (
+		quest_stage == "home_repaired"
+		and int(trailwork_materials.get("wood", 0)) > 0
+		and int(trailwork_materials.get("herb", 0)) > 0
+		and player_position.distance_to(WorldStateModel.TRAILWORK_BENCH_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "C  ·  Craft a trail provision (1 wood + 1 herb)"
+		interaction_prompt.visible = true
+		return
 	var guardian_defeated := bool(latest_snapshot.get("ruin_guardian_defeated", false))
 	var route_activated := bool(latest_snapshot.get("ruin_waystone_activated", false))
 	if guardian_defeated and player_position.distance_to(WorldStateModel.RUIN_WAYSTONE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
@@ -2456,6 +2483,17 @@ func _update_interaction_prompt(
 				continue
 			if player_position.distance_to(WorldStateModel.WELCOME_LANTERN_POSITIONS[lantern_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
 				interaction_prompt.text = "%s  ·  Light %s" % [action_name, WorldStateModel.WELCOME_LANTERN_LABELS[lantern_id].capitalize()]
+				interaction_prompt.visible = true
+				return
+	if quest_stage != "meet_mara":
+		var gathered_resources: Dictionary = latest_snapshot.get("gathered_resources", {})
+		for resource_id: String in WorldStateModel.RESOURCE_POSITIONS:
+			if bool(gathered_resources.get(resource_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.RESOURCE_POSITIONS[resource_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Gather %s" % [
+					action_name, str(WorldStateModel.RESOURCE_TYPES[resource_id]).capitalize()
+				]
 				interaction_prompt.visible = true
 				return
 	if (
