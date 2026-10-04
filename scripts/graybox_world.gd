@@ -18,6 +18,7 @@ static func build(root: Node3D) -> Dictionary:
 	var resource_nodes := _add_resources(root)
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
+	var outing_kit_rack := _add_outing_kit_rack(root)
 	var welcome_lanterns := _add_welcome_lanterns(root)
 	var creature := _add_creature(root)
 	var rumor_marker := _add_rumor_marker(root)
@@ -54,6 +55,8 @@ static func build(root: Node3D) -> Dictionary:
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
+		"outing_kit_rack": outing_kit_rack["root"],
+		"outing_kit_marker": outing_kit_rack["marker"],
 		"cottage_rest_marker": cottage_rest_marker,
 		"welcome_lantern_markers": welcome_lanterns["markers"],
 		"welcome_lantern_lights": welcome_lanterns["lights"],
@@ -96,6 +99,28 @@ static func _add_cottage_rest_point(root: Node3D) -> Node3D:
 		Color("7ca69a")
 	)
 	return _add_station_marker(root, "CottageRestMarker", rest_position, "REST AT HOME", Color("8ce0c5"))
+
+
+static func _add_outing_kit_rack(root: Node3D) -> Dictionary:
+	var rack := Node3D.new()
+	rack.name = "OutingKitRack"
+	rack.position = WorldStateModel.GEAR_RACK_POSITION
+	root.add_child(rack)
+	for x_position: float in [-0.85, 0.85]:
+		_add_box(rack, "RackPost", Vector3(0.16, 2.0, 0.16), Vector3(x_position, 0.55, 0.0), Color("694a36"))
+	_add_box(rack, "RackBeam", Vector3(1.9, 0.18, 0.18), Vector3(0.0, 1.4, 0.0), Color("694a36"))
+	_add_box(rack, "VanguardKit", Vector3(0.55, 0.8, 0.2), Vector3(-0.45, 0.85, 0.0), Color("b25f4a"))
+	_add_box(rack, "GuardianKit", Vector3(0.55, 0.8, 0.2), Vector3(0.45, 0.85, 0.0), Color("4f83a8"))
+	var marker := _add_station_marker(
+		rack,
+		"OutingKitMarker",
+		Vector3.ZERO,
+		"OUTING KIT RACK",
+		Color("9fd8f2")
+	)
+	rack.visible = false
+	marker.visible = false
+	return {"root": rack, "marker": marker}
 
 
 static func _add_environment(root: Node3D) -> Dictionary:

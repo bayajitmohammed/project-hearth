@@ -92,6 +92,8 @@ var mara_node: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
+var outing_kit_rack: Node3D
+var outing_kit_marker: Node3D
 var cottage_rest_marker: Node3D
 var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
@@ -507,6 +509,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		var is_repaired := bool(repairs.get(part_id, false))
 		repair_nodes[part_id].visible = quest_stage == "repair_cottage" and has_repair_kit and not is_repaired
 		repair_result_nodes[part_id].visible = is_repaired
+	outing_kit_rack.visible = quest_stage == "home_repaired"
+	outing_kit_marker.visible = quest_stage == "home_repaired"
 	var local_health := int(snapshot.get("player_health", {}).get(local_token, WorldStateModel.PLAYER_MAX_HEALTH))
 	var local_downed := bool(snapshot.get("downed_players", {}).get(local_token, false))
 	cottage_rest_marker.visible = (
@@ -936,6 +940,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_mastery": world_state.player_mastery.duplicate(true),
 		"player_relationships": world_state.player_relationships.duplicate(true),
 		"player_npc_check_in_day": world_state.player_npc_check_in_day.duplicate(true),
+		"player_outing_kits": world_state.player_outing_kits.duplicate(),
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
 		"player_provisions": world_state.player_provisions.duplicate(),
@@ -1082,6 +1087,8 @@ func _build_world() -> void:
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
+	outing_kit_rack = world_nodes["outing_kit_rack"]
+	outing_kit_marker = world_nodes["outing_kit_marker"]
 	cottage_rest_marker = world_nodes["cottage_rest_marker"]
 	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
@@ -1511,6 +1518,7 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		_append_mobile_target(candidates, collectible_mesh, "Pick up", "collect", WorldStateModel.PICKUP_RADIUS)
 	for repair_node: Node3D in repair_nodes.values():
 		_append_mobile_target(candidates, repair_node, "Repair", "interact", WorldStateModel.INTERACTION_RADIUS)
+	_append_mobile_target(candidates, outing_kit_marker, "Switch kit", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1708,6 +1716,10 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var brace_time := float(snapshot.get("player_brace_time", {}).get(local_token, 0.0))
 	var brace_cooldown := float(snapshot.get("player_brace_cooldown", {}).get(local_token, 0.0))
 	var brace_text := "braced" if brace_time > 0.0 else ("recovering" if brace_cooldown > 0.0 else "ready")
+	var outing_kit := str(
+		snapshot.get("player_outing_kits", {}).get(local_token, WorldStateModel.OUTING_KIT_VANGUARD)
+	)
+	var outing_kit_text := "Guardian" if outing_kit == WorldStateModel.OUTING_KIT_GUARDIAN else "Vanguard"
 	var creature_health := int(snapshot.get("creature_health", 0))
 	var creature_text := "defeated" if creature_defeated else (
 		"returning home (%d/%d)" % [creature_health, WorldStateModel.CREATURE_MAX_HEALTH]
@@ -1738,11 +1750,12 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 			local_warnings.append("RUIN GUARDIAN ATTACK — BRACE OR MOVE")
 	combat_warning_label.text = "\n".join(local_warnings)
 	combat_warning_label.visible = not local_warnings.is_empty()
-	combat_label.text = "Health: %d/%d%s%s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s%s" % [
+	combat_label.text = "Health: %d/%d%s%s  Kit: %s  Attack: %s  Brace: %s  Forest creature: %s  Ruin guardian: %s%s" % [
 		health,
 		WorldStateModel.PLAYER_MAX_HEALTH,
 		" — DOWNED: E returns home; a friend can revive nearby" if is_downed else "",
 		provision_hint,
+		outing_kit_text,
 		attack_text,
 		brace_text,
 		creature_text,
@@ -2034,6 +2047,19 @@ func _update_interaction_prompt(
 		and player_position.distance_to(WorldStateModel.COTTAGE_REST_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
 		interaction_prompt.text = "%s  ·  Rest and recover" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
+		quest_stage == "home_repaired"
+		and player_position.distance_to(WorldStateModel.GEAR_RACK_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		var current_kit := str(
+			latest_snapshot.get("player_outing_kits", {}).get(
+				local_token, WorldStateModel.OUTING_KIT_VANGUARD
+			)
+		)
+		var next_kit := "Guardian" if current_kit == WorldStateModel.OUTING_KIT_VANGUARD else "Vanguard"
+		interaction_prompt.text = "%s  ·  Equip %s kit" % [action_name, next_kit]
 		interaction_prompt.visible = true
 		return
 	var guardian_defeated := bool(latest_snapshot.get("ruin_guardian_defeated", false))

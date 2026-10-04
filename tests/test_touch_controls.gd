@@ -70,6 +70,7 @@ func _init() -> void:
 	assert(main_source.contains("\"kind\": \"power_strike\""), "Touch combat targeting needs a contextual Power Strike action.")
 	assert(main_source.contains("_append_mobile_target(candidates, supply_marker, \"Buy\""), "Touch players need the contextual supply-basket purchase action.")
 	assert(main_source.contains("_append_mobile_target(candidates, hearthbloom_marker, \"Contribute\""), "Touch players need the contextual shared-project contribution action.")
+	assert(main_source.contains("_append_mobile_target(candidates, outing_kit_marker, \"Switch kit\""), "Touch players need the contextual home-loadout action.")
 
 	print("PASS: Split-screen Minecraft-style Android touch controls")
 	quit()

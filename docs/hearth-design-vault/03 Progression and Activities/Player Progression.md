@@ -35,6 +35,12 @@ Mastery mainly unlocks new actions, recipes, tools, conveniences, and cosmetic s
 
 Each track has a reachable functional cap; long-term rewards become titles, appearance, collections, and reputation. Group activities scale to the group, while experienced players contribute through more options and knowledge—not overwhelming statistics.
 
+## First outing-kit choice
+
+The repaired cottage unlocks a gear rack where every player may freely swap their personal active outing kit. **Vanguard** is the default balanced kit and preserves the existing attack and brace timings. **Guardian** extends the brace window from 0.7 to 1.0 seconds and shortens its cooldown from 1.6 to 1.25 seconds, but adds 0.2 seconds of recovery to every successful basic or power attack. Damage, health, movement, range, mastery gain, and available actions remain unchanged.
+
+The equipped kit persists with that player, is never dropped, and can only be changed while standing at the home rack. Both kits are available immediately after the shared cottage repair, require no mastery or currency, and may be swapped without cost. This establishes a reversible situational loadout and a cooperative role preference—not a permanent class or higher tier of power.
+
 ## First mastery conveniences
 
 The first tier-II techniques reduce repeated inputs without improving combat statistics or excluding newcomers:

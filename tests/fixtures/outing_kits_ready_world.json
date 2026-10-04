@@ -1,0 +1,12 @@
+{
+  "version": 14,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "player_health": {"kit-a": 3, "kit-b": 3},
+  "downed_players": {"kit-a": false, "kit-b": false},
+  "player_outing_kits": {"kit-a": "vanguard", "kit-b": "vanguard"},
+  "positions": {
+    "kit-a": [-10.0, 0.6, 7.2],
+    "kit-b": [-10.0, 0.6, 7.2]
+  }
+}

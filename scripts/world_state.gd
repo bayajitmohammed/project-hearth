@@ -6,6 +6,7 @@ const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
+const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
 const COLLECTIBLE_POSITION := Vector3(0.0, 0.5, -6.5)
 const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
@@ -85,6 +86,11 @@ const PLAYER_ATTACK_RECOVERY_SECONDS := 0.45
 const PLAYER_POWER_STRIKE_RECOVERY_SECONDS := 1.1
 const PLAYER_BRACE_WINDOW_SECONDS := 0.7
 const PLAYER_BRACE_COOLDOWN_SECONDS := 1.6
+const GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS := 0.2
+const GUARDIAN_BRACE_WINDOW_SECONDS := 1.0
+const GUARDIAN_BRACE_COOLDOWN_SECONDS := 1.25
+const OUTING_KIT_VANGUARD := "vanguard"
+const OUTING_KIT_GUARDIAN := "guardian"
 const ENEMY_ATTACK_WINDUP_SECONDS := 0.6
 const CREATURE_AGGRO_RADIUS := 6.0
 const CREATURE_LEASH_RADIUS := 8.0
@@ -154,6 +160,7 @@ var daily_food_deliveries := 0
 var player_mastery: Dictionary = {}
 var player_relationships: Dictionary = {}
 var player_npc_check_in_day: Dictionary = {}
+var player_outing_kits: Dictionary = {}
 var pantry_stock := 0
 var last_world_empty_unix := 0
 var last_catch_up_units := 0
@@ -216,6 +223,8 @@ func register_player(player_token: String) -> Vector3:
 		if not check_in_days.has("mara"):
 			check_in_days["mara"] = 0
 		player_npc_check_in_day[player_token] = check_in_days
+	if str(player_outing_kits.get(player_token, "")) not in [OUTING_KIT_VANGUARD, OUTING_KIT_GUARDIAN]:
+		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
 	if not player_coins.has(player_token):
@@ -382,6 +391,7 @@ func interact(player_token: String) -> bool:
 		or try_take_pantry_provision(player_token)
 		or try_buy_trail_provision(player_token)
 		or try_contribute_hearthbloom(player_token)
+		or try_switch_outing_kit(player_token)
 		or interact_with_mara(player_token)
 		or try_gather_resource(player_token)
 		or try_repair_cottage(player_token)
@@ -422,6 +432,26 @@ func try_rest_at_cottage(player_token: String) -> bool:
 	return true
 
 
+func try_switch_outing_kit(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(GEAR_RACK_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	player_outing_kits[player_token] = (
+		OUTING_KIT_GUARDIAN
+		if str(player_outing_kits.get(player_token, OUTING_KIT_VANGUARD)) == OUTING_KIT_VANGUARD
+		else OUTING_KIT_VANGUARD
+	)
+	return true
+
+
+func outing_kit_label(player_token: String) -> String:
+	register_player(player_token)
+	return "Guardian" if player_outing_kits[player_token] == OUTING_KIT_GUARDIAN else "Vanguard"
+
+
 func attack_creature(player_token: String) -> bool:
 	return _damage_creature(player_token, 1, PLAYER_ATTACK_RECOVERY_SECONDS)
 
@@ -441,7 +471,7 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 		and not ruin_guardian_defeated
 		and positions[player_token].distance_to(ruin_guardian_position) <= 2.0
 	):
-		player_attack_recovery[player_token] = recovery_seconds
+		player_attack_recovery[player_token] = _recovery_for_outing_kit(player_token, recovery_seconds)
 		ruin_guardian_health -= damage
 		_add_mastery(player_token, "combat")
 		if ruin_guardian_health <= 0:
@@ -455,7 +485,7 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 		return false
 	if positions[player_token].distance_to(creature_position) > 2.0:
 		return false
-	player_attack_recovery[player_token] = recovery_seconds
+	player_attack_recovery[player_token] = _recovery_for_outing_kit(player_token, recovery_seconds)
 	creature_health -= damage
 	_add_mastery(player_token, "combat")
 	if creature_health <= 0:
@@ -474,9 +504,22 @@ func try_brace(player_token: String) -> bool:
 		return false
 	if float(player_brace_cooldown.get(player_token, 0.0)) > 0.0:
 		return false
-	player_brace_time[player_token] = PLAYER_BRACE_WINDOW_SECONDS
-	player_brace_cooldown[player_token] = PLAYER_BRACE_COOLDOWN_SECONDS
+	var uses_guardian_kit: bool = str(player_outing_kits[player_token]) == OUTING_KIT_GUARDIAN
+	player_brace_time[player_token] = (
+		GUARDIAN_BRACE_WINDOW_SECONDS if uses_guardian_kit else PLAYER_BRACE_WINDOW_SECONDS
+	)
+	player_brace_cooldown[player_token] = (
+		GUARDIAN_BRACE_COOLDOWN_SECONDS if uses_guardian_kit else PLAYER_BRACE_COOLDOWN_SECONDS
+	)
 	return true
+
+
+func _recovery_for_outing_kit(player_token: String, base_recovery: float) -> float:
+	return base_recovery + (
+		GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS
+		if player_outing_kits[player_token] == OUTING_KIT_GUARDIAN
+		else 0.0
+	)
 
 
 func reset_player_combat_timers(player_token: String) -> void:
@@ -1237,7 +1280,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 13,
+		"version": 14,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1272,6 +1315,7 @@ func to_dictionary() -> Dictionary:
 		"player_mastery": player_mastery.duplicate(true),
 		"player_relationships": player_relationships.duplicate(true),
 		"player_npc_check_in_day": player_npc_check_in_day.duplicate(true),
+		"player_outing_kits": player_outing_kits.duplicate(),
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
 		"player_provisions": player_provisions.duplicate(),
@@ -1461,6 +1505,10 @@ func load_dictionary(data: Dictionary) -> void:
 		daily_food_deliveries = 0
 	player_relationships = data.get("player_relationships", {}).duplicate(true)
 	player_npc_check_in_day = data.get("player_npc_check_in_day", {}).duplicate(true)
+	if save_version >= 14:
+		player_outing_kits = data.get("player_outing_kits", {}).duplicate()
+	else:
+		player_outing_kits = {}
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"

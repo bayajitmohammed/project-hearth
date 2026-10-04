@@ -18,8 +18,21 @@ func _init() -> void:
 	assert(main.hearthbloom_project != null)
 	assert(main.hearthbloom_marker != null)
 	assert(main.hearthbloom_blooms != null)
+	assert(main.outing_kit_rack != null)
+	assert(main.outing_kit_marker != null)
 
 	var snapshot := _snapshot()
+	snapshot["positions"] = {"artisan": WorldStateModel.GEAR_RACK_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.outing_kit_rack.visible)
+	assert(main.outing_kit_marker.visible)
+	assert("Equip Guardian kit" in main.interaction_prompt.text)
+	assert("Kit: Vanguard" in main.combat_label.text)
+	snapshot["player_outing_kits"]["artisan"] = WorldStateModel.OUTING_KIT_GUARDIAN
+	main.receive_snapshot(snapshot)
+	assert("Equip Vanguard kit" in main.interaction_prompt.text)
+	assert("Kit: Guardian" in main.combat_label.text)
+
 	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_1"]}
 	main.receive_snapshot(snapshot)
 	assert(main.quest_title_label.text == "CHOOSE A LIFE")
@@ -179,6 +192,7 @@ func _snapshot() -> Dictionary:
 		"pantry_stock": 0,
 		"player_provisions": {"artisan": 0},
 		"player_coins": {"artisan": 0},
+		"player_outing_kits": {"artisan": WorldStateModel.OUTING_KIT_VANGUARD},
 		"hearthbloom_contributions": 0,
 		"hearthbloom_complete": false,
 	}

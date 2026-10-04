@@ -10,6 +10,7 @@ func _init() -> void:
 	assert(state.player_relationships["player-a"] == {"mara": 0})
 	assert(state.player_npc_check_in_day["player-a"] == {"mara": 0})
 	assert(state.player_coins["player-a"] == 0)
+	assert(state.player_outing_kits["player-a"] == WorldStateModel.OUTING_KIT_VANGUARD)
 
 	state.move_player("player-a", Vector2(0.0, -1.0), 1.5)
 	assert(state.register_player("player-a").z < first_spawn.z)
@@ -547,6 +548,7 @@ func _init() -> void:
 	assert(migrated_daily_order.player_coins["returning-player"] == 0)
 	assert(migrated_daily_order.hearthbloom_contributions == 0)
 	assert(not migrated_daily_order.hearthbloom_complete)
+	assert(migrated_daily_order.player_outing_kits["returning-player"] == WorldStateModel.OUTING_KIT_VANGUARD)
 
 	var building_state := WorldStateModel.new()
 	building_state.quest_stage = "repair_cottage"
@@ -600,6 +602,44 @@ func _init() -> void:
 	assert(power_state.attack_creature("striker"))
 	assert(power_state.creature_defeated)
 	assert(power_state.player_mastery["striker"]["combat"] == 2)
+	var loadout_state := WorldStateModel.new()
+	loadout_state.quest_stage = "home_repaired"
+	for loadout_token: String in ["guardian", "vanguard"]:
+		loadout_state.register_player(loadout_token)
+	assert(not loadout_state.try_switch_outing_kit("guardian"), "Outing kits may only change at the home rack.")
+	loadout_state.positions["guardian"] = WorldStateModel.GEAR_RACK_POSITION
+	assert(loadout_state.try_switch_outing_kit("guardian"))
+	assert(loadout_state.player_outing_kits["guardian"] == WorldStateModel.OUTING_KIT_GUARDIAN)
+	assert(loadout_state.outing_kit_label("guardian") == "Guardian")
+	assert(loadout_state.outing_kit_label("vanguard") == "Vanguard")
+	var restored_loadout := WorldStateModel.new()
+	restored_loadout.load_dictionary(loadout_state.to_dictionary())
+	assert(restored_loadout.player_outing_kits["guardian"] == WorldStateModel.OUTING_KIT_GUARDIAN)
+	for loadout_token: String in ["guardian", "vanguard"]:
+		restored_loadout.positions[loadout_token] = WorldStateModel.CREATURE_SPAWN + Vector3(1.0, 0.0, 0.0)
+	assert(restored_loadout.attack_creature("guardian"))
+	assert(is_equal_approx(
+		restored_loadout.player_attack_recovery["guardian"],
+		WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS + WorldStateModel.GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS
+	))
+	assert(restored_loadout.attack_creature("vanguard"))
+	assert(restored_loadout.player_attack_recovery["vanguard"] == WorldStateModel.PLAYER_ATTACK_RECOVERY_SECONDS)
+	restored_loadout.reset_player_combat_timers("guardian")
+	assert(restored_loadout.power_strike_creature("guardian"))
+	assert(is_equal_approx(
+		restored_loadout.player_attack_recovery["guardian"],
+		WorldStateModel.PLAYER_POWER_STRIKE_RECOVERY_SECONDS + WorldStateModel.GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS
+	))
+	restored_loadout.reset_player_combat_timers("guardian")
+	assert(restored_loadout.try_brace("guardian"))
+	assert(restored_loadout.player_brace_time["guardian"] == WorldStateModel.GUARDIAN_BRACE_WINDOW_SECONDS)
+	assert(restored_loadout.player_brace_cooldown["guardian"] == WorldStateModel.GUARDIAN_BRACE_COOLDOWN_SECONDS)
+	restored_loadout.positions["guardian"] = WorldStateModel.GEAR_RACK_POSITION
+	restored_loadout.downed_players["guardian"] = true
+	assert(not restored_loadout.try_switch_outing_kit("guardian"), "A downed player cannot change loadout.")
+	restored_loadout.downed_players["guardian"] = false
+	assert(restored_loadout.try_switch_outing_kit("guardian"))
+	assert(restored_loadout.player_outing_kits["guardian"] == WorldStateModel.OUTING_KIT_VANGUARD)
 	var daily_combat := WorldStateModel.new()
 	daily_combat.creature_defeated = true
 	daily_combat.creature_health = 0
