@@ -70,6 +70,9 @@ static func build(root: Node3D) -> Dictionary:
 		"garden_plants": livelihood["garden_plants"],
 		"garden_markers": livelihood["garden_markers"],
 		"cookfire_marker": livelihood["cookfire_marker"],
+		"fishing_spot": livelihood["fishing_spot"],
+		"fishing_marker": livelihood["fishing_marker"],
+		"fishing_bobber": livelihood["fishing_bobber"],
 		"market_marker": livelihood["market_marker"],
 		"produce_stall": livelihood["produce_stall"],
 		"supply_marker": livelihood["supply_marker"],
@@ -492,6 +495,38 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 		var marker := _add_station_marker(root, "HarvestMarker_%s" % plot_id, plot_position, marker_text, Color("b997ef"))
 		garden_markers[plot_id] = marker
 
+	var fishing_spot := Node3D.new()
+	fishing_spot.name = "WillowmerePond"
+	fishing_spot.position = WorldStateModel.FISHING_POND_CENTER
+	root.add_child(fishing_spot)
+	_add_cylinder(fishing_spot, "PondBank", 2.8, 0.14, Vector3(0.0, -0.52, 0.0), Color("63734f"), 28)
+	var water := _add_cylinder(fishing_spot, "PondWater", 2.35, 0.08, Vector3(0.0, -0.42, 0.0), Color("4b9cac"), 28)
+	var water_material := water.material_override as StandardMaterial3D
+	water_material.emission_enabled = true
+	water_material.emission = Color("214f62")
+	water_material.emission_energy_multiplier = 0.7
+	for stone_index: int in 7:
+		var angle := TAU * float(stone_index) / 7.0
+		_add_box(
+			fishing_spot,
+			"ShoreStone%d" % stone_index,
+			Vector3(0.7, 0.35, 0.55),
+			Vector3(cos(angle) * 2.55, -0.3, sin(angle) * 2.0),
+			Color("718078"),
+			Vector3(0.0, rad_to_deg(-angle), 0.0)
+		)
+	var fishing_marker := _add_station_marker(
+		fishing_spot,
+		"FishingMarker",
+		Vector3(0.0, 0.0, 2.25),
+		"WILLOWMERE POND · CAST",
+		Color("83d8e8")
+	)
+	var fishing_bobber := _add_cylinder(
+		fishing_spot, "FishingBobber", 0.12, 0.35, Vector3(0.0, -0.1, 0.0), Color("ffd26a"), 12
+	)
+	fishing_bobber.visible = false
+
 	var cookfire := Node3D.new()
 	cookfire.name = "CottageCookfire"
 	cookfire.position = WorldStateModel.COOKFIRE_POSITION
@@ -587,6 +622,9 @@ static func _add_livelihood_stations(root: Node3D) -> Dictionary:
 		"garden_plants": garden_plants,
 		"garden_markers": garden_markers,
 		"cookfire_marker": cookfire_marker,
+		"fishing_spot": fishing_spot,
+		"fishing_marker": fishing_marker,
+		"fishing_bobber": fishing_bobber,
 		"market_marker": market_marker,
 		"produce_stall": produce_stall,
 		"supply_marker": supply_basket,

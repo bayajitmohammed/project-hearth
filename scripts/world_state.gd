@@ -31,6 +31,10 @@ const GARDEN_PLOT_POSITIONS := {
 	"moonroot_4": Vector3(-5.0, 0.35, 9.0),
 }
 const COOKFIRE_POSITION := Vector3(-6.5, 0.6, 5.0)
+const FISHING_POND_CENTER := Vector3(-13.8, 0.0, -5.5)
+const FISHING_SPOT_POSITION := Vector3(-13.8, 0.6, -3.0)
+const FISHING_WAIT_SECONDS := 1.5
+const FISHING_BITE_SECONDS := 1.0
 const MARKET_CRATE_POSITION := Vector3(5.5, 0.6, 3.5)
 const SUPPLY_BASKET_POSITION := Vector3(11.0, 0.6, 3.5)
 const TRAIL_PROVISION_PRICE := 2
@@ -170,6 +174,9 @@ var pantry_stock := 0
 var last_world_empty_unix := 0
 var last_catch_up_units := 0
 var player_provisions: Dictionary = {}
+var player_riverfish: Dictionary = {}
+var player_fishing_phase: Dictionary = {}
+var player_fishing_time: Dictionary = {}
 var player_coins: Dictionary = {}
 var recovery_packs: Dictionary = {}
 var hearthbloom_contributions := 0
@@ -204,13 +211,14 @@ func register_player(player_token: String) -> Vector3:
 			"farming": 0,
 			"cooking": 0,
 			"trade": 0,
+			"fishing": 0,
 			"building": 0,
 			"combat": 0,
 			"exploration": 0,
 		}
 	else:
 		var mastery: Dictionary = player_mastery[player_token]
-		for track: String in ["farming", "cooking", "trade", "building", "combat", "exploration"]:
+		for track: String in ["farming", "cooking", "trade", "fishing", "building", "combat", "exploration"]:
 			if not mastery.has(track):
 				mastery[track] = 0
 		player_mastery[player_token] = mastery
@@ -232,6 +240,12 @@ func register_player(player_token: String) -> Vector3:
 		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
+	if not player_riverfish.has(player_token):
+		player_riverfish[player_token] = 0
+	if not player_fishing_phase.has(player_token):
+		player_fishing_phase[player_token] = "idle"
+	if not player_fishing_time.has(player_token):
+		player_fishing_time[player_token] = 0.0
 	if not player_coins.has(player_token):
 		player_coins[player_token] = 0
 	if not festival_ribbons.has(player_token):
@@ -391,6 +405,8 @@ func interact(player_token: String) -> bool:
 		or try_use_waystone(player_token)
 		or try_harvest_garden(player_token)
 		or try_cook_hearth_stew(player_token)
+		or try_cook_riverfish(player_token)
+		or try_fishing_interaction(player_token)
 		or try_deliver_fresh_moonroot(player_token)
 		or try_deliver_hearth_stew(player_token)
 		or try_take_pantry_provision(player_token)
@@ -402,6 +418,67 @@ func interact(player_token: String) -> bool:
 		or try_repair_cottage(player_token)
 		or try_light_welcome_lantern(player_token)
 	)
+
+
+func try_fishing_interaction(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(FISHING_SPOT_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	match str(player_fishing_phase.get(player_token, "idle")):
+		"idle":
+			player_fishing_phase[player_token] = "waiting"
+			player_fishing_time[player_token] = FISHING_WAIT_SECONDS
+		"waiting":
+			# Reeling before the bite safely ends only this player's cast.
+			reset_player_fishing(player_token)
+		"bite":
+			player_riverfish[player_token] = int(player_riverfish.get(player_token, 0)) + 1
+			_add_mastery(player_token, "fishing")
+			reset_player_fishing(player_token)
+		_:
+			reset_player_fishing(player_token)
+	return true
+
+
+func simulate_fishing(delta: float, active_tokens: Array) -> void:
+	for player_token: String in active_tokens:
+		register_player(player_token)
+		var phase := str(player_fishing_phase.get(player_token, "idle"))
+		if phase == "idle":
+			continue
+		var remaining := maxf(float(player_fishing_time.get(player_token, 0.0)) - delta, 0.0)
+		player_fishing_time[player_token] = remaining
+		if remaining > 0.0:
+			continue
+		if phase == "waiting":
+			player_fishing_phase[player_token] = "bite"
+			player_fishing_time[player_token] = FISHING_BITE_SECONDS
+		else:
+			# A missed bite is transient and never awards or removes inventory.
+			reset_player_fishing(player_token)
+
+
+func reset_player_fishing(player_token: String) -> void:
+	player_fishing_phase[player_token] = "idle"
+	player_fishing_time[player_token] = 0.0
+
+
+func try_cook_riverfish(player_token: String) -> bool:
+	if quest_stage != "home_repaired":
+		return false
+	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(player_riverfish.get(player_token, 0)) <= 0:
+		return false
+	player_riverfish[player_token] = int(player_riverfish[player_token]) - 1
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	_add_mastery(player_token, "cooking")
+	return true
 
 
 func try_aid_injured_friend(helper_token: String) -> bool:
@@ -1335,7 +1412,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 14,
+		"version": 15,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1374,6 +1451,7 @@ func to_dictionary() -> Dictionary:
 		"pantry_stock": pantry_stock,
 		"last_world_empty_unix": last_world_empty_unix,
 		"player_provisions": player_provisions.duplicate(),
+		"player_riverfish": player_riverfish.duplicate(),
 		"player_coins": player_coins.duplicate(),
 		"recovery_packs": encoded_recovery_packs,
 		"hearthbloom_contributions": hearthbloom_contributions,
@@ -1564,6 +1642,13 @@ func load_dictionary(data: Dictionary) -> void:
 		player_outing_kits = data.get("player_outing_kits", {}).duplicate()
 	else:
 		player_outing_kits = {}
+	if save_version >= 15:
+		player_riverfish = data.get("player_riverfish", {}).duplicate()
+	else:
+		player_riverfish = {}
+	# Cast timing is intentionally session-only and never resumes after a restart.
+	player_fishing_phase = {}
+	player_fishing_time = {}
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"

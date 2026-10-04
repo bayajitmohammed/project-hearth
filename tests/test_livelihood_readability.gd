@@ -12,6 +12,9 @@ func _init() -> void:
 
 	assert(main.garden_plants.size() == WorldStateModel.GARDEN_PLOT_POSITIONS.size())
 	assert(main.cookfire_marker != null)
+	assert(main.fishing_spot != null)
+	assert(main.fishing_marker != null)
+	assert(main.fishing_bobber != null)
 	assert(main.market_marker != null)
 	assert(main.produce_stall != null)
 	assert(main.supply_marker != null)
@@ -22,6 +25,30 @@ func _init() -> void:
 	assert(main.outing_kit_marker != null)
 
 	var snapshot := _snapshot()
+	snapshot["positions"] = {"artisan": WorldStateModel.FISHING_SPOT_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.fishing_spot.visible)
+	assert(main.fishing_marker.visible)
+	assert(not main.fishing_bobber.visible)
+	assert("Cast at Willowmere Pond" in main.interaction_prompt.text)
+	snapshot["player_fishing_phase"]["artisan"] = "waiting"
+	main.receive_snapshot(snapshot)
+	assert(main.fishing_bobber.visible)
+	assert("WAIT FOR A BITE" in main.fishing_marker.get_node("Label").text)
+	assert("Reel early" in main.interaction_prompt.text)
+	snapshot["player_fishing_phase"]["artisan"] = "bite"
+	main.receive_snapshot(snapshot)
+	assert("BITE! REEL NOW" in main.fishing_marker.get_node("Label").text)
+	assert("BITE — reel now!" in main.interaction_prompt.text)
+	snapshot["player_fishing_phase"]["artisan"] = "idle"
+	snapshot["player_riverfish"]["artisan"] = 1
+	snapshot["player_mastery"]["artisan"]["fishing"] = 1
+	snapshot["positions"] = {"artisan": WorldStateModel.COOKFIRE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("Cook riverfish" in main.interaction_prompt.text)
+	assert("Riverfish: 1" in main.inventory_label.text)
+	assert("Angler I" in main.mastery_label.text)
+
 	snapshot["positions"] = {"artisan": WorldStateModel.GEAR_RACK_POSITION}
 	main.receive_snapshot(snapshot)
 	assert(main.outing_kit_rack.visible)
@@ -188,9 +215,12 @@ func _snapshot() -> Dictionary:
 		"daily_food_order_day": 0,
 		"daily_food_order_kind": "",
 		"daily_food_deliveries": 0,
-		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0, "building": 0, "combat": 0, "exploration": 0}},
+		"player_mastery": {"artisan": {"farming": 0, "cooking": 0, "trade": 0, "fishing": 0, "building": 0, "combat": 0, "exploration": 0}},
 		"pantry_stock": 0,
 		"player_provisions": {"artisan": 0},
+		"player_riverfish": {"artisan": 0},
+		"player_fishing_phase": {"artisan": "idle"},
+		"player_fishing_time": {"artisan": 0.0},
 		"player_coins": {"artisan": 0},
 		"player_outing_kits": {"artisan": WorldStateModel.OUTING_KIT_VANGUARD},
 		"hearthbloom_contributions": 0,

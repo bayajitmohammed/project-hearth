@@ -35,6 +35,8 @@ Mastery mainly unlocks new actions, recipes, tools, conveniences, and cosmetic s
 
 Each track has a reachable functional cap; long-term rewards become titles, appearance, collections, and reputation. Group activities scale to the group, while experienced players contribute through more options and knowledge—not overwhelming statistics.
 
+The first Fishing identity comes from successfully reeling a riverfish during Willowmere Pond's bite window. Each catch grants one personal Fishing mastery point, and the first point displays **Angler I**. Casting, reeling early, or missing the bite grants nothing. Fishing mastery does not change bite timing, catch yield, access to the pond, or the usefulness of a newcomer; it initially records practiced identity only.
+
 ## First outing-kit choice
 
 The repaired cottage unlocks a gear rack where every player may freely swap their personal active outing kit. **Vanguard** is the default balanced kit and preserves the existing attack and brace timings. **Guardian** extends the brace window from 0.7 to 1.0 seconds and shortens its cooldown from 1.6 to 1.25 seconds, but adds 0.2 seconds of recovery to every successful basic or power attack. Damage, health, movement, range, mastery gain, and available actions remain unchanged.

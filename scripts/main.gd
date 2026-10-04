@@ -107,6 +107,9 @@ var waystone_glows: Dictionary = {}
 var garden_plants: Dictionary = {}
 var garden_markers: Dictionary = {}
 var cookfire_marker: Node3D
+var fishing_spot: Node3D
+var fishing_marker: Node3D
+var fishing_bobber: MeshInstance3D
 var market_marker: Node3D
 var produce_stall: Node3D
 var supply_marker: Node3D
@@ -314,6 +317,7 @@ func _simulate_server(delta: float) -> void:
 			_save_world()
 	if world_state.simulate_creature(delta, peer_to_token.values()):
 		_save_world()
+	world_state.simulate_fishing(delta, peer_to_token.values())
 
 	snapshot_accumulator += delta
 	if snapshot_accumulator >= 0.05:
@@ -560,6 +564,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		int(snapshot.get("max_players", MAX_PLAYERS)),
 		int(snapshot.get("pantry_stock", 0)),
 		int(snapshot.get("player_provisions", {}).get(local_token, 0)),
+		int(snapshot.get("player_riverfish", {}).get(local_token, 0)),
 		int(snapshot.get("player_coins", {}).get(local_token, 0)),
 		int(snapshot.get("last_catch_up_units", 0)),
 		str(snapshot.get("festival_stage", "locked")),
@@ -606,16 +611,35 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		garden_markers[plot_id].visible = food_order_active and not harvested
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
+	var local_riverfish := int(snapshot.get("player_riverfish", {}).get(local_token, 0))
 	var stews_delivered := int(snapshot.get("stews_delivered", 0))
 	var active_stew_deliveries := (
 		int(snapshot.get("daily_food_deliveries", 0)) if daily_food_order_active else stews_delivered
 	)
-	cookfire_marker.visible = (
+	var can_cook_required_stew := (
 		food_order_active
 		and (livelihood_stage == "food_need" or daily_food_order_kind == WorldStateModel.DAILY_ORDER_HEARTH_STEW)
 		and moonroot_count >= 2
 		and stew_count + active_stew_deliveries < WorldStateModel.REQUIRED_STEW_DELIVERIES
 	)
+	cookfire_marker.visible = can_cook_required_stew or local_riverfish > 0
+	var cookfire_label := cookfire_marker.get_node_or_null("Label") as Label3D
+	if cookfire_label != null:
+		cookfire_label.text = "COOK HEARTH STEW" if can_cook_required_stew else "COOK RIVERFISH"
+	var fishing_phase := str(snapshot.get("player_fishing_phase", {}).get(local_token, "idle"))
+	fishing_spot.visible = quest_stage == "home_repaired"
+	fishing_marker.visible = quest_stage == "home_repaired"
+	fishing_bobber.visible = quest_stage == "home_repaired" and fishing_phase != "idle"
+	fishing_bobber.scale = Vector3.ONE * (1.7 if fishing_phase == "bite" else 1.0)
+	var fishing_label := fishing_marker.get_node_or_null("Label") as Label3D
+	if fishing_label != null:
+		match fishing_phase:
+			"waiting":
+				fishing_label.text = "WILLOWMERE POND · WAIT FOR A BITE"
+			"bite":
+				fishing_label.text = "WILLOWMERE POND · BITE! REEL NOW"
+			_:
+				fishing_label.text = "WILLOWMERE POND · CAST"
 	market_marker.visible = (
 		(livelihood_stage == "food_need" and stew_count > 0)
 		or (
@@ -866,7 +890,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if not is_server:
 		return
 	if peer_to_token.has(peer_id):
-		world_state.remove_festival_participant(peer_to_token[peer_id])
+		var departing_token: String = peer_to_token[peer_id]
+		world_state.remove_festival_participant(departing_token)
+		world_state.reset_player_fishing(departing_token)
 	peer_inputs.erase(peer_id)
 	peer_to_token.erase(peer_id)
 	if peer_to_token.is_empty():
@@ -877,6 +903,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 func _exit_tree() -> void:
 	if is_server and local_authority_player:
 		world_state.remove_festival_participant(local_token)
+		world_state.reset_player_fishing(local_token)
 		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
 		_save_world()
 
@@ -947,6 +974,9 @@ func _snapshot_for_clients() -> Dictionary:
 		"pantry_stock": world_state.pantry_stock,
 		"last_catch_up_units": world_state.last_catch_up_units,
 		"player_provisions": world_state.player_provisions.duplicate(),
+		"player_riverfish": world_state.player_riverfish.duplicate(),
+		"player_fishing_phase": world_state.player_fishing_phase.duplicate(),
+		"player_fishing_time": world_state.player_fishing_time.duplicate(),
 		"player_coins": world_state.player_coins.duplicate(),
 		"recovery_packs": world_state.recovery_packs.duplicate(true),
 		"hearthbloom_contributions": world_state.hearthbloom_contributions,
@@ -1105,6 +1135,9 @@ func _build_world() -> void:
 	garden_plants = world_nodes["garden_plants"]
 	garden_markers = world_nodes["garden_markers"]
 	cookfire_marker = world_nodes["cookfire_marker"]
+	fishing_spot = world_nodes["fishing_spot"]
+	fishing_marker = world_nodes["fishing_marker"]
+	fishing_bobber = world_nodes["fishing_bobber"]
 	market_marker = world_nodes["market_marker"]
 	produce_stall = world_nodes["produce_stall"]
 	supply_marker = world_nodes["supply_marker"]
@@ -1531,7 +1564,16 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		_append_mobile_target(candidates, ruin_waystone, "Travel", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for garden_node: Node3D in garden_plants.values():
 		_append_mobile_target(candidates, garden_node, "Harvest", "interact", WorldStateModel.INTERACTION_RADIUS)
-	_append_mobile_target(candidates, cookfire_marker, "Cook", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var fishing_phase := str(latest_snapshot.get("player_fishing_phase", {}).get(local_token, "idle"))
+	var fishing_action := "Cast"
+	if fishing_phase == "waiting":
+		fishing_action = "Reel early"
+	elif fishing_phase == "bite":
+		fishing_action = "Reel now!"
+	_append_mobile_target(candidates, fishing_marker, fishing_action, "interact", WorldStateModel.INTERACTION_RADIUS)
+	var cookfire_label := cookfire_marker.get_node_or_null("Label") as Label3D
+	var cook_action := "Cook fish" if cookfire_label != null and "RIVERFISH" in cookfire_label.text else "Cook stew"
+	_append_mobile_target(candidates, cookfire_marker, cook_action, "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, market_marker, "Deliver", "interact", WorldStateModel.INTERACTION_RADIUS)
 	if int(latest_snapshot.get("pantry_stock", 0)) > 0:
 		_append_mobile_target(candidates, produce_stall, "Take", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -1839,6 +1881,7 @@ func _update_quest_interface(
 	max_players: int,
 	pantry_stock: int,
 	carried_provisions: int,
+	riverfish: int,
 	coins: int,
 	catch_up_units: int,
 	festival_stage: String,
@@ -1852,8 +1895,8 @@ func _update_quest_interface(
 	var kit_count := int(materials.get("repair_kit", 0))
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
-	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d" % [
-		wood_count, herb_count, kit_count, moonroot_count, stew_count
+	inventory_label.text = "Project bag — Wood: %d  Herb: %d  Repair kit: %d  Moonroot: %d  Stew: %d\nPersonal — Riverfish: %d  Trail provisions: %d" % [
+		wood_count, herb_count, kit_count, moonroot_count, stew_count, riverfish, carried_provisions
 	]
 	craft_button.visible = quest_stage == "repair_cottage" and kit_count == 0
 	craft_button.disabled = wood_count < 2 or herb_count < 1
@@ -2222,6 +2265,27 @@ func _update_interaction_prompt(
 			interaction_prompt.visible = true
 			return
 	if (
+		int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+		and player_position.distance_to(WorldStateModel.COOKFIRE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Cook riverfish into a trail provision" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
+		quest_stage == "home_repaired"
+		and player_position.distance_to(WorldStateModel.FISHING_SPOT_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		var fishing_phase := str(latest_snapshot.get("player_fishing_phase", {}).get(local_token, "idle"))
+		match fishing_phase:
+			"waiting":
+				interaction_prompt.text = "%s  ·  Reel early (no catch)" % action_name
+			"bite":
+				interaction_prompt.text = "%s  ·  BITE — reel now!" % action_name
+			_:
+				interaction_prompt.text = "%s  ·  Cast at Willowmere Pond" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
 		livelihood_stage == "complete"
 		and int(latest_snapshot.get("pantry_stock", 0)) > 0
 		and player_position.distance_to(WorldStateModel.MARKET_CRATE_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
@@ -2320,6 +2384,7 @@ func _mastery_text(mastery: Dictionary) -> String:
 	var farming := int(mastery.get("farming", 0))
 	var cooking := int(mastery.get("cooking", 0))
 	var trade := int(mastery.get("trade", 0))
+	var fishing := int(mastery.get("fishing", 0))
 	var building := int(mastery.get("building", 0))
 	var combat := int(mastery.get("combat", 0))
 	var exploration := int(mastery.get("exploration", 0))
@@ -2341,10 +2406,12 @@ func _mastery_text(mastery: Dictionary) -> String:
 	var building_title := " (Builder I)" if building > 0 else ""
 	var combat_title := " (Warden I)" if combat > 0 else ""
 	var exploration_title := " (Pathfinder I)" if exploration > 0 else ""
-	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s\nBuilding: %d%s  Combat: %d%s  Exploration: %d%s" % [
+	var fishing_title := " (Angler I)" if fishing > 0 else ""
+	return "Mastery — Farming: %d%s  Cooking: %d%s  Trade: %d%s  Fishing: %d%s\nBuilding: %d%s  Combat: %d%s  Exploration: %d%s" % [
 		farming, farming_title,
 		cooking, cooking_title,
 		trade, trade_title,
+		fishing, fishing_title,
 		building, building_title,
 		combat, combat_title,
 		exploration, exploration_title,

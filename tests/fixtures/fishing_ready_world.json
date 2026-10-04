@@ -1,0 +1,16 @@
+{
+  "version": 15,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "player_health": {"fishing-a": 3, "fishing-b": 3},
+  "downed_players": {"fishing-a": false, "fishing-b": false},
+  "player_riverfish": {"fishing-a": 0, "fishing-b": 0},
+  "player_mastery": {
+    "fishing-a": {"fishing": 0},
+    "fishing-b": {"fishing": 0}
+  },
+  "positions": {
+    "fishing-a": [-13.8, 0.6, -3.0],
+    "fishing-b": [-13.8, 0.6, -3.0]
+  }
+}

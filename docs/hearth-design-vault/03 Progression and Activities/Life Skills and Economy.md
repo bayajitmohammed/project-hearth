@@ -12,6 +12,12 @@ Gathering, farming, fishing, and exploration provide materials. Cooking and craf
 
 Each step should make a visible difference; the game avoids long processing chains and inventory micromanagement.
 
+## First fishing loop
+
+Repairing the cottage makes its simple shared fishing gear available at **Willowmere Pond**. Each standing player may cast independently. The authoritative world provides a short wait followed by a clearly named one-second bite window; reeling early ends that cast without a catch, while missing the window lets the fish go and returns the player to ready. Cast timing is transient, never advances while the room is empty, and one player's cast cannot consume or reset another's.
+
+Reeling during the bite grants one persistent personal **riverfish** and one Fishing mastery point. At the existing cottage cookfire, one personal riverfish becomes one personal trail provision and grants one Cooking mastery point. Cooking a required shared stew has priority whenever that action is currently valid, so fishing cannot accidentally divert project ingredients or inputs. Riverfish cannot be sold in this first loop and grants no coin, passive income, shared-project credit, or exclusive power. This is the first renewable chill activity that converts personal practice into useful outing preparation in offline, LAN-hosted, and dedicated worlds alike.
+
 ## Renewable neighborhood food orders
 
 Opening the produce stall remains a one-time shared milestone. Beginning with the next in-game day, the authoritative world posts one repeatable neighborhood market request and regrows the four shared moonroot plots. The shared forecast provides the first readable market condition: clear days request three fresh moonroot, gentle-rain days request two warming hearth stews, and overcast days alternate between the two by day parity. Fresh-produce days emphasize farming and trade; stew days use the full garden → cookfire → market loop and create a reason to cook.

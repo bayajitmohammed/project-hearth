@@ -65,6 +65,8 @@ On desktop, the mouse is captured after connecting and ordinary mouse movement l
 
 After repairing the cottage, use **E** at the outdoor gear rack to freely switch your personal outing kit. **Vanguard** keeps the balanced combat timings. **Guardian** gives a longer brace window and shorter brace cooldown but adds recovery to both successful attack types. A standing Guardian who braces within two metres of both a companion and attacking creature will spend that brace to intercept one hit; the threatened player's own brace resolves first. Kits never change damage, health, range, or available actions, persist with the player, and can always be switched back at home.
 
+The repaired cottage also opens **Willowmere Pond**. Use **E** at its blue marker to cast, wait for the explicit **BITE** cue, then use **E** again during the one-second window to catch one personal riverfish. Reeling early or missing the cue safely resets only your cast. Cook a riverfish at the cottage fire for one personal trail provision and Cooking mastery; a currently required hearth stew always takes interaction priority. Fishing mastery displays the identity title **Angler I** but does not change timing or yield.
+
 During normal play the compact quest card shows only the current objective and progress. Press **F3** to show or hide the technical debug panel. Cottage repairs use bright blue labeled markers in front of the building and display a nearby interaction prompt.
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
@@ -244,6 +246,20 @@ cp tests/fixtures/guardian_intercept_ready_world.json /tmp/project-hearth-guardi
 
 The probes verify that one synchronized Guardian brace protects the nearby Vanguard, is consumed exactly once, and leaves the targeted player at full health.
 
+For the independent fishing-timing regression, copy `tests/fixtures/fishing_ready_world.json`, start an isolated server on port `9403` with room `FISHING`, and run both fishing probes simultaneously:
+
+```sh
+cp tests/fixtures/fishing_ready_world.json /tmp/project-hearth-fishing-network.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9403 --room=FISHING --save-file=/tmp/project-hearth-fishing-network.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/fishing_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9403 --room=FISHING --player-token=fishing-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/fishing_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9403 --room=FISHING --player-token=fishing-b
+```
+
+The probes verify simultaneous personal cast phases, an early reel that cannot disturb a companion, one server-awarded catch, and independent Fishing mastery.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -303,6 +319,7 @@ The probes verify that one synchronized Guardian brace protects the nearby Vangu
 - Tier-II mastery adds convenience rather than exclusive power: experienced farmers can tend one adjacent plot, cooks can batch prepared stew work, and traders can bulk-deliver matching goods. New players retain every base action, and mastery credit remains per unit.
 - Completion opens a visible produce stall, improves morale and reputation, and adds a fourth chronicle entry.
 - Beginning with the next in-game day, all four moonroot plots regrow. Clear days request three fresh moonroot, gentle-rain days request two hearth stews, and overcast days alternate by day parity. The HUD explains the choice. Completing any request awards normal personal mastery and adds one bounded pantry provision without repeating milestone reputation, morale, or chronicle rewards.
+- Willowmere Pond adds independent server-authoritative cast, wait, bite, early-reel, and missed-bite states. Successful catches persist as personal riverfish and Fishing mastery; the cookfire converts one fish into one personal trail provision while preserving required-stew priority. Version-15 saves persist catches but deliberately exclude in-progress casts.
 - Version-6 persistence migrates version-5 worlds into the food need when their waystone route is already active.
 - State, migration, presentation, legacy regression, the original two-client probe, and a networked end-to-end livelihood probe pass.
 - Focused Mac inspection of the active need and completed stall passes after correcting garden-label overlap, chronicle height, and the home-waystone placement.
