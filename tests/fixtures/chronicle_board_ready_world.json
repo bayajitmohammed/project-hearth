@@ -1,0 +1,16 @@
+{
+  "version": 21,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "chronicle": [
+    "The newcomers repaired the abandoned cottage and made it their home.",
+    "Together, the neighborhood lit welcome lanterns to celebrate its new residents."
+  ],
+  "player_chronicle_read_count": {"chronicle-a": 0, "chronicle-b": 0},
+  "player_health": {"chronicle-a": 3, "chronicle-b": 3},
+  "downed_players": {"chronicle-a": false, "chronicle-b": false},
+  "positions": {
+    "chronicle-a": [-13.0, 0.6, 3.5],
+    "chronicle-b": [-13.0, 0.6, 3.5]
+  }
+}

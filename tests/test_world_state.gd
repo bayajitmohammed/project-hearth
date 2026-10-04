@@ -51,6 +51,7 @@ func _init() -> void:
 	assert(state.map_rumor_unlocked)
 	assert(state.neighborhood_event_stage == "invitation")
 	assert(state.chronicle == ["The newcomers repaired the abandoned cottage and made it their home."])
+	assert(state.unread_chronicle_count("player-a") == 1)
 
 	var trailcraft_state := WorldStateModel.new()
 	trailcraft_state.load_dictionary(state.to_dictionary())
@@ -102,6 +103,14 @@ func _init() -> void:
 	var migrated_homestead_build := WorldStateModel.new()
 	migrated_homestead_build.load_dictionary({"version": 19, "built_homestead_lanterns": {"east_garden": true}})
 	assert(migrated_homestead_build.built_homestead_lanterns.values().all(func(value: bool) -> bool: return not value), "Older worlds start with all new building sockets empty.")
+	var migrated_chronicle_reader := WorldStateModel.new()
+	migrated_chronicle_reader.load_dictionary({
+		"version": 20,
+		"quest_stage": "home_repaired",
+		"chronicle": ["An existing shared memory."],
+	})
+	migrated_chronicle_reader.register_player("returning-reader")
+	assert(migrated_chronicle_reader.unread_chronicle_count("returning-reader") == 1, "Existing history remains available after migration.")
 
 	state.positions["player-a"] = state.mara_position
 	assert(state.interact_with_mara("player-a"))
@@ -126,6 +135,15 @@ func _init() -> void:
 		"The newcomers repaired the abandoned cottage and made it their home.",
 		"Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
 	])
+	assert(state.unread_chronicle_count("player-a") == 2)
+	assert(state.unread_chronicle_count("player-b") == 2)
+	state.positions["player-a"] = WorldStateModel.CHRONICLE_BOARD_POSITION
+	assert(state.try_read_chronicle("player-a"))
+	assert(state.unread_chronicle_count("player-a") == 0)
+	assert(state.unread_chronicle_count("player-b") == 2, "One reader must not clear a companion's updates.")
+	assert(not state.try_read_chronicle("player-a"), "An up-to-date board read must not mutate state.")
+	state.positions["player-b"] = WorldStateModel.SPAWN_POINT
+	assert(not state.try_read_chronicle("player-b"), "Chronicle acknowledgement requires the cottage board.")
 	state.positions["player-a"] = state.mara_position
 	assert(state.interact_with_mara("player-a"), "Each player may check in with Mara once per world day.")
 	assert(state.player_relationships["player-a"]["mara"] == 4)
@@ -150,6 +168,8 @@ func _init() -> void:
 	assert(restored.neighborhood_morale == 1)
 	assert(restored.chronicle.size() == 2)
 	assert(restored.register_player("player-a") == state.positions["player-a"])
+	assert(restored.player_chronicle_read_count["player-a"] == 2)
+	assert(restored.unread_chronicle_count("player-b") == 2)
 	assert(restored.player_relationships["player-a"]["mara"] == 4)
 	assert(restored.player_relationships["player-b"]["mara"] == 1)
 	assert(restored.player_npc_check_in_day["player-a"]["mara"] == 1)

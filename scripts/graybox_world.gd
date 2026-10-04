@@ -10,6 +10,7 @@ static func build(root: Node3D) -> Dictionary:
 	_add_road(root)
 	_add_cottage(root)
 	var cottage_rest_marker := _add_cottage_rest_point(root)
+	var chronicle_board := _add_chronicle_board(root)
 	_add_forest_edge(root)
 	_add_northern_region(root)
 	_add_old_stone_ruins(root)
@@ -65,6 +66,7 @@ static func build(root: Node3D) -> Dictionary:
 		"homestead_lantern_markers": homestead_lanterns["markers"],
 		"homestead_lanterns": homestead_lanterns["lanterns"],
 		"cottage_rest_marker": cottage_rest_marker,
+		"chronicle_board": chronicle_board,
 		"welcome_lantern_markers": welcome_lanterns["markers"],
 		"welcome_lantern_lights": welcome_lanterns["lights"],
 		"creature": creature,
@@ -111,6 +113,20 @@ static func _add_cottage_rest_point(root: Node3D) -> Node3D:
 		Color("7ca69a")
 	)
 	return _add_station_marker(root, "CottageRestMarker", rest_position, "REST AT HOME", Color("8ce0c5"))
+
+
+static func _add_chronicle_board(root: Node3D) -> Node3D:
+	var board := Node3D.new()
+	board.name = "ChronicleBoard"
+	board.position = WorldStateModel.CHRONICLE_BOARD_POSITION
+	root.add_child(board)
+	for x_position: float in [-0.8, 0.8]:
+		_add_box(board, "BoardPost", Vector3(0.16, 1.75, 0.16), Vector3(x_position, 0.35, 0.0), Color("60442f"))
+	_add_box(board, "BoardFace", Vector3(2.15, 1.15, 0.18), Vector3(0.0, 1.0, 0.0), Color("9a744d"))
+	_add_box(board, "PinnedPage", Vector3(1.45, 0.72, 0.04), Vector3(0.0, 1.0, -0.11), Color("ead9ad"))
+	_add_station_marker(board, "ChronicleBoardMarker", Vector3.ZERO, "CHRONICLE BOARD", Color("e3bd68"))
+	board.visible = false
+	return board
 
 
 static func _add_outing_kit_rack(root: Node3D) -> Dictionary:

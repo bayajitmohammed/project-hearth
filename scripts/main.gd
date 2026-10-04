@@ -99,6 +99,7 @@ var trailwork_marker: Node3D
 var homestead_lantern_markers: Dictionary = {}
 var homestead_lanterns: Dictionary = {}
 var cottage_rest_marker: Node3D
+var chronicle_board: Node3D
 var welcome_lantern_markers: Dictionary = {}
 var welcome_lantern_lights: Dictionary = {}
 var creature_node: MeshInstance3D
@@ -492,6 +493,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		_status("Connected — welcome back to your shared world")
 	var seen_tokens := {}
 	var positions: Dictionary = snapshot.get("positions", {})
+	var chronicle: Array = snapshot.get("chronicle", [])
 	var mara_keepsakes: Dictionary = snapshot.get("player_mara_keepsakes", {})
 	for token: String in positions:
 		seen_tokens[token] = true
@@ -539,6 +541,24 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		and not local_downed
 		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
 	)
+	var local_chronicle_read_count := clampi(
+		int(snapshot.get("player_chronicle_read_count", {}).get(local_token, 0)), 0, chronicle.size()
+	)
+	var unread_chronicle_count := chronicle.size() - local_chronicle_read_count
+	var local_position: Vector3 = positions.get(local_token, Vector3.INF)
+	var near_chronicle_board := (
+		local_position.is_finite()
+		and local_position.distance_to(WorldStateModel.CHRONICLE_BOARD_POSITION)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	)
+	chronicle_board.visible = quest_stage == "home_repaired" and not chronicle.is_empty()
+	var chronicle_board_label := chronicle_board.get_node_or_null("ChronicleBoardMarker/Label") as Label3D
+	if chronicle_board_label != null:
+		chronicle_board_label.text = (
+			"CHRONICLE BOARD · %d NEW" % unread_chronicle_count
+			if unread_chronicle_count > 0
+			else "CHRONICLE BOARD · CAUGHT UP"
+		)
 	var lit_lanterns: Dictionary = snapshot.get("lit_welcome_lanterns", {})
 	for lantern_id: String in welcome_lantern_markers:
 		var is_lit := bool(lit_lanterns.get(lantern_id, false))
@@ -714,12 +734,19 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		festival_checkpoint_nodes[checkpoint_id].visible = festival_stage == "racing"
 	map_panel.visible = rumor_unlocked
 	map_label.text = _shared_map_text(discoveries, route_activated)
-	var chronicle: Array = snapshot.get("chronicle", [])
-	chronicle_panel.visible = not chronicle.is_empty()
+	chronicle_panel.visible = not chronicle.is_empty() and (unread_chronicle_count > 0 or near_chronicle_board)
 	var chronicle_lines := PackedStringArray()
-	for entry in chronicle:
-		chronicle_lines.append(str(entry))
-	chronicle_label.text = "CHRONICLE (%d)\n• %s" % [chronicle.size(), "\n• ".join(chronicle_lines)] if not chronicle.is_empty() else ""
+	var first_visible_entry := 0 if near_chronicle_board else local_chronicle_read_count
+	for entry_index: int in range(first_visible_entry, chronicle.size()):
+		chronicle_lines.append(str(chronicle[entry_index]))
+	chronicle_label.text = (
+		"CHRONICLE · %s\n• %s" % [
+			"FULL HISTORY" if near_chronicle_board else "%d NEW" % unread_chronicle_count,
+			"\n• ".join(chronicle_lines),
+		]
+		if not chronicle_lines.is_empty()
+		else ""
+	)
 	var food_status := "Food need %d/%d" % [stews_delivered, WorldStateModel.REQUIRED_STEW_DELIVERIES]
 	if livelihood_stage == "complete":
 		food_status = "Daily request D%d · %s %d/%d · %s" % [
@@ -765,7 +792,11 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 				WorldStateModel.HEARTHBLOOM_REQUIRED_COINS,
 			]
 		)
-	world_status_parts.append("Chronicle entries: %d" % chronicle.size())
+	world_status_parts.append(
+		"Chronicle: %d new" % unread_chronicle_count
+		if unread_chronicle_count > 0
+		else "Chronicle: caught up"
+	)
 	world_change_label.text = "  ".join(world_status_parts)
 	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
 	mastery_label.text = _mastery_text(mastery)
@@ -1012,6 +1043,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"lit_welcome_lanterns": world_state.lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": world_state.neighborhood_morale,
 		"chronicle": world_state.chronicle.duplicate(),
+		"player_chronicle_read_count": world_state.player_chronicle_read_count.duplicate(),
 		"shared_map_discoveries": world_state.shared_map_discoveries.duplicate(),
 		"exploration_stage": world_state.exploration_stage,
 		"ruin_guardian_position": world_state.ruin_guardian_position,
@@ -1198,6 +1230,7 @@ func _build_world() -> void:
 	homestead_lantern_markers = world_nodes["homestead_lantern_markers"]
 	homestead_lanterns = world_nodes["homestead_lanterns"]
 	cottage_rest_marker = world_nodes["cottage_rest_marker"]
+	chronicle_board = world_nodes["chronicle_board"]
 	welcome_lantern_markers = world_nodes["welcome_lantern_markers"]
 	welcome_lantern_lights = world_nodes["welcome_lantern_lights"]
 	creature_node = world_nodes["creature"]
@@ -1649,6 +1682,20 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var chronicle_size: int = latest_snapshot.get("chronicle", []).size()
+	var chronicle_read_count := clampi(
+		int(latest_snapshot.get("player_chronicle_read_count", {}).get(local_token, 0)),
+		0,
+		chronicle_size
+	)
+	if chronicle_size > chronicle_read_count:
+		_append_mobile_target(
+			candidates,
+			chronicle_board,
+			"Read updates",
+			"interact",
+			WorldStateModel.INTERACTION_RADIUS
+		)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2283,6 +2330,26 @@ func _update_interaction_prompt(
 		and player_position.distance_to(WorldStateModel.COTTAGE_REST_POSITION) <= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
 		interaction_prompt.text = "%s  ·  Rest and recover" % action_name
+		interaction_prompt.visible = true
+		return
+	var chronicle_size: int = latest_snapshot.get("chronicle", []).size()
+	var local_chronicle_read_count := clampi(
+		int(latest_snapshot.get("player_chronicle_read_count", {}).get(local_token, 0)),
+		0,
+		chronicle_size
+	)
+	var unread_chronicle_count: int = chronicle_size - local_chronicle_read_count
+	if (
+		quest_stage == "home_repaired"
+		and unread_chronicle_count > 0
+		and player_position.distance_to(WorldStateModel.CHRONICLE_BOARD_POSITION)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Mark %d chronicle %s read" % [
+			action_name,
+			unread_chronicle_count,
+			"entry" if unread_chronicle_count == 1 else "entries",
+		]
 		interaction_prompt.visible = true
 		return
 	if (

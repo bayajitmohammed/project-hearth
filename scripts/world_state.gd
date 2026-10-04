@@ -3,6 +3,7 @@ extends RefCounted
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
+const CHRONICLE_BOARD_POSITION := Vector3(-13.0, 0.6, 3.5)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
@@ -158,6 +159,7 @@ var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
 var chronicle: Array = []
+var player_chronicle_read_count: Dictionary = {}
 var shared_map_discoveries := {"northwood": false, "old_stone_ruins": false}
 var exploration_stage := "locked"
 var ruin_guardian_position := RUIN_GUARDIAN_SPAWN
@@ -266,6 +268,9 @@ func register_player(player_token: String) -> Vector3:
 		)
 	if not player_survey_day.has(player_token):
 		player_survey_day[player_token] = 0
+	player_chronicle_read_count[player_token] = clampi(
+		int(player_chronicle_read_count.get(player_token, 0)), 0, chronicle.size()
+	)
 	if str(player_outing_kits.get(player_token, "")) not in [OUTING_KIT_VANGUARD, OUTING_KIT_GUARDIAN]:
 		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
@@ -421,6 +426,21 @@ func try_build_homestead_lantern(player_token: String) -> bool:
 	return false
 
 
+func unread_chronicle_count(player_token: String) -> int:
+	return maxi(chronicle.size() - int(player_chronicle_read_count.get(player_token, 0)), 0)
+
+
+func try_read_chronicle(player_token: String) -> bool:
+	if quest_stage != "home_repaired" or chronicle.is_empty():
+		return false
+	if register_player(player_token).distance_to(CHRONICLE_BOARD_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)) or unread_chronicle_count(player_token) <= 0:
+		return false
+	player_chronicle_read_count[player_token] = chronicle.size()
+	return true
+
+
 func try_repair_cottage(player_token: String) -> bool:
 	if quest_stage != "repair_cottage" or int(materials.get("repair_kit", 0)) < 1:
 		return false
@@ -469,6 +489,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_rest_at_cottage(player_token)
+		or try_read_chronicle(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
 		or try_record_trail_survey(player_token)
@@ -1571,7 +1592,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 20,
+		"version": 21,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1589,6 +1610,7 @@ func to_dictionary() -> Dictionary:
 		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": neighborhood_morale,
 		"chronicle": chronicle.duplicate(),
+		"player_chronicle_read_count": player_chronicle_read_count.duplicate(),
 		"shared_map_discoveries": shared_map_discoveries.duplicate(),
 		"exploration_stage": exploration_stage,
 		"ruin_guardian_position": [ruin_guardian_position.x, ruin_guardian_position.y, ruin_guardian_position.z],
@@ -1802,6 +1824,10 @@ func load_dictionary(data: Dictionary) -> void:
 		daily_food_deliveries = 0
 	player_relationships = data.get("player_relationships", {}).duplicate(true)
 	player_npc_check_in_day = data.get("player_npc_check_in_day", {}).duplicate(true)
+	if save_version >= 21:
+		player_chronicle_read_count = data.get("player_chronicle_read_count", {}).duplicate()
+	else:
+		player_chronicle_read_count = {}
 	if save_version >= 18:
 		player_mara_keepsakes = data.get("player_mara_keepsakes", {}).duplicate()
 	else:

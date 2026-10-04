@@ -75,6 +75,8 @@ During normal play the compact quest card shows only the current objective and p
 
 Completing all three repairs grants one reputation point, changes Mara's response, reveals the Old Stone Ruins rumor, and records the repaired home in the chronicle. Talk to Mara again to begin **Welcome Lights**. She moves to the neighborhood gathering place, and players can use the three amber markers to light shared lanterns. Finishing the event improves neighborhood morale, grants another reputation point, and adds a second chronicle entry. These changes survive server restart.
 
+The repaired cottage also reveals a **Chronicle Board**. New shared entries appear as a concise personal return summary; standing beside the board shows the full shared history. Use **E** (or **Read updates** on touch) to acknowledge every current entry for your identity. That read position persists independently, so one player never clears a companion's updates and a new identity may review history that predates their arrival.
+
 Mara remembers each player's own meaningful conversations and one optional check-in per world day. Reaching three personal rapport grants that identity one permanent **Woven Hearth Charm**. The relationship HUD names it and a small warm charm appears on the player's model for companions; it grants no power, access, currency, or extra copies.
 
 The neighborhood HUD also shows a persistent day and time. The clock advances only while someone is playing; waking an empty world advances its calendar by at most six game hours. After Welcome Lights, Mara visibly follows a morning cottage, afternoon market or neighborhood, evening gathering-place, and nighttime cottage routine. Required quest appearances always take priority over her schedule.
@@ -366,6 +368,20 @@ cp tests/fixtures/homestead_build_ready_world.json /tmp/project-hearth-homestead
 
 The probes verify that simultaneous placements competing for the final shared wood produce exactly one persistent lantern and one personal Building credit.
 
+For independent returning-player chronicle state, copy `tests/fixtures/chronicle_board_ready_world.json`, start an isolated server on port `9419` with room `CHRONICLE`, and run both readers simultaneously:
+
+```sh
+cp tests/fixtures/chronicle_board_ready_world.json /tmp/project-hearth-chronicle-board.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9419 --room=CHRONICLE --save-file=/tmp/project-hearth-chronicle-board.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/chronicle_board_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9419 --room=CHRONICLE --player-token=chronicle-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/chronicle_board_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9419 --room=CHRONICLE --player-token=chronicle-b
+```
+
+The probes verify that both players see the same shared history while their acknowledgements persist and replicate independently.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -402,6 +418,7 @@ The probes verify that simultaneous placements competing for the final shared wo
 - The region seed and world day select a shared clear, overcast, or gentle-rain forecast. The clock drives readable day/night colors and light. Weather never punishes absence or changes movement or combat; after the produce stall opens, it safely frames the current renewable food request.
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
+- The cottage Chronicle Board uses version-21 persistence for independent player read positions. Existing history remains unread after migration so returning and newly joining identities can catch up; acknowledging it grants no reward and never changes another player's view.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.

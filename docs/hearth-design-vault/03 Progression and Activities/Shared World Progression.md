@@ -18,6 +18,12 @@ Regions also remember major outcomes. A rescued character may move into town; a 
 
 Progress does not reset or decay while people are away. New projects expand choices and identity rather than making old areas useless.
 
+## Returning-player chronicle
+
+The repaired cottage includes a **Chronicle Board** that turns the shared history into a practical return point. Chronicle entries remain room-wide facts, while each persistent player identity remembers only how many entries that player has acknowledged. A returning player sees unread entries without keeping the entire history permanently open, and standing near the board reveals the full record for review.
+
+Using the board acknowledges every entry that exists at that moment for that player only. Later entries become unread again, one player's reading never clears a companion's updates, and a new identity joining an established world may review its existing history. Read state grants no reward, progression, ownership, or access. Offline, LAN-hosted, and dedicated rooms apply the same authoritative rule, and empty time never fabricates chronicle entries.
+
 ## First coin-funded homestead project
 
 Once the produce stall is open, the neighborhood may build a **Hearthbloom planter** beside the cottage. Any player can contribute one personal coin per interaction until the shared project reaches four contributions. One person may finish it gradually in an offline world, while companions may pool earnings in LAN or dedicated rooms; no owner, party leader, or simultaneous attendance is required.

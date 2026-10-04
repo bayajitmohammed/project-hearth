@@ -11,6 +11,7 @@ func _init() -> void:
 
 	assert(main.mara_node != null, "Mara's routine needs a movable world node.")
 	assert(main.chronicle_panel != null, "Remembered changes need a visible chronicle panel.")
+	assert(main.chronicle_board != null, "Returning players need an in-world Chronicle Board.")
 	assert(main.world_time_label != null, "The authoritative calendar needs a readable HUD label.")
 	assert(main.world_environment != null, "The shared clock needs a client atmosphere target.")
 	assert(main.sun_light != null, "Daylight needs a readable directional light.")
@@ -32,6 +33,8 @@ func _init() -> void:
 	assert(main.interaction_prompt.visible)
 	assert("Light Road Lantern" in main.interaction_prompt.text)
 	assert(main.chronicle_panel.visible)
+	assert(main.chronicle_board.visible)
+	assert("1 NEW" in main.chronicle_label.text)
 	assert(main.quest_title_label.text == "WELCOME LIGHTS")
 
 	var complete_snapshot := _base_snapshot()
@@ -51,7 +54,7 @@ func _init() -> void:
 	assert(not main.welcome_lantern_markers.values().any(func(node: Node3D) -> bool: return node.visible))
 	assert(main.quest_title_label.text == "BEYOND THE ROAD")
 	assert("northern road" in main.objective_label.text)
-	assert("Chronicle entries: 2" in main.world_change_label.text)
+	assert("Chronicle: 2 new" in main.world_change_label.text)
 	assert("repaired the abandoned cottage" in main.chronicle_label.text)
 	assert("lit welcome lanterns" in main.chronicle_label.text)
 	assert(main.world_time_label.visible)
@@ -60,6 +63,18 @@ func _init() -> void:
 	assert("Mara:" in main.world_time_label.text)
 	assert(not main.rain_particles.emitting)
 	var daytime_energy: float = main.world_environment.environment.ambient_light_energy
+	complete_snapshot["positions"] = {"reader": WorldStateModel.CHRONICLE_BOARD_POSITION}
+	complete_snapshot["player_chronicle_read_count"] = {"reader": 1}
+	main.receive_snapshot(complete_snapshot)
+	assert(main.chronicle_panel.visible)
+	assert("FULL HISTORY" in main.chronicle_label.text)
+	assert("1 NEW" in main.chronicle_board.get_node("ChronicleBoardMarker/Label").text)
+	assert("Mark 1 chronicle entry read" in main.interaction_prompt.text)
+	complete_snapshot["positions"] = {"reader": WorldStateModel.SPAWN_POINT}
+	complete_snapshot["player_chronicle_read_count"] = {"reader": 2}
+	main.receive_snapshot(complete_snapshot)
+	assert(not main.chronicle_panel.visible, "Read history should not occupy the HUD away from the board.")
+	assert("Chronicle: caught up" in main.world_change_label.text)
 	complete_snapshot["positions"] = {"reader": WorldStateModel.MARA_WELCOME_POSITION}
 	complete_snapshot["player_relationships"] = {"reader": {"mara": 3}}
 	complete_snapshot["player_npc_check_in_day"] = {"reader": {"mara": 0}}
@@ -125,6 +140,7 @@ func _base_snapshot() -> Dictionary:
 		"lit_welcome_lanterns": {"cottage": false, "road": false, "forest": false},
 		"neighborhood_morale": 0,
 		"chronicle": [],
+		"player_chronicle_read_count": {"reader": 0},
 		"shared_map_discoveries": {"northwood": false, "old_stone_ruins": false},
 		"exploration_stage": "locked",
 		"ruin_guardian_position": WorldStateModel.RUIN_GUARDIAN_SPAWN,
