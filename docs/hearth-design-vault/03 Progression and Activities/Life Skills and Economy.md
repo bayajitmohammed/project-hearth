@@ -34,6 +34,12 @@ Farming, Cooking, and Trade mastery still belongs to the player who performs eac
 
 Once the garden is unlocked, ripe plots remain visible and harvestable even after the market request is filled. Players may save the remaining moonroot for the Moonwell Supper or a later request; the market never removes a standing crop. Each plot still yields only once per world day, existing harvest flags survive reload, and completing an order never regrows plots or awards additional market rewards.
 
+## Reedbank sunwheat and trail bread
+
+Oren's restored mill opens three shared sunwheat beds, a flour hopper, and a bread oven. Standing players sow an empty bed with the mill's reusable seed stock at no material cost. Each planting matures after 120 authoritative world minutes (two active prototype minutes), yielding two shared sunwheat and one Farming mastery to the harvester. Harvest empties the bed; another explicit planting is required. Plants do not wither or automatically replant. Bounded safe calendar catch-up may ripen an existing crop, but never harvests or multiplies unattended cycles.
+
+At the mill hopper, two shared sunwheat become one shared flour. At the nearby oven, one flour and one shared herb become two personal trail provisions and one Cooking mastery to the baker. Missing ingredients consume nothing. Milling adds no separate mastery or reward. Friends can divide sowing, harvesting, milling, foraging, and baking across sessions; no plot or intermediate ingredient is privately locked to its contributor. This is a new local production activity, not an automated factory or a source of coin, reputation, or repeated chronicle rewards. Old saves start with empty beds and no grain or flour.
+
 ## Loot, trade, and currency
 
 Loot favors recipes, unusual materials, tools with trade-offs, keepsakes, and cosmetics over constant numeric upgrades. Players can trade directly and contribute to shared storage.

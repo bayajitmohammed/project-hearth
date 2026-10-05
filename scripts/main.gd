@@ -1201,6 +1201,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"moonwell_supper_stage": world_state.moonwell_supper_stage,
 		"moonwell_supper_courses": world_state.moonwell_supper_courses,
 		"reedbank_stage": world_state.reedbank_stage,
+		"sunwheat_planted_at": world_state.sunwheat_planted_at.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
@@ -1874,6 +1875,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for target: Dictionary in ReedbankHollow.livelihood_targets(latest_snapshot):
+		if bool(target["ready"]):
+			_append_mobile_target(candidates, reedbank.livelihood_markers[target["id"]], target["label"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	if str(latest_snapshot.get("nima_story_stage", "locked")) == "complete":
 		_append_mobile_target(candidates, reedbank.marker, ReedbankHollow.action_text(str(latest_snapshot.get("reedbank_stage", "meet_oren"))), "interact", WorldStateModel.INTERACTION_RADIUS)
 	var chronicle_size: int = latest_snapshot.get("chronicle", []).size()
@@ -2468,6 +2472,11 @@ func _update_quest_interface(
 			progress_label.visible = true
 			progress_label.text = "Reedbank Hollow · Shared resident story"
 			dialogue_label.text = ReedbankHollow.guidance(reedbank_stage)
+			if reedbank_stage == "complete":
+				objective_label.text = "Grow sunwheat, mill flour, bake trail bread"
+				var bag: Dictionary = latest_snapshot.get("materials", {})
+				progress_label.text = "Shared sunwheat %d · Flour %d · Herbs %d" % [int(bag.get("sunwheat", 0)), int(bag.get("flour", 0)), int(bag.get("herb", 0))]
+				dialogue_label.text = "Oren: Sow the western beds; they ripen in two real minutes. Mill grain beside the tower, then bake with herbs at our oven. The shelter is always open for rest."
 
 
 func _update_nima_story_interface(story_stage: String) -> void:
@@ -2618,6 +2627,11 @@ func _update_interaction_prompt(
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
 	var player_health: Dictionary = latest_snapshot.get("player_health", {})
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	for target: Dictionary in ReedbankHollow.livelihood_targets(latest_snapshot):
+		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
+			interaction_prompt.text = "%s · %s" % [action_name if bool(target["ready"]) else "REEDBANK", target["label"]]
+			interaction_prompt.visible = true
+			return
 	if str(latest_snapshot.get("nima_story_stage", "locked")) == "complete":
 		var reedbank_stage := str(latest_snapshot.get("reedbank_stage", "meet_oren"))
 		if player_position.distance_to(ReedbankHollow.target_position(reedbank_stage)) <= WorldStateModel.INTERACTION_RADIUS:

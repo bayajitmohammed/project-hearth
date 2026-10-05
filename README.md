@@ -113,6 +113,10 @@ Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at
 
 ## Run the state test
 
+After repairing Oren's mill, Reedbank's three beds support a repeatable sunwheat loop: sow, wait two active minutes, harvest two grain, mill two grain into one flour, then bake one flour plus one herb into two trail provisions. Plantings and shared ingredients persist; empty-world catch-up can ripen but never harvest or replant crops.
+
+Run `Godot --headless --path . --script res://tests/test_sunwheat.gd` for focused coverage. The fixture `tests/fixtures/sunwheat_ready_world.json` starts with one mature bed. Copy it to a temporary save, serve room `WHEAT` on port `9453`, and run `tests/sunwheat_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9453 --room=WHEAT` and identities `--player-token=wheat-a` / `--player-token=wheat-b` to check the farmer-to-baker handoff.
+
 Reedbank Hollow adds an eastern Northwood trail after Nima settles. Meet Oren, recover his sail from the northern reeds, fit it at the mill with two shared wood, and return to him to open a permanent rest shelter. Progress is shared across offline, LAN, and dedicated-room play; version-26 saves preserve each step.
 
 Focused content coverage: `Godot --headless --path . --script res://tests/test_reedbank.gd`. For the companion handoff check, copy `tests/fixtures/reedbank_ready_world.json` to a temporary save, start a server with `--port=9451 --room=REEDS --save-file=<temporary-save>`, then run `tests/reedbank_multiplayer_probe.gd` twice with `--connect=ws://127.0.0.1:9451 --room=REEDS` and distinct `--player-token=reedbank-a` / `--player-token=reedbank-b` identities. The browser pass starts from the same fixture and plays the full chain using WASD/E.

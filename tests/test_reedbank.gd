@@ -61,7 +61,7 @@ func _run() -> void:
 	main.peer_to_token[1] = "builder"
 	main.receive_snapshot(main._snapshot_for_clients())
 	assert(main.reedbank.turning and main.reedbank.shelter_light.visible)
-	assert(main.objective_label.text.contains("Rest at Reedbank"))
+	assert(main.objective_label.text.contains("Grow sunwheat"))
 	main.queue_free()
 	await process_frame
 	print("PASS: Reedbank story, co-op credit, costs, persistence, boundary, and presentation")

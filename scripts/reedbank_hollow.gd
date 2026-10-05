@@ -9,6 +9,9 @@ var rotor: Node3D
 var shelter_light: OmniLight3D
 var marker: Node3D
 var turning := false
+var crop_nodes: Dictionary = {}
+var livelihood_markers: Dictionary = {}
+var livelihood_root: Node3D
 
 
 func _ready() -> void:
@@ -55,6 +58,7 @@ func _ready() -> void:
 	_label(self, "REEDBANK HOLLOW →", Vector3(15, 2.2, -23))
 	_label(self, "OREN'S WINDMILL", Vector3(34, 7.8, -33))
 	marker = Art._add_station_marker(self, "ReedbankObjective", State.OREN_TRAIL_POSITION, "OREN", Color("efd39c"))
+	_build_livelihood()
 	update_view({})
 
 
@@ -75,6 +79,58 @@ func update_view(snapshot: Dictionary) -> void:
 	marker.visible = unlocked
 	marker.position = target_position(stage)
 	(marker.get_node("Label") as Label3D).text = action_text(stage)
+	livelihood_root.visible = stage == "complete"
+	for target: Dictionary in livelihood_targets(snapshot):
+		var target_id: String = target["id"]
+		(livelihood_markers[target_id].get_node("Label") as Label3D).text = target["label"]
+		if crop_nodes.has(target_id):
+			var remaining := int(target["remaining"])
+			crop_nodes[target_id].visible = remaining >= 0
+			var progress := clampf(1.0 - float(remaining) / State.SUNWHEAT_GROW_MINUTES, 0.15, 1.0)
+			crop_nodes[target_id].scale.y = progress
+			for stalk: MeshInstance3D in crop_nodes[target_id].get_children():
+				(stalk.material_override as StandardMaterial3D).albedo_color = Color("eac574") if remaining == 0 else Color("80ae72")
+
+
+func _build_livelihood() -> void:
+	livelihood_root = Node3D.new()
+	livelihood_root.name = "SunwheatAndBread"
+	add_child(livelihood_root)
+	for bed_id: String in State.SUNWHEAT_BEDS:
+		var point: Vector3 = State.SUNWHEAT_BEDS[bed_id]
+		Art._add_box(livelihood_root, "Soil", Vector3(2.6, 0.15, 2.4), point + Vector3(0, -0.58, 0), Color("796148"))
+		var crop := Node3D.new()
+		crop.position = point + Vector3(0, -0.5, 0)
+		livelihood_root.add_child(crop)
+		for x in [-0.75, 0.0, 0.75]:
+			for z in [-0.6, 0.6]:
+				Art._add_cylinder(crop, "SunwheatStalk", 0.08, 1.3, Vector3(x, 0.65, z), Color("eac574"), 5)
+				Art._add_cylinder(crop, "GrainHead", 0.16, 0.35, Vector3(x, 1.28, z), Color("eac574"), 5)
+		crop_nodes[bed_id] = crop
+		livelihood_markers[bed_id] = Art._add_station_marker(livelihood_root, "BedMarker", point, "Sow sunwheat", Color("eac574"))
+	Art._add_box(livelihood_root, "FlourHopper", Vector3(1.2, 1.0, 1.0), State.MILL_HOPPER_POSITION, Color("9d7952"))
+	Art._add_cylinder(livelihood_root, "FlourSack", 0.35, 0.6, State.MILL_HOPPER_POSITION + Vector3(0.9, -0.2, 0), Color("e3d8b7"), 8)
+	Art._add_cylinder(livelihood_root, "BreadOven", 0.9, 1.2, State.REEDBANK_OVEN_POSITION, Color("ac8063"), 10)
+	Art._add_box(livelihood_root, "OvenOpening", Vector3(0.85, 0.5, 0.08), State.REEDBANK_OVEN_POSITION + Vector3(0, 0, 0.9), Color("483e39"))
+	livelihood_markers["mill"] = Art._add_station_marker(livelihood_root, "HopperMarker", State.MILL_HOPPER_POSITION, "Mill flour", Color("eac574"))
+	livelihood_markers["oven"] = Art._add_station_marker(livelihood_root, "OvenMarker", State.REEDBANK_OVEN_POSITION, "Bake trail bread", Color("edaa77"))
+
+
+static func livelihood_targets(snapshot: Dictionary) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	if str(snapshot.get("reedbank_stage", "")) != "complete":
+		return targets
+	var now := (int(snapshot.get("world_day", 1)) - 1) * State.WORLD_MINUTES_PER_DAY + int(snapshot.get("world_minute", 0))
+	var plantings: Dictionary = snapshot.get("sunwheat_planted_at", {})
+	for bed_id: String in State.SUNWHEAT_BEDS:
+		var remaining := maxi(0, int(plantings[bed_id]) + State.SUNWHEAT_GROW_MINUTES - now) if plantings.has(bed_id) else -1
+		var seconds := ceili(float(maxi(remaining, 0)) / State.WORLD_MINUTES_PER_REAL_SECOND)
+		var label := "Sow sunwheat" if remaining < 0 else ("Harvest 2 sunwheat" if remaining == 0 else "Growing · %d:%02d to harvest" % [seconds / 60, seconds % 60])
+		targets.append({"id": bed_id, "position": State.SUNWHEAT_BEDS[bed_id], "label": label, "remaining": remaining, "ready": remaining <= 0})
+	var bag: Dictionary = snapshot.get("materials", {})
+	targets.append({"id": "mill", "position": State.MILL_HOPPER_POSITION, "label": "Mill 2 sunwheat into 1 flour", "ready": int(bag.get("sunwheat", 0)) >= 2})
+	targets.append({"id": "oven", "position": State.REEDBANK_OVEN_POSITION, "label": "Bake 2 provisions (1 flour + 1 herb)", "ready": int(bag.get("flour", 0)) >= 1 and int(bag.get("herb", 0)) >= 1})
+	return targets
 
 
 static func target_position(stage: String) -> Vector3:

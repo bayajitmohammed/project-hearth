@@ -42,6 +42,14 @@ const OREN_MILL_POSITION := Vector3(31.0, 0.6, -27.0)
 const REEDBANK_SAIL_POSITION := Vector3(37.0, 0.6, -41.0)
 const REEDBANK_REPAIR_POSITION := Vector3(34.0, 0.6, -30.0)
 const REEDBANK_REST_POSITION := Vector3(30.0, 0.6, -33.0)
+const SUNWHEAT_BEDS := {
+	"south": Vector3(23, 0.6, -34),
+	"middle": Vector3(23, 0.6, -38),
+	"north": Vector3(23, 0.6, -42),
+}
+const SUNWHEAT_GROW_MINUTES := 120
+const MILL_HOPPER_POSITION := Vector3(37, 0.6, -33)
+const REEDBANK_OVEN_POSITION := Vector3(29, 0.6, -38)
 const FURNISHING_ORIGIN := Vector3(-15.0, 0.0, 16.0)
 const FURNISHING_COLUMNS := 5
 const FURNISHING_ROWS := 3
@@ -163,7 +171,7 @@ const WEATHER_LABELS := {
 var collectible_collected := false
 var positions: Dictionary = {}
 var quest_stage := "meet_mara"
-var materials := {"wood": 0, "herb": 0, "repair_kit": 0, "moonroot": 0, "hearth_stew": 0}
+var materials := {"wood": 0, "herb": 0, "repair_kit": 0, "moonroot": 0, "hearth_stew": 0, "sunwheat": 0, "flour": 0}
 var gathered_resources: Dictionary = {}
 var repaired_parts := {"door": false, "wall": false, "garden": false}
 var player_health: Dictionary = {}
@@ -193,6 +201,7 @@ var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
 var reedbank_stage := "meet_oren"
+var sunwheat_planted_at: Dictionary = {}
 var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
@@ -696,6 +705,46 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func world_calendar_minutes() -> int:
+	return (world_day - 1) * WORLD_MINUTES_PER_DAY + world_minute
+
+
+func sunwheat_minutes_remaining(bed_id: String) -> int:
+	if not sunwheat_planted_at.has(bed_id):
+		return -1
+	return maxi(0, int(sunwheat_planted_at[bed_id]) + SUNWHEAT_GROW_MINUTES - world_calendar_minutes())
+
+
+func try_reedbank_livelihood(player_token: String) -> bool:
+	if reedbank_stage != "complete" or bool(downed_players.get(player_token, false)):
+		return false
+	var player_position := register_player(player_token)
+	for bed_id: String in SUNWHEAT_BEDS:
+		if player_position.distance_to(SUNWHEAT_BEDS[bed_id]) > INTERACTION_RADIUS:
+			continue
+		var remaining := sunwheat_minutes_remaining(bed_id)
+		if remaining < 0:
+			sunwheat_planted_at[bed_id] = world_calendar_minutes()
+			return true
+		if remaining == 0:
+			sunwheat_planted_at.erase(bed_id)
+			materials["sunwheat"] = int(materials.get("sunwheat", 0)) + 2
+			_add_mastery(player_token, "farming")
+			return true
+		return false
+	if player_position.distance_to(MILL_HOPPER_POSITION) <= INTERACTION_RADIUS and int(materials.get("sunwheat", 0)) >= 2:
+		materials["sunwheat"] -= 2
+		materials["flour"] = int(materials.get("flour", 0)) + 1
+		return true
+	if player_position.distance_to(REEDBANK_OVEN_POSITION) <= INTERACTION_RADIUS and int(materials.get("flour", 0)) >= 1 and int(materials.get("herb", 0)) >= 1:
+		materials["flour"] -= 1
+		materials["herb"] -= 1
+		player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 2
+		_add_mastery(player_token, "cooking")
+		return true
+	return false
+
+
 func try_reedbank_interaction(player_token: String) -> bool:
 	if nima_story_stage != "complete" or bool(downed_players.get(player_token, false)):
 		return false
@@ -739,6 +788,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_reedbank_interaction(player_token)
+		or try_reedbank_livelihood(player_token)
 		or try_rest_at_moonwell(player_token)
 		or try_rest_at_cottage(player_token)
 		or try_read_chronicle(player_token)
@@ -1891,7 +1941,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 26,
+		"version": 27,
+		"sunwheat_planted_at": sunwheat_planted_at.duplicate(),
 		"reedbank_stage": reedbank_stage,
 		"furnishings": furnishings.duplicate(true),
 		"world_seed": world_seed,
@@ -1970,6 +2021,8 @@ func load_dictionary(data: Dictionary) -> void:
 		"repair_kit": int(saved_materials.get("repair_kit", 0)),
 		"moonroot": int(saved_materials.get("moonroot", 0)),
 		"hearth_stew": int(saved_materials.get("hearth_stew", 0)),
+		"sunwheat": maxi(0, int(saved_materials.get("sunwheat", 0))) if int(data.get("version", 1)) >= 27 else 0,
+		"flour": maxi(0, int(saved_materials.get("flour", 0))) if int(data.get("version", 1)) >= 27 else 0,
 	}
 	gathered_resources = data.get("gathered_resources", {}).duplicate()
 	var saved_repairs: Dictionary = data.get("repaired_parts", {})
@@ -2231,6 +2284,12 @@ func load_dictionary(data: Dictionary) -> void:
 			if livelihood_stage == "complete" and produce_stall_open
 			else 0
 		)
+	sunwheat_planted_at.clear()
+	if save_version >= 27:
+		var saved_plantings: Dictionary = data.get("sunwheat_planted_at", {})
+		for bed_id: String in SUNWHEAT_BEDS:
+			if saved_plantings.has(bed_id):
+				sunwheat_planted_at[bed_id] = clampi(int(saved_plantings[bed_id]), 0, world_calendar_minutes())
 	# Cast timing is intentionally session-only and never resumes after a restart.
 	player_fishing_phase = {}
 	player_fishing_time = {}
