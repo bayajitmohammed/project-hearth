@@ -32,6 +32,8 @@ Opening the produce stall remains a one-time shared milestone. Beginning with th
 
 Farming, Cooking, and Trade mastery still belongs to the player who performs each step. Completing the daily request adds one provision to the bounded shared pantry, but does not repeatedly grant reputation, morale, or chronicle entries. If several days pass while the room is empty, only the current day's request is available; unattended time never completes requests or multiplies rewards. Festival activities remain available alongside the request rather than being replaced by it.
 
+Once the garden is unlocked, ripe plots remain visible and harvestable even after the market request is filled. Players may save the remaining moonroot for the Moonwell Supper or a later request; the market never removes a standing crop. Each plot still yields only once per world day, existing harvest flags survive reload, and completing an order never regrows plots or awards additional market rewards.
+
 ## Loot, trade, and currency
 
 Loot favors recipes, unusual materials, tools with trade-offs, keepsakes, and cosmetics over constant numeric upgrades. Players can trade directly and contribute to shared storage.

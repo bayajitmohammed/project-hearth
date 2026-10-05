@@ -150,6 +150,16 @@ func _init() -> void:
 	assert("Warden I" in main.mastery_label.text)
 	assert("Pathfinder I" in main.mastery_label.text)
 	assert("Coin 0" in main.progress_label.text)
+	snapshot["harvested_garden_plots"]["moonroot_4"] = false
+	snapshot["positions"] = {"artisan": WorldStateModel.GARDEN_PLOT_POSITIONS["moonroot_4"]}
+	main.receive_snapshot(snapshot)
+	assert(main.garden_plants["moonroot_4"].visible, "Ripe crops remain after market completion.")
+	assert(main.garden_markers["moonroot_4"].visible)
+	assert("Harvest moonroot" in main.interaction_prompt.text)
+	snapshot["harvested_garden_plots"]["moonroot_4"] = true
+	main.receive_snapshot(snapshot)
+	assert(not main.garden_plants["moonroot_4"].visible)
+	assert(not main.garden_markers["moonroot_4"].visible)
 
 	snapshot["moonwell_story_stage"] = "complete"
 	snapshot["attuned_moonstones"] = {"bough": true, "brook": true, "path": true}

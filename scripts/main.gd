@@ -719,8 +719,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		survey_label.text = "NORTHWOOD TRAIL SURVEY · DAY %d" % survey_day
 	for plot_id: String in garden_plants:
 		var harvested := bool(harvested_garden.get(plot_id, false))
-		garden_plants[plot_id].visible = food_order_active and not harvested
-		garden_markers[plot_id].visible = food_order_active and not harvested
+		garden_plants[plot_id].visible = livelihood_stage in ["food_need", "complete"] and not harvested
+		garden_markers[plot_id].visible = livelihood_stage in ["food_need", "complete"] and not harvested
 	var moonroot_count := int(materials.get("moonroot", 0))
 	var stew_count := int(materials.get("hearth_stew", 0))
 	var local_riverfish := int(snapshot.get("player_riverfish", {}).get(local_token, 0))
@@ -2706,7 +2706,7 @@ func _update_interaction_prompt(
 			interaction_prompt.text = "%s  ·  Recover %s trail pack" % [action_name, owner_label]
 			interaction_prompt.visible = true
 			return
-	if food_order_active:
+	if livelihood_stage in ["food_need", "complete"]:
 		var harvested_garden: Dictionary = latest_snapshot.get("harvested_garden_plots", {})
 		for plot_id: String in WorldStateModel.GARDEN_PLOT_POSITIONS:
 			if bool(harvested_garden.get(plot_id, false)):
@@ -2720,6 +2720,7 @@ func _update_interaction_prompt(
 				]
 				interaction_prompt.visible = true
 				return
+	if food_order_active:
 		var livelihood_materials: Dictionary = latest_snapshot.get("materials", {})
 		if (
 			int(livelihood_materials.get("moonroot", 0)) >= 2

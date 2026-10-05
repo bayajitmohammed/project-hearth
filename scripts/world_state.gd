@@ -1569,7 +1569,7 @@ func try_use_waystone(player_token: String) -> bool:
 
 
 func try_harvest_garden(player_token: String) -> bool:
-	if not has_active_food_order():
+	if livelihood_stage not in ["food_need", "complete"]:
 		return false
 	var player_position: Vector3 = register_player(player_token)
 	var target_plot := ""
