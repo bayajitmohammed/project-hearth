@@ -103,6 +103,9 @@ var moonwell_stone_glows: Dictionary = {}
 var moonwell_spring_glow: MeshInstance3D
 var moonwell_light: OmniLight3D
 var moonwell_rest_marker: Node3D
+var moonwell_supper: Node3D
+var moonwell_supper_marker: Node3D
+var moonwell_supper_decorations: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
@@ -617,6 +620,16 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		and not local_downed
 		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
 	)
+	var moonwell_supper_stage := str(snapshot.get("moonwell_supper_stage", "locked"))
+	var moonwell_supper_courses := int(snapshot.get("moonwell_supper_courses", 0))
+	moonwell_supper.visible = moonwell_supper_stage != "locked"
+	moonwell_supper_marker.visible = moonwell_supper_stage == "available"
+	moonwell_supper_decorations.visible = moonwell_supper_stage == "complete"
+	var supper_label := moonwell_supper_marker.get_node_or_null("Label") as Label3D
+	if supper_label != null:
+		supper_label.text = "MOONWELL SUPPER · %d/%d COURSES" % [
+			moonwell_supper_courses, WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES
+		]
 	var world_minute := int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE))
 	var weather := str(snapshot.get("world_weather", "clear"))
 	world_time_label.text = _world_time_text(
@@ -838,6 +851,14 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			"complete": "Moonwell sanctuary restored",
 		}.get(moonwell_story_stage, "Moonwell unknown"))
 		world_status_parts.append(moonwell_status)
+	if moonwell_supper_stage != "locked":
+		world_status_parts.append(
+			"Moonwell Supper complete"
+			if moonwell_supper_stage == "complete"
+			else "Moonwell Supper %d/%d" % [
+				moonwell_supper_courses, WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES
+			]
+		)
 	if quest_stage == "home_repaired":
 		world_status_parts.append(
 			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
@@ -1112,6 +1133,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"nima_activity": world_state.nima_activity,
 		"moonwell_story_stage": world_state.moonwell_story_stage,
 		"attuned_moonstones": world_state.attuned_moonstones.duplicate(),
+		"moonwell_supper_stage": world_state.moonwell_supper_stage,
+		"moonwell_supper_courses": world_state.moonwell_supper_courses,
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
@@ -1309,6 +1332,9 @@ func _build_world() -> void:
 	moonwell_spring_glow = world_nodes["moonwell_spring_glow"]
 	moonwell_light = world_nodes["moonwell_light"]
 	moonwell_rest_marker = world_nodes["moonwell_rest_marker"]
+	moonwell_supper = world_nodes["moonwell_supper"]
+	moonwell_supper_marker = world_nodes["moonwell_supper_marker"]
+	moonwell_supper_decorations = world_nodes["moonwell_supper_decorations"]
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
@@ -1799,6 +1825,15 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				_append_mobile_target(candidates, moonwell_stone_markers[stone_id], "Attune moonstone", "interact", WorldStateModel.INTERACTION_RADIUS)
 	elif moonwell_story_stage == "complete":
 		_append_mobile_target(candidates, moonwell_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if (
+		str(latest_snapshot.get("moonwell_supper_stage", "locked")) == "available"
+		and int(latest_snapshot.get("materials", {}).get("moonroot", 0)) > 0
+		and (
+			int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0)) > 0
+			or int(latest_snapshot.get("shared_riverfish_stock", 0)) > 0
+		)
+	):
+		_append_mobile_target(candidates, moonwell_supper_marker, "Prepare course", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2328,6 +2363,8 @@ func _update_quest_interface(
 	var moonwell_story_stage := str(latest_snapshot.get("moonwell_story_stage", "locked"))
 	if moonwell_story_stage in ["map_clue", "find_glade", "attune_stones"]:
 		_update_moonwell_story_interface(moonwell_story_stage)
+	if str(latest_snapshot.get("moonwell_supper_stage", "locked")) == "available":
+		_update_moonwell_supper_interface()
 
 
 func _update_nima_story_interface(story_stage: String) -> void:
@@ -2368,6 +2405,24 @@ func _update_moonwell_story_interface(story_stage: String) -> void:
 				attuned_count, WorldStateModel.MOONSTONE_POSITIONS.size()
 			]
 			dialogue_label.text = "Use E at each pale teal stone. Every first attunement grants its contributor Exploration mastery."
+
+
+func _update_moonwell_supper_interface() -> void:
+	quest_title_label.text = "MOONWELL SUPPER"
+	objective_label.text = "Prepare three courses at the glade hearth"
+	progress_label.visible = true
+	var courses := int(latest_snapshot.get("moonwell_supper_courses", 0))
+	var moonroot := int(latest_snapshot.get("materials", {}).get("moonroot", 0))
+	var personal_fish := int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0))
+	var creel_fish := int(latest_snapshot.get("shared_riverfish_stock", 0))
+	progress_label.text = "Courses %d/%d · Moonroot %d · Your fish %d · Creel %d" % [
+		courses,
+		WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES,
+		moonroot,
+		personal_fish,
+		creel_fish,
+	]
+	dialogue_label.text = "Each course needs 1 moonroot and 1 riverfish. Your fish is used first; the shared creel can supply a cook carrying none."
 
 
 func _update_festival_interface(
@@ -2545,6 +2600,22 @@ func _update_interaction_prompt(
 		<= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
 		interaction_prompt.text = "%s  ·  Rest at the Moonwell" % action_name
+		interaction_prompt.visible = true
+		return
+	if (
+		str(latest_snapshot.get("moonwell_supper_stage", "locked")) == "available"
+		and player_position.distance_to(WorldStateModel.MOONWELL_SUPPER_POSITION)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		var supper_moonroot := int(latest_snapshot.get("materials", {}).get("moonroot", 0))
+		var supper_personal_fish := int(latest_snapshot.get("player_riverfish", {}).get(local_token, 0))
+		var supper_creel_fish := int(latest_snapshot.get("shared_riverfish_stock", 0))
+		if supper_moonroot <= 0:
+			interaction_prompt.text = "MOONWELL SUPPER  ·  Bring shared moonroot"
+		elif supper_personal_fish <= 0 and supper_creel_fish <= 0:
+			interaction_prompt.text = "MOONWELL SUPPER  ·  Catch or store riverfish"
+		else:
+			interaction_prompt.text = "%s  ·  Prepare a supper course (1 moonroot + 1 fish)" % action_name
 		interaction_prompt.visible = true
 		return
 	if (

@@ -69,6 +69,9 @@ static func build(root: Node3D) -> Dictionary:
 		"moonwell_spring_glow": moonwell["spring_glow"],
 		"moonwell_light": moonwell["light"],
 		"moonwell_rest_marker": moonwell["rest_marker"],
+		"moonwell_supper": moonwell["supper"],
+		"moonwell_supper_marker": moonwell["supper_marker"],
+		"moonwell_supper_decorations": moonwell["supper_decorations"],
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
@@ -540,6 +543,41 @@ static func _add_moonwell_glade(root: Node3D) -> Dictionary:
 		Color("a4f8e9")
 	)
 	rest_marker.visible = false
+	var supper := Node3D.new()
+	supper.name = "MoonwellSupper"
+	supper.position = WorldStateModel.MOONWELL_SUPPER_POSITION
+	glade.add_child(supper)
+	for stone_position: Vector3 in [Vector3(-0.65, -0.35, 0.0), Vector3(0.65, -0.35, 0.0), Vector3(0.0, -0.35, -0.65)]:
+		_add_box(supper, "HearthStone", Vector3(0.55, 0.28, 0.48), stone_position, Color("69726c"), Vector3(0.0, stone_position.x * 18.0, 0.0))
+	var flame := _add_cylinder(supper, "SupperFlame", 0.26, 0.55, Vector3(0.0, 0.0, -0.12), Color("f0b75f"), 10)
+	var flame_material := flame.material_override as StandardMaterial3D
+	flame_material.emission_enabled = true
+	flame_material.emission = Color("ed9d4c")
+	flame_material.emission_energy_multiplier = 1.8
+	_add_cylinder(supper, "CookingPot", 0.55, 0.48, Vector3(0.0, 0.34, -0.1), Color("43585a"), 14)
+	_add_box(supper, "GatheringTable", Vector3(2.8, 0.24, 1.2), Vector3(2.15, 0.34, 0.0), Color("78563e"))
+	for leg_position: Vector3 in [Vector3(1.25, -0.15, -0.35), Vector3(3.05, -0.15, -0.35), Vector3(1.25, -0.15, 0.35), Vector3(3.05, -0.15, 0.35)]:
+		_add_box(supper, "TableLeg", Vector3(0.16, 0.95, 0.16), leg_position, Color("5c402f"))
+	var supper_marker := _add_station_marker(
+		supper,
+		"MoonwellSupperMarker",
+		Vector3.ZERO,
+		"PREPARE MOONWELL SUPPER",
+		Color("8ee2c5")
+	)
+	var supper_decorations := Node3D.new()
+	supper_decorations.name = "MoonwellSupperDecorations"
+	supper.add_child(supper_decorations)
+	_add_box(supper_decorations, "TableRunner", Vector3(2.5, 0.05, 0.56), Vector3(2.15, 0.49, 0.0), Color("4d9f8e"))
+	for bowl_x: float in [1.4, 2.15, 2.9]:
+		var bowl := _add_cylinder(supper_decorations, "SupperBowl", 0.24, 0.16, Vector3(bowl_x, 0.59, 0.0), Color("e7c77b"), 12)
+		var bowl_material := bowl.material_override as StandardMaterial3D
+		bowl_material.emission_enabled = true
+		bowl_material.emission = Color("c98b45")
+		bowl_material.emission_energy_multiplier = 0.7
+	supper.visible = false
+	supper_marker.visible = false
+	supper_decorations.visible = false
 	return {
 		"label": label,
 		"stones": stones,
@@ -548,6 +586,9 @@ static func _add_moonwell_glade(root: Node3D) -> Dictionary:
 		"spring_glow": spring_glow,
 		"light": light,
 		"rest_marker": rest_marker,
+		"supper": supper,
+		"supper_marker": supper_marker,
+		"supper_decorations": supper_decorations,
 	}
 
 

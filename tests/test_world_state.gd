@@ -314,6 +314,53 @@ func _init() -> void:
 	})
 	assert(migrated_moonwell.moonwell_story_stage == "map_clue", "Completed v22 Nima stories migrate to the unread Moonwell lead.")
 	assert(not migrated_moonwell.shared_map_discoveries["moonwell_glade"])
+	assert(persisted_moonwell.moonwell_supper_stage == "locked", "The supper waits until the produce stall also exists.")
+	var migrated_supper_data := persisted_moonwell.to_dictionary()
+	migrated_supper_data["version"] = 23
+	migrated_supper_data["livelihood_stage"] = "complete"
+	migrated_supper_data["produce_stall_open"] = true
+	var supper_state := WorldStateModel.new()
+	supper_state.load_dictionary(migrated_supper_data)
+	assert(supper_state.moonwell_supper_stage == "available", "A completed v23 Moonwell and stall migrate into the supper opportunity.")
+	assert(supper_state.moonwell_supper_courses == 0)
+	supper_state.materials["moonroot"] = 3
+	supper_state.player_riverfish["player-a"] = 2
+	supper_state.shared_riverfish_stock = 1
+	supper_state.downed_players["player-b"] = false
+	assert(not supper_state.try_prepare_moonwell_supper("player-a"), "Supper cooking requires reaching the glade hearth.")
+	supper_state.positions["player-a"] = WorldStateModel.MOONWELL_SUPPER_POSITION
+	assert(supper_state.try_prepare_moonwell_supper("player-a"))
+	assert(supper_state.moonwell_supper_courses == 1)
+	assert(supper_state.materials["moonroot"] == 2)
+	assert(supper_state.player_riverfish["player-a"] == 1)
+	assert(supper_state.shared_riverfish_stock == 1, "Personal fish takes priority over creel stock.")
+	assert(supper_state.player_mastery["player-a"]["cooking"] == 1)
+	var sleeping_supper := WorldStateModel.new()
+	sleeping_supper.load_dictionary(supper_state.to_dictionary())
+	sleeping_supper.mark_world_empty(3000)
+	sleeping_supper.apply_offline_catch_up(300000)
+	assert(sleeping_supper.moonwell_supper_courses == 1, "Empty time never cooks community courses.")
+	assert(sleeping_supper.materials["moonroot"] == 2 and sleeping_supper.player_riverfish["player-a"] == 1)
+	assert(supper_state.try_prepare_moonwell_supper("player-a"))
+	assert(supper_state.player_riverfish["player-a"] == 0)
+	supper_state.positions["player-b"] = WorldStateModel.MOONWELL_SUPPER_POSITION
+	assert(supper_state.try_prepare_moonwell_supper("player-b"), "A cook carrying no fish may draw from the conserved creel.")
+	assert(supper_state.moonwell_supper_stage == "complete")
+	assert(supper_state.moonwell_supper_courses == WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES)
+	assert(supper_state.materials["moonroot"] == 0)
+	assert(supper_state.shared_riverfish_stock == 0)
+	assert(supper_state.player_mastery["player-a"]["cooking"] == 2)
+	assert(supper_state.player_mastery["player-b"]["cooking"] == 1)
+	assert(supper_state.neighborhood_morale == 4)
+	assert(supper_state.reputation == 6)
+	assert(supper_state.chronicle.size() == 6)
+	assert(not supper_state.try_prepare_moonwell_supper("player-b"), "A completed supper cannot consume more ingredients or repeat rewards.")
+	var persisted_supper := WorldStateModel.new()
+	persisted_supper.load_dictionary(supper_state.to_dictionary())
+	assert(persisted_supper.moonwell_supper_stage == "complete")
+	assert(persisted_supper.moonwell_supper_courses == WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES)
+	assert(persisted_supper.player_mastery["player-a"]["cooking"] == 2)
+	assert(persisted_supper.chronicle.size() == 6)
 	exploration_state.positions["player-a"] = exploration_state.daily_survey_position()
 	assert(exploration_state.try_record_trail_survey("player-a"))
 	assert(exploration_state.player_survey_day["player-a"] == exploration_state.world_day)

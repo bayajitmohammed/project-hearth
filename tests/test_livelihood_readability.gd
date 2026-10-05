@@ -28,6 +28,8 @@ func _init() -> void:
 	assert(main.trailwork_marker != null)
 	assert(main.homestead_lantern_markers.size() == WorldStateModel.HOMESTEAD_LANTERN_POSITIONS.size())
 	assert(main.homestead_lanterns.size() == WorldStateModel.HOMESTEAD_LANTERN_POSITIONS.size())
+	assert(main.moonwell_supper != null and main.moonwell_supper_marker != null)
+	assert(main.moonwell_supper_decorations != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"artisan": WorldStateModel.FISHING_SPOT_POSITION}
@@ -149,6 +151,35 @@ func _init() -> void:
 	assert("Pathfinder I" in main.mastery_label.text)
 	assert("Coin 0" in main.progress_label.text)
 
+	snapshot["moonwell_story_stage"] = "complete"
+	snapshot["attuned_moonstones"] = {"bough": true, "brook": true, "path": true}
+	snapshot["moonwell_supper_stage"] = "available"
+	snapshot["moonwell_supper_courses"] = 1
+	snapshot["materials"]["moonroot"] = 2
+	snapshot["player_riverfish"]["artisan"] = 1
+	snapshot["positions"] = {"artisan": WorldStateModel.MOONWELL_SUPPER_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.moonwell_supper.visible)
+	assert(main.moonwell_supper_marker.visible)
+	assert(not main.moonwell_supper_decorations.visible)
+	assert(main.quest_title_label.text == "MOONWELL SUPPER")
+	assert("Courses 1/3" in main.progress_label.text)
+	assert("Your fish 1" in main.progress_label.text)
+	assert("Prepare a supper course" in main.interaction_prompt.text)
+	assert("Moonwell Supper 1/3" in main.world_change_label.text)
+	snapshot["player_riverfish"]["artisan"] = 0
+	snapshot["shared_riverfish_stock"] = 1
+	main.receive_snapshot(snapshot)
+	assert("Creel 1" in main.progress_label.text)
+	assert("Prepare a supper course" in main.interaction_prompt.text)
+	snapshot["moonwell_supper_stage"] = "complete"
+	snapshot["moonwell_supper_courses"] = WorldStateModel.MOONWELL_SUPPER_REQUIRED_COURSES
+	main.receive_snapshot(snapshot)
+	assert(main.moonwell_supper.visible)
+	assert(not main.moonwell_supper_marker.visible)
+	assert(main.moonwell_supper_decorations.visible)
+	assert("Moonwell Supper complete" in main.world_change_label.text)
+
 	snapshot["pantry_stock"] = 0
 	snapshot["player_coins"] = {"artisan": WorldStateModel.TRAIL_PROVISION_PRICE}
 	snapshot["player_provisions"] = {"artisan": 0}
@@ -246,12 +277,17 @@ func _snapshot() -> Dictionary:
 		"lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
 		"neighborhood_morale": 1,
 		"chronicle": [],
-		"shared_map_discoveries": {"northwood": true, "old_stone_ruins": true},
+		"shared_map_discoveries": {"northwood": true, "old_stone_ruins": true, "moonwell_glade": true},
 		"exploration_stage": "complete",
 		"ruin_guardian_position": WorldStateModel.RUIN_GUARDIAN_SPAWN,
 		"ruin_guardian_health": 0,
 		"ruin_guardian_defeated": true,
 		"ruin_waystone_activated": true,
+		"nima_story_stage": "complete",
+		"moonwell_story_stage": "complete",
+		"attuned_moonstones": {"bough": true, "brook": true, "path": true},
+		"moonwell_supper_stage": "locked",
+		"moonwell_supper_courses": 0,
 		"livelihood_stage": "food_need",
 		"harvested_garden_plots": {
 			"moonroot_1": false,

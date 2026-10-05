@@ -87,6 +87,8 @@ Restoring that route now brings **Nima**, a traveling mapmaker, to the home ways
 
 Nima's completed map table then reveals **Moonwell Glade** on the western edge of Northwood. Study the new annotation, reach the glade, and attune its three pale teal moonstones in any order. Different players may reveal, discover, and restore the landmark across sessions; discovery and first attunements grant only their performer normal Exploration mastery. Completion permanently wakes the luminous spring, raises shared morale and reputation once, and records the sanctuary in the chronicle. A standing injured player may rest at the restored Moonwell without supplies or time advancement, while downed players still require the established recovery flow.
 
+When the produce stall and Moonwell are both complete, the glade opens the **Moonwell Supper**. Prepare three courses at its hearth; each consumes one moonroot from the shared project bag and one riverfish. A cook's personal fish is used first, while a cook carrying none may draw from the persistent cottage creel. Every course grants its cook normal Cooking mastery, and friends may split farming, fishing, storage, and cooking across sessions. Completion permanently dresses the gathering table, raises shared morale and reputation once, and records the meal without creating passive output or repeatable milestone rewards.
+
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Use a provision while injured for one health, or press **E** near an injured standing friend to spend one of your provisions on their recovery. An injured standing player can also press **E** at the repaired cottage bedroll to rest and recover fully without advancing time or affecting companions. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner. On Android, **Aid friend**, **Rest**, and **Use provision** appear as contextual actions when eligible.
 
 A standing player carrying a trail provision can press **E** near a healthy standing friend to hand over one provision. Revive and injury aid resolve first, followed by valid world interactions, so a handoff never replaces urgent help or a station action. The nearest eligible friend is chosen deterministically, transferred inventory persists for both identities, and the touch action reads **Give provision**.
@@ -414,6 +416,20 @@ cp tests/fixtures/moonwell_story_ready_world.json /tmp/project-hearth-moonwell-s
 
 The probes verify that one player can reveal the destination while another discovers and restores it, with conserved personal credit, one shared consequence, and networked sanctuary recovery.
 
+For the cross-livelihood Moonwell Supper, copy `tests/fixtures/moonwell_supper_ready_world.json`, start an isolated server on port `9443` with room `SUPPER`, and run both cooks simultaneously:
+
+```sh
+cp tests/fixtures/moonwell_supper_ready_world.json /tmp/project-hearth-moonwell-supper.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9443 --room=SUPPER --save-file=/tmp/project-hearth-moonwell-supper.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/moonwell_supper_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9443 --room=SUPPER --player-token=supper-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/moonwell_supper_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9443 --room=SUPPER --player-token=supper-b
+```
+
+The probes verify personal-fish priority, creel fallback, conserved shared moonroot, individual cook credit, and one shared persistent supper consequence.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -453,6 +469,7 @@ The probes verify that one player can reveal the destination while another disco
 - The cottage Chronicle Board uses version-21 persistence for independent player read positions. Existing history remains unread after migration so returning and newly joining identities can catch up; acknowledging it grants no reward and never changes another player's view.
 - Nima's Bearings uses version-22 persistence for the first condition-triggered additional resident story. Existing restored-route worlds migrate into her arrival, cooperative steps remain shared, conversation rapport and fieldwork credit remain personal, and completion leaves one persistent map table and scheduled resident.
 - Moonwell Glade uses version-23 persistence for the first map-table follow-up landmark. Existing completed Nima stories migrate to its unread lead; reveal, discovery, and three attunements persist as shared state, while individual Exploration credit and the completed sanctuary recovery rule remain authoritative in every play mode.
+- Moonwell Supper uses version-24 persistence for the first cross-livelihood community meal. Existing worlds with both the produce stall and restored Moonwell migrate into the opportunity; three conserved courses persist across sessions, cooks retain individual mastery, and completion leaves one shared dressed table and chronicle outcome.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.

@@ -20,6 +20,8 @@ const MOONSTONE_POSITIONS := {
 	"brook": Vector3(-9.2, 0.6, -41.5),
 	"path": Vector3(-14.6, 0.6, -40.5),
 }
+const MOONWELL_SUPPER_POSITION := Vector3(-8.5, 0.6, -38.5)
+const MOONWELL_SUPPER_REQUIRED_COURSES := 3
 const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
 const TRAILWORK_BENCH_POSITION := Vector3(-14.8, 0.6, 7.0)
 const HOMESTEAD_LANTERN_POSITIONS := {
@@ -173,6 +175,8 @@ var nima_position := NIMA_ARRIVAL_POSITION
 var nima_activity := "traveling beyond Northwood"
 var moonwell_story_stage := "locked"
 var attuned_moonstones := {"bough": false, "brook": false, "path": false}
+var moonwell_supper_stage := "locked"
+var moonwell_supper_courses := 0
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
@@ -447,8 +451,45 @@ func try_attune_moonstone(player_token: String) -> bool:
 			neighborhood_morale += 1
 			reputation += 1
 			chronicle.append("The newcomers woke Moonwell Glade and made its luminous spring a shared sanctuary.")
+			_refresh_moonwell_supper_stage()
 		return true
 	return false
+
+
+func try_prepare_moonwell_supper(player_token: String) -> bool:
+	if moonwell_supper_stage != "available":
+		return false
+	if register_player(player_token).distance_to(MOONWELL_SUPPER_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)) or int(materials.get("moonroot", 0)) < 1:
+		return false
+	var personal_fish := int(player_riverfish.get(player_token, 0))
+	if personal_fish <= 0 and shared_riverfish_stock <= 0:
+		return false
+	materials["moonroot"] = int(materials.get("moonroot", 0)) - 1
+	if personal_fish > 0:
+		player_riverfish[player_token] = personal_fish - 1
+	else:
+		shared_riverfish_stock -= 1
+	moonwell_supper_courses = mini(
+		moonwell_supper_courses + 1, MOONWELL_SUPPER_REQUIRED_COURSES
+	)
+	_add_mastery(player_token, "cooking")
+	if moonwell_supper_courses >= MOONWELL_SUPPER_REQUIRED_COURSES:
+		moonwell_supper_stage = "complete"
+		neighborhood_morale += 1
+		reputation += 1
+		chronicle.append("Farmers, anglers, and cooks shared a Moonwell Supper beneath the awakened spring.")
+	return true
+
+
+func _refresh_moonwell_supper_stage() -> void:
+	if (
+		moonwell_supper_stage == "locked"
+		and moonwell_story_stage == "complete"
+		and produce_stall_open
+	):
+		moonwell_supper_stage = "available"
 
 
 func try_rest_at_moonwell(player_token: String) -> bool:
@@ -610,6 +651,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_recover_nima_field_case(player_token)
 		or interact_with_nima(player_token)
 		or try_attune_moonstone(player_token)
+		or try_prepare_moonwell_supper(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
 		or try_record_trail_survey(player_token)
@@ -1611,6 +1653,7 @@ func try_deliver_hearth_stew(player_token: String) -> bool:
 			reputation += 1
 			chronicle.append("The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.")
 			_update_mara_routine()
+			_refresh_moonwell_supper_stage()
 	return true
 
 
@@ -1753,7 +1796,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 23,
+		"version": 24,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1770,6 +1813,8 @@ func to_dictionary() -> Dictionary:
 		"nima_story_stage": nima_story_stage,
 		"moonwell_story_stage": moonwell_story_stage,
 		"attuned_moonstones": attuned_moonstones.duplicate(),
+		"moonwell_supper_stage": moonwell_supper_stage,
+		"moonwell_supper_courses": moonwell_supper_courses,
 		"neighborhood_event_stage": neighborhood_event_stage,
 		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": neighborhood_morale,
@@ -1932,6 +1977,18 @@ func load_dictionary(data: Dictionary) -> void:
 	else:
 		moonwell_story_stage = "map_clue" if nima_story_stage == "complete" else "locked"
 		attuned_moonstones = {"bough": false, "brook": false, "path": false}
+	if save_version >= 24:
+		moonwell_supper_stage = str(data.get("moonwell_supper_stage", "locked"))
+		if moonwell_supper_stage not in ["locked", "available", "complete"]:
+			moonwell_supper_stage = "locked"
+		moonwell_supper_courses = clampi(
+			int(data.get("moonwell_supper_courses", 0)), 0, MOONWELL_SUPPER_REQUIRED_COURSES
+		)
+		if moonwell_supper_stage == "complete":
+			moonwell_supper_courses = MOONWELL_SUPPER_REQUIRED_COURSES
+	else:
+		moonwell_supper_stage = "locked"
+		moonwell_supper_courses = 0
 	if save_version >= 7:
 		pantry_stock = clampi(int(data.get("pantry_stock", 0)), 0, PANTRY_MAX_STOCK)
 		last_world_empty_unix = maxi(int(data.get("last_world_empty_unix", 0)), 0)
@@ -2061,6 +2118,7 @@ func load_dictionary(data: Dictionary) -> void:
 	# Cast timing is intentionally session-only and never resumes after a restart.
 	player_fishing_phase = {}
 	player_fishing_time = {}
+	_refresh_moonwell_supper_stage()
 	world_clock_fraction = 0.0
 	# Active festival runs are intentionally ephemeral so a restart cannot strand entrants.
 	festival_stage = "available" if livelihood_stage == "complete" and produce_stall_open else "locked"

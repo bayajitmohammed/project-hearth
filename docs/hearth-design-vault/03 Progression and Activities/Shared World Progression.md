@@ -29,3 +29,7 @@ Using the board acknowledges every entry that exists at that moment for that pla
 Once the produce stall is open, the neighborhood may build a **Hearthbloom planter** beside the cottage. Any player can contribute one personal coin per interaction until the shared project reaches four contributions. One person may finish it gradually in an offline world, while companions may pool earnings in LAN or dedicated rooms; no owner, party leader, or simultaneous attendance is required.
 
 Completion permanently blooms the planter, raises neighborhood morale and reputation once, and records the change in the shared chronicle. It grants no player power, mastery shortcut, income, or exclusive access. Partial progress persists, never decays while the room is empty, and accepts no further coin after completion. This is the first proof that personal earnings can become a visible shared mark without making cooperation mandatory.
+
+## First cross-livelihood gathering project
+
+When both the produce stall and restored Moonwell exist, the neighborhood may prepare a three-course **Moonwell Supper** at the glade. Each course conservatively combines one shared moonroot with one personal or creel riverfish, persists immediately, and credits normal Cooking mastery only to the cook. Completion leaves a permanent dressed gathering table plus one-time morale, reputation, and chronicle recognition. It creates no recurring output, private ownership, or unattended progress.

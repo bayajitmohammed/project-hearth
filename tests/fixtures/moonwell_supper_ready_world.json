@@ -1,0 +1,45 @@
+{
+  "version": 24,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true, "moonwell_glade": true},
+  "exploration_stage": "complete",
+  "livelihood_stage": "complete",
+  "stews_delivered": 2,
+  "produce_stall_open": true,
+  "nima_story_stage": "complete",
+  "moonwell_story_stage": "complete",
+  "attuned_moonstones": {"bough": true, "brook": true, "path": true},
+  "moonwell_supper_stage": "available",
+  "moonwell_supper_courses": 0,
+  "materials": {"wood": 0, "herb": 0, "repair_kit": 0, "moonroot": 3, "hearth_stew": 0},
+  "reputation": 6,
+  "neighborhood_morale": 4,
+  "chronicle": [
+    "The newcomers repaired the abandoned cottage and made it their home.",
+    "Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
+    "The group found the Old Stone Ruins and restored its ancient waystone route.",
+    "The newcomers grew, cooked, and traded enough food to open the neighborhood produce stall.",
+    "Nima recovered her Northwood charts and made a map table beside the homestead.",
+    "The newcomers woke Moonwell Glade and made its luminous spring a shared sanctuary."
+  ],
+  "player_mastery": {
+    "supper-a": {"cooking": 0},
+    "supper-b": {"cooking": 0}
+  },
+  "player_relationships": {
+    "supper-a": {"mara": 0, "nima": 0},
+    "supper-b": {"mara": 0, "nima": 0}
+  },
+  "player_riverfish": {"supper-a": 2, "supper-b": 0},
+  "shared_riverfish_stock": 1,
+  "player_health": {"supper-a": 3, "supper-b": 3},
+  "downed_players": {"supper-a": false, "supper-b": false},
+  "positions": {
+    "supper-a": [-8.5, 0.6, -38.5],
+    "supper-b": [-8.5, 0.6, -38.5]
+  }
+}

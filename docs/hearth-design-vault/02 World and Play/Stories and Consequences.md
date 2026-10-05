@@ -30,6 +30,8 @@ Completing Nima's field-case story places a new shared lead at her map table. An
 
 The final attunement wakes the spring, adds one neighborhood morale and reputation once, and records the sanctuary in the chronicle. The player who discovers the glade and each player who attunes a stone receive only the normal Exploration mastery for their own actions. The completed spring is shared recovery access rather than exclusive power: every standing injured player may rest there, while downed players still need revival or a return to safety. Existing completed Nima saves migrate to the unread map lead, and empty-world catch-up cannot advance any step.
 
+Once the produce stall also exists, Moonwell Glade hosts the **Moonwell Supper**. Players may split gathering moonroot, catching or storing fish, and preparing three courses across sessions. The cooks receive their normal personal Cooking mastery, while the finished gathering table, morale, reputation, and chronicle consequence are shared. The supper has no timer and empty-world catch-up cannot contribute ingredients or complete it.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.
