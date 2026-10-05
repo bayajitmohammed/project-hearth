@@ -155,6 +155,10 @@ func _ready() -> void:
 	homestead_builder = HomesteadBuilder.new()
 	add_child(homestead_builder)
 	homestead_builder.change_requested.connect(_request_furnishing)
+	homestead_builder.mode_changed.connect(func(active: bool) -> void:
+		if active:
+			_release_mouse()
+	)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
@@ -304,9 +308,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			camera_distance = minf(camera_distance + 1.5, CAMERA_MAX_DISTANCE)
 			get_viewport().set_input_as_handled()
-		elif event.pressed and client_connected:
+		elif event.pressed and client_connected and not homestead_builder.active:
 			_capture_mouse()
 	elif event is InputEventMouseMotion:
+		if homestead_builder.active and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			return
 		_orbit_camera(event.relative, CAMERA_MOUSE_SENSITIVITY)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:

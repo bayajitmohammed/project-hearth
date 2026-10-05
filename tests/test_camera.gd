@@ -61,5 +61,15 @@ func _init() -> void:
 	forward = Vector2(0.0, -1.0).rotated(-main.camera_yaw)
 	assert(forward.is_equal_approx(Vector2(-1.0, 0.0)), "Movement must remain camera-relative.")
 
+	main.homestead_builder.toggle_mode()
+	var build_yaw: float = main.camera_yaw
+	var build_pitch: float = main.camera_pitch
+	main._unhandled_input(motion)
+	main._unhandled_input(downward_motion)
+	assert(is_equal_approx(main.camera_yaw, build_yaw) and is_equal_approx(main.camera_pitch, build_pitch), "Moving the furnishing cursor must not turn the camera.")
+	assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
+	main.homestead_builder.toggle_mode()
+	main._unhandled_input(motion)
+	assert(not is_equal_approx(main.camera_yaw, build_yaw), "Normal camera controls resume after furnishing mode.")
 	print("PASS: Switchable first-person and over-the-shoulder camera")
 	quit()

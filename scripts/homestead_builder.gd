@@ -2,6 +2,7 @@ extends Node3D
 
 const World = preload("res://scripts/world_state.gd")
 signal change_requested(cell: Vector2i, kind: String, quarter_turns: int, remove: bool)
+signal mode_changed(active: bool)
 
 var active := false
 var kind := "bench"
@@ -75,6 +76,7 @@ func toggle_mode() -> void:
 	controls.visible = active
 	grid.visible = active
 	preview.visible = active
+	mode_changed.emit(active)
 
 
 func cycle_piece() -> void:
@@ -143,7 +145,7 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	var hint := "Walk to the south yard and look toward a cell."
 	if valid and nearby:
 		hint = "Occupied · remove to rearrange." if occupied else ("Ready to place." if can_place else "Gather 2 shared wood to build.")
-	details.text = "SHARED SOUTH YARD\nWood %d · Rotation %d°\n%s" % [wood, quarter_turns * 90, hint]
+	details.text = "SHARED SOUTH YARD\nWood %d · Rotation %d°\n%s\nMove; hold right mouse to look." % [wood, quarter_turns * 90, hint]
 
 
 func _rebuild_preview() -> void:
