@@ -57,6 +57,17 @@ func _init() -> void:
 	main._save_world()
 	assert(not main.save_recovered_from_backup)
 	assert(main._read_world_dictionary(test_save_path) is Dictionary, "Recovery must restore a valid primary save.")
+	main.world_state.quest_stage = "home_repaired"
+	main.world_state.positions[main.local_token] = WorldStateModel.furnishing_position(Vector2i.ZERO) + Vector3(0, 0.6, 1)
+	main.world_state.materials["wood"] = 2
+	main._request_furnishing(Vector2i.ZERO, "bench", 2, false)
+	assert(main.latest_snapshot["furnishings"]["0,0"]["rotation"] == 2)
+	assert(main.world_state.materials["wood"] == 0)
+	main._load_world()
+	assert(main.world_state.furnishings["0,0"]["kind"] == "bench", "Offline furnishings survive local save/load.")
+	main._request_furnishing(Vector2i.ZERO, "", 0, true)
+	assert(main.world_state.furnishings.is_empty())
+	assert(main.world_state.materials["wood"] == 2)
 
 	root.remove_child(main)
 	main.free()

@@ -35,7 +35,14 @@ const INTERACTION_RADIUS := 1.8
 const WORLD_MIN_X := -17.0
 const WORLD_MAX_X := 17.0
 const WORLD_MIN_Z := -48.0
-const WORLD_MAX_Z := 14.0
+const WORLD_MAX_Z := 24.0
+const FURNISHING_ORIGIN := Vector3(-15.0, 0.0, 16.0)
+const FURNISHING_COLUMNS := 5
+const FURNISHING_ROWS := 3
+const FURNISHING_SPACING := 3.0
+const FURNISHING_REACH := 4.5
+const FURNISHING_WOOD_COST := 2
+const FURNISHING_KINDS := ["bench", "flower_box"]
 const REGION_SEED := 73021
 const NORTHWOOD_REVEAL_Z := -16.0
 const RUINS_POSITION := Vector3(0.0, 0.6, -40.0)
@@ -177,6 +184,7 @@ var moonwell_story_stage := "locked"
 var attuned_moonstones := {"bough": false, "brook": false, "path": false}
 var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
+var furnishings: Dictionary = {}
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
@@ -454,6 +462,41 @@ func try_attune_moonstone(player_token: String) -> bool:
 			_refresh_moonwell_supper_stage()
 		return true
 	return false
+
+
+static func furnishing_cell_valid(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < FURNISHING_COLUMNS and cell.y >= 0 and cell.y < FURNISHING_ROWS
+
+
+static func furnishing_cell_key(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]
+
+
+static func furnishing_position(cell: Vector2i) -> Vector3:
+	return FURNISHING_ORIGIN + Vector3(cell.x, 0.0, cell.y) * FURNISHING_SPACING
+
+
+func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> bool:
+	if quest_stage != "home_repaired" or not furnishing_cell_valid(cell):
+		return false
+	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	if positions[player_token].distance_to(furnishing_position(cell)) > FURNISHING_REACH:
+		return false
+	var key := furnishing_cell_key(cell)
+	if remove:
+		if not furnishings.has(key):
+			return false
+		furnishings.erase(key)
+		materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
+		return true
+	if kind not in FURNISHING_KINDS or quarter_turns < 0 or quarter_turns > 3:
+		return false
+	if furnishings.has(key) or int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
+		return false
+	materials["wood"] = int(materials.get("wood", 0)) - FURNISHING_WOOD_COST
+	furnishings[key] = {"kind": kind, "rotation": quarter_turns}
+	return true
 
 
 func try_prepare_moonwell_supper(player_token: String) -> bool:
@@ -1796,7 +1839,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 24,
+		"version": 25,
+		"furnishings": furnishings.duplicate(true),
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1977,6 +2021,19 @@ func load_dictionary(data: Dictionary) -> void:
 	else:
 		moonwell_story_stage = "map_clue" if nima_story_stage == "complete" else "locked"
 		attuned_moonstones = {"bough": false, "brook": false, "path": false}
+	furnishings = {}
+	if save_version >= 25:
+		var saved_furnishings: Dictionary = data.get("furnishings", {})
+		for x: int in FURNISHING_COLUMNS:
+			for z: int in FURNISHING_ROWS:
+				var key := furnishing_cell_key(Vector2i(x, z))
+				var piece: Variant = saved_furnishings.get(key, {})
+				if not piece is Dictionary:
+					continue
+				var kind := str(piece.get("kind", ""))
+				var turns := int(piece.get("rotation", -1))
+				if kind in FURNISHING_KINDS and turns >= 0 and turns <= 3:
+					furnishings[key] = {"kind": kind, "rotation": turns}
 	if save_version >= 24:
 		moonwell_supper_stage = str(data.get("moonwell_supper_stage", "locked"))
 		if moonwell_supper_stage not in ["locked", "available", "complete"]:

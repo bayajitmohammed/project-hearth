@@ -26,6 +26,9 @@ const CLIENT_INPUT_SEND_INTERVAL := 0.05
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 const TouchJoystick = preload("res://scripts/touch_joystick.gd")
+const HomesteadBuilder = preload("res://scripts/homestead_builder.gd")
+
+var homestead_builder: Node3D
 
 var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
@@ -149,6 +152,9 @@ var festival_checkpoint_nodes: Dictionary = {}
 func _ready() -> void:
 	_build_world()
 	_build_interface()
+	homestead_builder = HomesteadBuilder.new()
+	add_child(homestead_builder)
+	homestead_builder.change_requested.connect(_request_furnishing)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
@@ -218,7 +224,7 @@ func _update_local_authority_input() -> void:
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	peer_inputs[1] = input_vector.rotated(-camera_yaw)
 	if Input.is_action_just_pressed("interact"):
-		_try_interaction(local_token)
+		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
 		_try_craft(local_token)
 	if Input.is_action_just_pressed("attack"):
@@ -236,6 +242,7 @@ func _update_local_authority_input() -> void:
 
 
 func _process(delta: float) -> void:
+	homestead_builder.update_view(latest_snapshot, local_token, camera_yaw, client_connected or local_authority_player)
 	_interpolate_player_positions(delta)
 	if game_camera == null or not player_nodes.has(local_token):
 		return
@@ -276,6 +283,20 @@ func _interpolate_player_positions(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if is_server and not local_authority_player:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and (client_connected or local_authority_player):
+		if event.keycode == KEY_B and str(latest_snapshot.get("quest_stage", "")) == "home_repaired":
+			homestead_builder.toggle_mode()
+			get_viewport().set_input_as_handled()
+			return
+		if homestead_builder.active:
+			if event.keycode == KEY_R:
+				homestead_builder.rotate_piece()
+			elif event.keycode == KEY_T:
+				homestead_builder.cycle_piece()
+			elif event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+				homestead_builder.request_change(true)
+			elif event.keycode == KEY_ESCAPE:
+				homestead_builder.toggle_mode()
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			camera_distance = maxf(camera_distance - 1.5, CAMERA_MIN_DISTANCE)
@@ -459,6 +480,28 @@ func request_use_trail_provision() -> void:
 	if not peer_to_token.has(sender_id):
 		return
 	_try_use_trail_provision(peer_to_token[sender_id])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if peer_to_token.has(sender_id):
+		_try_furnishing(peer_to_token[sender_id], cell, kind, quarter_turns, remove)
+
+
+func _try_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
+	if world_state.try_change_furnishing(player_token, cell, kind, quarter_turns, remove):
+		_save_world()
+		_publish_snapshot()
+
+
+func _request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
+	if local_authority_player:
+		_try_furnishing(local_token, cell, kind, quarter_turns, remove)
+	elif client_connected:
+		request_furnishing.rpc_id(1, cell, kind, quarter_turns, remove)
 
 
 func _try_interaction(player_token: String) -> void:
@@ -1135,6 +1178,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"attuned_moonstones": world_state.attuned_moonstones.duplicate(),
 		"moonwell_supper_stage": world_state.moonwell_supper_stage,
 		"moonwell_supper_courses": world_state.moonwell_supper_courses,
+		"furnishings": world_state.furnishings.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
@@ -1967,6 +2011,9 @@ func _activate_mobile_context_target() -> void:
 
 
 func _request_interaction() -> void:
+	if homestead_builder.active:
+		homestead_builder.request_change(false)
+		return
 	if local_authority_player:
 		_try_interaction(local_token)
 	elif client_connected:

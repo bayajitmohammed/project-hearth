@@ -271,6 +271,7 @@ static func _add_environment(root: Node3D) -> Dictionary:
 
 static func _add_ground(root: Node3D) -> void:
 	_add_box(root, "Grass", Vector3(36.0, 0.25, 30.0), Vector3(0.0, -0.125, 0.0), Color("78a95e"))
+	_add_box(root, "SouthYard", Vector3(36.0, 0.25, 10.0), Vector3(0.0, -0.125, 20.0), Color("789b60"))
 	_add_box(root, "ForestGround", Vector3(36.0, 0.08, 8.0), Vector3(0.0, 0.04, -11.0), Color("4f7d4a"))
 
 
