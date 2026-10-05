@@ -1068,6 +1068,9 @@ func _connect_to_server() -> void:
 	_status("Connecting…")
 	_capture_mouse()
 	var web_socket_peer := WebSocketMultiplayerPeer.new()
+	# Full-world snapshots can accumulate during a brief browser main-thread stall.
+	# Bound the receive backlog to 1 MiB rather than the 64 KiB engine default.
+	web_socket_peer.inbound_buffer_size = 1024 * 1024
 	var error := web_socket_peer.create_client(address_input.text.strip_edges())
 	if error != OK:
 		_release_mouse()
