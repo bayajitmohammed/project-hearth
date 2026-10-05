@@ -29,6 +29,8 @@ const TouchJoystick = preload("res://scripts/touch_joystick.gd")
 const HomesteadBuilder = preload("res://scripts/homestead_builder.gd")
 
 var homestead_builder: Node3D
+var northern_region: Node3D
+var rendered_world_seed := WorldStateModel.REGION_SEED
 
 var world_state := WorldStateModel.new()
 var peer_to_token: Dictionary = {}
@@ -562,6 +564,11 @@ func _publish_snapshot() -> void:
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func receive_snapshot(snapshot: Dictionary) -> void:
 	latest_snapshot = snapshot.duplicate(true)
+	var snapshot_seed := int(snapshot.get("world_seed", WorldStateModel.REGION_SEED))
+	if snapshot_seed != rendered_world_seed:
+		northern_region.free()
+		northern_region = GrayboxWorldBuilder.create_northern_region(self, snapshot_seed)
+		rendered_world_seed = snapshot_seed
 	if client_connected and status_label.text == "Joining room…":
 		_status("Connected — welcome back to your shared world")
 	var seen_tokens := {}
@@ -940,6 +947,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		if unread_chronicle_count > 0
 		else "Chronicle: caught up"
 	)
+	world_status_parts.append("World seed %d" % rendered_world_seed)
 	world_change_label.text = "  ".join(world_status_parts)
 	var mastery: Dictionary = snapshot.get("player_mastery", {}).get(local_token, {})
 	mastery_label.text = _mastery_text(mastery)
@@ -1157,6 +1165,7 @@ func _snapshot_for_clients() -> Dictionary:
 		active_positions[token] = world_state.positions[token]
 	return {
 		"positions": active_positions,
+		"world_seed": world_state.world_seed,
 		"collectible_collected": world_state.collectible_collected,
 		"quest_stage": world_state.quest_stage,
 		"materials": world_state.materials.duplicate(),
@@ -1291,6 +1300,13 @@ func _load_world() -> void:
 		world_state.load_dictionary(backup)
 		save_recovered_from_backup = true
 		_status("Recovered world from the previous valid save")
+		return
+	world_state.world_seed = randi_range(1, WorldStateModel.MAX_WORLD_SEED)
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--world-seed="):
+			var requested := argument.trim_prefix("--world-seed=")
+			if requested.is_valid_int() and int(requested) >= 1 and int(requested) <= WorldStateModel.MAX_WORLD_SEED:
+				world_state.world_seed = int(requested)
 
 
 func _read_world_dictionary(path: String) -> Variant:
@@ -1368,6 +1384,7 @@ func _read_save_path_argument(default_path: String = SAVE_PATH) -> String:
 
 func _build_world() -> void:
 	var world_nodes := GrayboxWorldBuilder.build(self)
+	northern_region = world_nodes["northern_region"]
 	world_environment = world_nodes["world_environment"]
 	sun_light = world_nodes["sun_light"]
 	rain_particles = world_nodes["rain_particles"]

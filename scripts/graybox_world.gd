@@ -12,7 +12,7 @@ static func build(root: Node3D) -> Dictionary:
 	var cottage_rest_marker := _add_cottage_rest_point(root)
 	var chronicle_board := _add_chronicle_board(root)
 	_add_forest_edge(root)
-	_add_northern_region(root)
+	var northern_region := create_northern_region(root, WorldStateModel.REGION_SEED)
 	_add_old_stone_ruins(root)
 	_add_landmark_signs(root)
 	var mara := _add_mara(root)
@@ -52,6 +52,7 @@ static func build(root: Node3D) -> Dictionary:
 	root.add_child(camera)
 
 	return {
+		"northern_region": northern_region,
 		"world_environment": atmosphere["environment"],
 		"sun_light": atmosphere["sun_light"],
 		"rain_particles": atmosphere["rain_particles"],
@@ -305,11 +306,14 @@ static func _add_forest_edge(root: Node3D) -> void:
 		_add_tree(root, "Tree%d" % index, Vector3(x_position, 0.0, z_position))
 
 
-static func _add_northern_region(root: Node3D) -> void:
+static func create_northern_region(parent: Node3D, world_seed: int) -> Node3D:
+	var root := Node3D.new()
+	root.name = "GeneratedNorthwood"
+	parent.add_child(root)
 	_add_box(root, "NorthwoodGround", Vector3(36.0, 0.2, 34.0), Vector3(0.0, -0.1, -31.0), Color("426d48"))
 	_add_box(root, "NorthernTrail", Vector3(4.2, 0.07, 36.0), Vector3(0.0, 0.045, -30.0), Color("786c5b"))
 	var random := RandomNumberGenerator.new()
-	random.seed = WorldStateModel.REGION_SEED
+	random.seed = world_seed
 	var generated := 0
 	var attempts := 0
 	while generated < 22 and attempts < 100:
@@ -330,6 +334,7 @@ static func _add_northern_region(root: Node3D) -> void:
 			Color("65706b"),
 			Vector3(0.0, random.randf_range(0.0, 90.0), random.randf_range(-8.0, 8.0))
 		)
+	return root
 
 
 static func _add_old_stone_ruins(root: Node3D) -> void:

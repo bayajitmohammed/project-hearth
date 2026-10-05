@@ -1,0 +1,11 @@
+{
+  "version": 25,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "creature_defeated": true,
+  "neighborhood_event_stage": "complete",
+  "map_rumor_unlocked": true,
+  "exploration_stage": "follow_rumor",
+  "world_minute": 600
+}

@@ -33,6 +33,12 @@ func _init() -> void:
 	assert(main.session_status_label.visible)
 	assert("no internet" not in main.session_status_label.text.to_lower(), "Status should describe the mode, not imply connectivity.")
 	assert(main.latest_snapshot.get("active_player_count") == 1)
+	var created_seed: int = main.world_state.world_seed
+	assert(created_seed >= 1 and created_seed <= WorldStateModel.MAX_WORLD_SEED)
+	if "--world-seed=112358" in OS.get_cmdline_user_args():
+		assert(created_seed == 112358, "Creation-only seed override must be respected.")
+	assert(main.latest_snapshot["world_seed"] == created_seed)
+	assert(main.rendered_world_seed == created_seed)
 
 	var starting_position: Vector3 = main.world_state.positions[main.local_token]
 	main.peer_inputs[1] = Vector2.RIGHT
@@ -54,6 +60,7 @@ func _init() -> void:
 	main._load_world()
 	assert(main.save_recovered_from_backup, "An unreadable primary save must fall back to its backup.")
 	assert(main.world_state.quest_stage == "meet_mara", "Recovery must load the previous valid checkpoint.")
+	assert(main.world_state.world_seed == created_seed, "Backup recovery retains the original world seed.")
 	main._save_world()
 	assert(not main.save_recovered_from_backup)
 	assert(main._read_world_dictionary(test_save_path) is Dictionary, "Recovery must restore a valid primary save.")

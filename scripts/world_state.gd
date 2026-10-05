@@ -44,6 +44,7 @@ const FURNISHING_REACH := 4.5
 const FURNISHING_WOOD_COST := 2
 const FURNISHING_KINDS := ["bench", "flower_box"]
 const REGION_SEED := 73021
+const MAX_WORLD_SEED := 2147483647
 const NORTHWOOD_REVEAL_Z := -16.0
 const RUINS_POSITION := Vector3(0.0, 0.6, -40.0)
 const RUINS_REVEAL_RADIUS := 7.0
@@ -185,6 +186,7 @@ var attuned_moonstones := {"bough": false, "brook": false, "path": false}
 var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
+var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
@@ -772,7 +774,7 @@ func reset_player_fishing(player_token: String) -> void:
 
 
 func daily_survey_position() -> Vector3:
-	var survey_index := posmod(REGION_SEED + world_day * 17, DAILY_SURVEY_POSITIONS.size())
+	var survey_index := posmod(world_seed + world_day * 17, DAILY_SURVEY_POSITIONS.size())
 	return DAILY_SURVEY_POSITIONS[survey_index]
 
 
@@ -1144,7 +1146,7 @@ func world_time_period() -> String:
 
 
 func world_weather() -> String:
-	var forecast_roll := posmod(REGION_SEED + world_day * 37, 10)
+	var forecast_roll := posmod(world_seed + world_day * 37, 10)
 	if forecast_roll <= 5:
 		return "clear"
 	if forecast_roll <= 8:
@@ -1841,7 +1843,7 @@ func to_dictionary() -> Dictionary:
 	return {
 		"version": 25,
 		"furnishings": furnishings.duplicate(true),
-		"world_seed": REGION_SEED,
+		"world_seed": world_seed,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
 		"materials": materials.duplicate(),
@@ -1905,6 +1907,9 @@ func to_dictionary() -> Dictionary:
 
 
 func load_dictionary(data: Dictionary) -> void:
+	world_seed = int(data.get("world_seed", REGION_SEED))
+	if world_seed < 1 or world_seed > MAX_WORLD_SEED:
+		world_seed = REGION_SEED
 	collectible_collected = bool(data.get("collectible_collected", false))
 	quest_stage = str(data.get("quest_stage", "return_to_mara" if collectible_collected else "meet_mara"))
 	var saved_materials: Dictionary = data.get("materials", {})

@@ -12,6 +12,8 @@ The world is a large, finite 3D continent made from streamed regions. The arriva
 
 This gives each group a distinct world while preserving designed characters and memorable places. New outer regions can be added later without promising an infinite world.
 
+The first per-world generation increment assigns a positive saved seed when an offline, LAN-hosted, or dedicated world is first created. Existing saves retain their recorded seed, falling back to the original prototype seed when absent. A creation-only `--world-seed=<positive integer>` option supports reproducible worlds; it never overrides an existing save or backup. The authority publishes the seed to joining clients, which generate matching Northwood scenery; forecasts and daily surveys use the same saved seed. Authored story sites and interaction coordinates remain fixed. This diversifies the existing region without claiming continent streaming or new regions are complete.
+
 ## Building and destruction
 
 Players receive a shared homestead and can claim additional wilderness plots. Building uses snap-friendly modular pieces with free decoration and limited terrain shaping.
