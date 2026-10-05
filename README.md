@@ -85,6 +85,8 @@ After Welcome Lights, follow the road north beyond the original forest boundary.
 
 Restoring that route now brings **Nima**, a traveling mapmaker, to the home waystone and begins **Nima's Bearings**. Talk to her, recover the teal-marked field case she lost in Northwood, and return it. Different players may perform all three steps. The finder earns one Exploration mastery point, the speakers build their own Nima rapport, and completion permanently adds Nima and her map table to the neighborhood while raising morale and reputation and entering the shared chronicle. The story has no timer and never advances while the room is empty.
 
+Nima's completed map table then reveals **Moonwell Glade** on the western edge of Northwood. Study the new annotation, reach the glade, and attune its three pale teal moonstones in any order. Different players may reveal, discover, and restore the landmark across sessions; discovery and first attunements grant only their performer normal Exploration mastery. Completion permanently wakes the luminous spring, raises shared morale and reputation once, and records the sanctuary in the chronicle. A standing injured player may rest at the restored Moonwell without supplies or time advancement, while downed players still require the established recovery flow.
+
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Use a provision while injured for one health, or press **E** near an injured standing friend to spend one of your provisions on their recovery. An injured standing player can also press **E** at the repaired cottage bedroll to rest and recover fully without advancing time or affecting companions. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner. On Android, **Aid friend**, **Rest**, and **Use provision** appear as contextual actions when eligible.
 
 A standing player carrying a trail provision can press **E** near a healthy standing friend to hand over one provision. Revive and injury aid resolve first, followed by valid world interactions, so a handoff never replaces urgent help or a station action. The nearest eligible friend is chosen deterministically, transferred inventory persists for both identities, and the touch action reads **Give provision**.
@@ -398,6 +400,20 @@ cp tests/fixtures/nima_story_ready_world.json /tmp/project-hearth-nima-story.jso
 
 The probes verify that one player can handle Nima's conversations while another recovers the field case, with correct individual credit and one shared persistent consequence.
 
+For Moonwell Glade's cooperative landmark story, copy `tests/fixtures/moonwell_story_ready_world.json`, start an isolated server on port `9441` with room `MOONWELL`, and run both participants simultaneously:
+
+```sh
+cp tests/fixtures/moonwell_story_ready_world.json /tmp/project-hearth-moonwell-story.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9441 --room=MOONWELL --save-file=/tmp/project-hearth-moonwell-story.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/moonwell_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9441 --room=MOONWELL --player-token=moonwell-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/moonwell_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9441 --room=MOONWELL --player-token=moonwell-b
+```
+
+The probes verify that one player can reveal the destination while another discovers and restores it, with conserved personal credit, one shared consequence, and networked sanctuary recovery.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -436,6 +452,7 @@ The probes verify that one player can handle Nima's conversations while another 
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
 - The cottage Chronicle Board uses version-21 persistence for independent player read positions. Existing history remains unread after migration so returning and newly joining identities can catch up; acknowledging it grants no reward and never changes another player's view.
 - Nima's Bearings uses version-22 persistence for the first condition-triggered additional resident story. Existing restored-route worlds migrate into her arrival, cooperative steps remain shared, conversation rapport and fieldwork credit remain personal, and completion leaves one persistent map table and scheduled resident.
+- Moonwell Glade uses version-23 persistence for the first map-table follow-up landmark. Existing completed Nima stories migrate to its unread lead; reveal, discovery, and three attunements persist as shared state, while individual Exploration credit and the completed sanctuary recovery rule remain authoritative in every play mode.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.

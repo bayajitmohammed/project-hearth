@@ -22,6 +22,7 @@ const FIRST_PERSON_EYE_OFFSET := Vector3(0.0, 0.62, 0.0)
 const THIRD_PERSON_SHOULDER_HEIGHT := 0.35
 const THIRD_PERSON_SHOULDER_OFFSET := 0.75
 const PLAYER_POSITION_SMOOTHING_SPEED := 18.0
+const CLIENT_INPUT_SEND_INTERVAL := 0.05
 const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 const TouchJoystick = preload("res://scripts/touch_joystick.gd")
@@ -52,6 +53,8 @@ var camera_touch_start_position := Vector2.ZERO
 var camera_touch_drag_distance := 0.0
 var local_input_enabled := true
 var mobile_context_target: Dictionary = {}
+var client_input_send_accumulator := 0.0
+var last_sent_input := Vector2.ZERO
 
 var status_label: Label
 var quest_title_label: Label
@@ -93,6 +96,13 @@ var nima_node: Node3D
 var nima_field_case: Node3D
 var nima_case_marker: Node3D
 var nima_map_table: Node3D
+var moonwell_label: Label3D
+var moonwell_stones: Dictionary = {}
+var moonwell_stone_markers: Dictionary = {}
+var moonwell_stone_glows: Dictionary = {}
+var moonwell_spring_glow: MeshInstance3D
+var moonwell_light: OmniLight3D
+var moonwell_rest_marker: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
@@ -174,7 +184,14 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	input_vector = input_vector.rotated(-camera_yaw)
-	submit_input.rpc_id(1, input_vector)
+	client_input_send_accumulator += delta
+	if (
+		not input_vector.is_equal_approx(last_sent_input)
+		or client_input_send_accumulator >= CLIENT_INPUT_SEND_INTERVAL
+	):
+		submit_input.rpc_id(1, input_vector)
+		last_sent_input = input_vector
+		client_input_send_accumulator = 0.0
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
@@ -575,6 +592,31 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	nima_field_case.visible = nima_story_stage == "find_case"
 	nima_case_marker.visible = nima_story_stage == "find_case"
 	nima_map_table.visible = nima_story_stage == "complete"
+	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
+	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
+	var map_table_label := nima_map_table.get_node_or_null("Label") as Label3D
+	if map_table_label != null:
+		map_table_label.text = (
+			"NIMA'S MAP TABLE · NEW LEAD"
+			if moonwell_story_stage == "map_clue"
+			else "NIMA'S NORTHWOOD MAP TABLE"
+		)
+	moonwell_label.visible = moonwell_story_stage in ["attune_stones", "complete"]
+	for stone_id: String in moonwell_stones:
+		var stone_visible := moonwell_story_stage in ["find_glade", "attune_stones", "complete"]
+		var is_attuned := bool(attuned_moonstones.get(stone_id, false))
+		moonwell_stones[stone_id].visible = stone_visible
+		moonwell_stone_markers[stone_id].visible = (
+			moonwell_story_stage == "attune_stones" and not is_attuned
+		)
+		moonwell_stone_glows[stone_id].visible = is_attuned
+	moonwell_spring_glow.visible = moonwell_story_stage == "complete"
+	moonwell_light.visible = moonwell_story_stage == "complete"
+	moonwell_rest_marker.visible = (
+		moonwell_story_stage == "complete"
+		and not local_downed
+		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
+	)
 	var world_minute := int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE))
 	var weather := str(snapshot.get("world_weather", "clear"))
 	world_time_label.text = _world_time_text(
@@ -744,7 +786,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	for checkpoint_id: String in festival_checkpoint_nodes:
 		festival_checkpoint_nodes[checkpoint_id].visible = festival_stage == "racing"
 	map_panel.visible = rumor_unlocked
-	map_label.text = _shared_map_text(discoveries, route_activated)
+	map_label.text = _shared_map_text(discoveries, route_activated, moonwell_story_stage)
 	chronicle_panel.visible = not chronicle.is_empty() and (unread_chronicle_count > 0 or near_chronicle_board)
 	var chronicle_lines := PackedStringArray()
 	var first_visible_entry := 0 if near_chronicle_board else local_chronicle_read_count
@@ -784,6 +826,18 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 			"complete": "Nima settled in",
 		}.get(nima_story_stage, "Nima traveling"))
 		world_status_parts.append(nima_status)
+	if moonwell_story_stage != "locked":
+		var attuned_count := 0
+		for is_attuned: bool in attuned_moonstones.values():
+			if is_attuned:
+				attuned_count += 1
+		var moonwell_status: String = str({
+			"map_clue": "Moonwell lead unread",
+			"find_glade": "Moonwell search underway",
+			"attune_stones": "Moonwell stones %d/%d" % [attuned_count, WorldStateModel.MOONSTONE_POSITIONS.size()],
+			"complete": "Moonwell sanctuary restored",
+		}.get(moonwell_story_stage, "Moonwell unknown"))
+		world_status_parts.append(moonwell_status)
 	if quest_stage == "home_repaired":
 		world_status_parts.append(
 			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
@@ -1056,6 +1110,8 @@ func _snapshot_for_clients() -> Dictionary:
 		"nima_story_stage": world_state.nima_story_stage,
 		"nima_position": world_state.nima_position,
 		"nima_activity": world_state.nima_activity,
+		"moonwell_story_stage": world_state.moonwell_story_stage,
+		"attuned_moonstones": world_state.attuned_moonstones.duplicate(),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
@@ -1246,6 +1302,13 @@ func _build_world() -> void:
 	nima_field_case = world_nodes["nima_field_case"]
 	nima_case_marker = world_nodes["nima_case_marker"]
 	nima_map_table = world_nodes["nima_map_table"]
+	moonwell_label = world_nodes["moonwell_label"]
+	moonwell_stones = world_nodes["moonwell_stones"]
+	moonwell_stone_markers = world_nodes["moonwell_stone_markers"]
+	moonwell_stone_glows = world_nodes["moonwell_stone_glows"]
+	moonwell_spring_glow = world_nodes["moonwell_spring_glow"]
+	moonwell_light = world_nodes["moonwell_light"]
+	moonwell_rest_marker = world_nodes["moonwell_rest_marker"]
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
@@ -1727,6 +1790,15 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		_append_mobile_target(candidates, nima_node, "Talk to Nima", "interact", WorldStateModel.INTERACTION_RADIUS)
 	elif nima_story_stage == "find_case":
 		_append_mobile_target(candidates, nima_case_marker, "Recover case", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var moonwell_story_stage := str(latest_snapshot.get("moonwell_story_stage", "locked"))
+	if moonwell_story_stage == "map_clue":
+		_append_mobile_target(candidates, nima_map_table, "Study new map lead", "interact", WorldStateModel.INTERACTION_RADIUS)
+	elif moonwell_story_stage == "attune_stones":
+		for stone_id: String in moonwell_stone_markers:
+			if not bool(latest_snapshot.get("attuned_moonstones", {}).get(stone_id, false)):
+				_append_mobile_target(candidates, moonwell_stone_markers[stone_id], "Attune moonstone", "interact", WorldStateModel.INTERACTION_RADIUS)
+	elif moonwell_story_stage == "complete":
+		_append_mobile_target(candidates, moonwell_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2253,6 +2325,9 @@ func _update_quest_interface(
 	var nima_story_stage := str(latest_snapshot.get("nima_story_stage", "locked"))
 	if nima_story_stage in ["arrival", "find_case", "return_case"]:
 		_update_nima_story_interface(nima_story_stage)
+	var moonwell_story_stage := str(latest_snapshot.get("moonwell_story_stage", "locked"))
+	if moonwell_story_stage in ["map_clue", "find_glade", "attune_stones"]:
+		_update_moonwell_story_interface(moonwell_story_stage)
 
 
 func _update_nima_story_interface(story_stage: String) -> void:
@@ -2269,6 +2344,30 @@ func _update_nima_story_interface(story_stage: String) -> void:
 		"return_case":
 			objective_label.text = "Return the recovered field case to Nima"
 			dialogue_label.text = "Nima is waiting at the home waystone. Any companion may finish the shared request."
+
+
+func _update_moonwell_story_interface(story_stage: String) -> void:
+	quest_title_label.text = "MOONWELL GLADE"
+	progress_label.visible = true
+	match story_stage:
+		"map_clue":
+			objective_label.text = "Study the new lead at Nima's map table"
+			progress_label.text = "Shared landmark story · A map annotation waits at home"
+			dialogue_label.text = "Use E at Nima's map table beside the homestead. Any companion may reveal the destination."
+		"find_glade":
+			objective_label.text = "Find Moonwell Glade in western Northwood"
+			progress_label.text = "Follow Nima's map west of the Old Stone Ruins"
+			dialogue_label.text = "The sheltered glade lies against Northwood's western edge. Reaching it reveals it for everyone."
+		"attune_stones":
+			var attuned_count := 0
+			for is_attuned: bool in latest_snapshot.get("attuned_moonstones", {}).values():
+				if is_attuned:
+					attuned_count += 1
+			objective_label.text = "Attune the dormant moonstones"
+			progress_label.text = "Moonstones %d / %d · Any player may contribute" % [
+				attuned_count, WorldStateModel.MOONSTONE_POSITIONS.size()
+			]
+			dialogue_label.text = "Use E at each pale teal stone. Every first attunement grants its contributor Exploration mastery."
 
 
 func _update_festival_interface(
@@ -2419,6 +2518,33 @@ func _update_interaction_prompt(
 		<= WorldStateModel.INTERACTION_RADIUS + 0.35
 	):
 		interaction_prompt.text = "%s  ·  Recover Nima's field case" % action_name
+		interaction_prompt.visible = true
+		return
+	var moonwell_story_stage := str(latest_snapshot.get("moonwell_story_stage", "locked"))
+	if (
+		moonwell_story_stage == "map_clue"
+		and player_position.distance_to(WorldStateModel.NIMA_MAP_TABLE_POSITION)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Study Nima's new map lead" % action_name
+		interaction_prompt.visible = true
+		return
+	if moonwell_story_stage == "attune_stones":
+		var attuned_moonstones: Dictionary = latest_snapshot.get("attuned_moonstones", {})
+		for stone_id: String in WorldStateModel.MOONSTONE_POSITIONS:
+			if bool(attuned_moonstones.get(stone_id, false)):
+				continue
+			if player_position.distance_to(WorldStateModel.MOONSTONE_POSITIONS[stone_id]) <= WorldStateModel.INTERACTION_RADIUS + 0.35:
+				interaction_prompt.text = "%s  ·  Attune the %s moonstone" % [action_name, stone_id]
+				interaction_prompt.visible = true
+				return
+	if (
+		moonwell_story_stage == "complete"
+		and local_health < WorldStateModel.PLAYER_MAX_HEALTH
+		and player_position.distance_to(WorldStateModel.MOONWELL_CENTER)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Rest at the Moonwell" % action_name
 		interaction_prompt.visible = true
 		return
 	if (
@@ -2687,11 +2813,20 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 
 
-func _shared_map_text(discoveries: Dictionary, route_activated: bool) -> String:
+func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_story_stage: String = "locked") -> String:
 	var northwood := "charted" if bool(discoveries.get("northwood", false)) else "unexplored"
 	var ruins := "charted" if bool(discoveries.get("old_stone_ruins", false)) else "rumored"
 	var route := "waystone route active" if route_activated else "first journey required"
-	return "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
+	var map_text := "SHARED MAP\n• Arrival Ward — home\n• Northwood — %s\n• Old Stone Ruins — %s\n• Route — %s" % [northwood, ruins, route]
+	if moonwell_story_stage != "locked":
+		var moonwell_status: String = str({
+			"map_clue": "new lead at Nima's table",
+			"find_glade": "location marked",
+			"attune_stones": "discovered · spring dormant",
+			"complete": "restored sanctuary",
+		}.get(moonwell_story_stage, "unknown"))
+		map_text += "\n• Moonwell Glade — %s" % moonwell_status
+	return map_text
 
 
 func _update_relationship_interface(snapshot: Dictionary) -> void:

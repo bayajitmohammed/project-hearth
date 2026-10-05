@@ -15,6 +15,8 @@ func _init() -> void:
 	assert(main.home_waystone != null and main.ruin_waystone != null)
 	assert(main.trail_survey_marker != null)
 	assert(main.nima_node != null and main.nima_field_case != null and main.nima_map_table != null)
+	assert(main.moonwell_label != null and main.moonwell_spring_glow != null)
+	assert(main.moonwell_stones.size() == WorldStateModel.MOONSTONE_POSITIONS.size())
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"explorer": Vector3(0.0, 0.6, -20.0)}
@@ -114,6 +116,44 @@ func _init() -> void:
 	assert(main.nima_map_table.visible)
 	assert("NIMA KNOWS YOU · Trusted field partner · 2" in main.relationship_label.text)
 
+	snapshot["moonwell_story_stage"] = "map_clue"
+	snapshot["positions"] = {"explorer": WorldStateModel.NIMA_MAP_TABLE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert("NEW LEAD" in main.nima_map_table.get_node("Label").text)
+	assert(main.quest_title_label.text == "MOONWELL GLADE")
+	assert("Study Nima's new map lead" in main.interaction_prompt.text)
+	assert("new lead at Nima's table" in main.map_label.text)
+	snapshot["moonwell_story_stage"] = "find_glade"
+	snapshot["positions"] = {"explorer": WorldStateModel.MOONWELL_CENTER}
+	main.receive_snapshot(snapshot)
+	assert(main.moonwell_stones.values().all(func(node: Node3D) -> bool: return node.visible))
+	assert(not main.moonwell_label.visible)
+	assert("Find Moonwell Glade" in main.objective_label.text)
+	snapshot["moonwell_story_stage"] = "attune_stones"
+	snapshot["shared_map_discoveries"]["moonwell_glade"] = true
+	snapshot["attuned_moonstones"] = {"bough": true, "brook": false, "path": false}
+	snapshot["positions"] = {"explorer": WorldStateModel.MOONSTONE_POSITIONS["brook"]}
+	main.receive_snapshot(snapshot)
+	assert(main.moonwell_label.visible)
+	assert(main.moonwell_stone_glows["bough"].visible)
+	assert(not main.moonwell_stone_markers["bough"].visible)
+	assert(main.moonwell_stone_markers["brook"].visible)
+	assert("Moonstones 1 / 3" in main.progress_label.text)
+	assert("Attune the brook moonstone" in main.interaction_prompt.text)
+	assert("discovered · spring dormant" in main.map_label.text)
+	snapshot["moonwell_story_stage"] = "complete"
+	snapshot["attuned_moonstones"] = {"bough": true, "brook": true, "path": true}
+	snapshot["positions"] = {"explorer": WorldStateModel.MOONWELL_CENTER}
+	snapshot["player_health"]["explorer"] = 1
+	main.receive_snapshot(snapshot)
+	assert(main.moonwell_spring_glow.visible and main.moonwell_light.visible)
+	assert(main.moonwell_stone_glows.values().all(func(node: MeshInstance3D) -> bool: return node.visible))
+	assert(main.moonwell_rest_marker.visible)
+	assert("Rest at the Moonwell" in main.interaction_prompt.text)
+	assert("Moonwell Glade — restored sanctuary" in main.map_label.text)
+	assert("Moonwell sanctuary restored" in main.world_change_label.text)
+	snapshot["player_health"]["explorer"] = WorldStateModel.PLAYER_MAX_HEALTH
+
 	snapshot["positions"] = {"explorer": snapshot["daily_survey_position"]}
 	main.receive_snapshot(snapshot)
 	assert(main.trail_survey_marker.visible)
@@ -152,11 +192,13 @@ func _snapshot() -> Dictionary:
 		"nima_story_stage": "locked",
 		"nima_position": WorldStateModel.NIMA_ARRIVAL_POSITION,
 		"nima_activity": "traveling beyond Northwood",
+		"moonwell_story_stage": "locked",
+		"attuned_moonstones": {"bough": false, "brook": false, "path": false},
 		"neighborhood_event_stage": "complete",
 		"lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
 		"neighborhood_morale": 1,
 		"chronicle": [],
-		"shared_map_discoveries": {"northwood": false, "old_stone_ruins": false},
+		"shared_map_discoveries": {"northwood": false, "old_stone_ruins": false, "moonwell_glade": false},
 		"exploration_stage": "follow_rumor",
 		"ruin_guardian_position": WorldStateModel.RUIN_GUARDIAN_SPAWN,
 		"ruin_guardian_health": WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH,

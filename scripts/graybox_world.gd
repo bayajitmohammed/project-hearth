@@ -17,6 +17,7 @@ static func build(root: Node3D) -> Dictionary:
 	_add_landmark_signs(root)
 	var mara := _add_mara(root)
 	var nima_story := _add_nima_story(root)
+	var moonwell := _add_moonwell_glade(root)
 	var resource_nodes := _add_resources(root)
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
@@ -61,6 +62,13 @@ static func build(root: Node3D) -> Dictionary:
 		"nima_field_case": nima_story["field_case"],
 		"nima_case_marker": nima_story["case_marker"],
 		"nima_map_table": nima_story["map_table"],
+		"moonwell_label": moonwell["label"],
+		"moonwell_stones": moonwell["stones"],
+		"moonwell_stone_markers": moonwell["markers"],
+		"moonwell_stone_glows": moonwell["glows"],
+		"moonwell_spring_glow": moonwell["spring_glow"],
+		"moonwell_light": moonwell["light"],
+		"moonwell_rest_marker": moonwell["rest_marker"],
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
@@ -440,6 +448,106 @@ static func _add_nima_story(root: Node3D) -> Dictionary:
 		"field_case": field_case,
 		"case_marker": case_marker,
 		"map_table": map_table,
+	}
+
+
+static func _add_moonwell_glade(root: Node3D) -> Dictionary:
+	var glade := Node3D.new()
+	glade.name = "MoonwellGlade"
+	root.add_child(glade)
+	_add_cylinder(
+		glade,
+		"GladeFloor",
+		5.1,
+		0.18,
+		WorldStateModel.MOONWELL_CENTER + Vector3(0.0, -0.48, 0.0),
+		Color("355e50"),
+		32
+	)
+	_add_cylinder(
+		glade,
+		"MoonwellBank",
+		2.25,
+		0.35,
+		WorldStateModel.MOONWELL_CENTER + Vector3(0.0, -0.38, 0.0),
+		Color("677b70"),
+		24
+	)
+	var spring_glow := _add_cylinder(
+		glade,
+		"LuminousSpring",
+		1.85,
+		0.12,
+		WorldStateModel.MOONWELL_CENTER + Vector3(0.0, -0.15, 0.0),
+		Color("76e4dc"),
+		28
+	)
+	var spring_material := spring_glow.material_override as StandardMaterial3D
+	spring_material.emission_enabled = true
+	spring_material.emission = Color("62d9d4")
+	spring_material.emission_energy_multiplier = 2.4
+	spring_glow.visible = false
+	var light := OmniLight3D.new()
+	light.name = "MoonwellLight"
+	light.position = WorldStateModel.MOONWELL_CENTER + Vector3(0.0, 1.3, 0.0)
+	light.light_color = Color("8ff7e5")
+	light.light_energy = 2.1
+	light.omni_range = 8.0
+	light.visible = false
+	glade.add_child(light)
+	var label := Label3D.new()
+	label.name = "MoonwellGladeLabel"
+	label.text = "MOONWELL GLADE"
+	label.position = WorldStateModel.MOONWELL_CENTER + Vector3(0.0, 3.2, 0.0)
+	label.font_size = 48
+	label.pixel_size = 0.01
+	label.outline_size = 10
+	label.modulate = Color("adf5e7")
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.visible = false
+	glade.add_child(label)
+	var stones := {}
+	var markers := {}
+	var glows := {}
+	for stone_id: String in WorldStateModel.MOONSTONE_POSITIONS:
+		var stone := Node3D.new()
+		stone.name = "Moonstone_%s" % stone_id
+		stone.position = WorldStateModel.MOONSTONE_POSITIONS[stone_id]
+		glade.add_child(stone)
+		_add_box(stone, "Stone", Vector3(0.75, 1.8, 0.65), Vector3(0.0, 0.45, 0.0), Color("74847f"), Vector3(0.0, float(stone_id.hash() % 24) - 12.0, 5.0))
+		var glow := _add_cylinder(stone, "RuneGlow", 0.18, 0.9, Vector3(0.0, 0.52, 0.36), Color("8cf7e8"), 10)
+		var glow_material := glow.material_override as StandardMaterial3D
+		glow_material.emission_enabled = true
+		glow_material.emission = Color("69ddd5")
+		glow_material.emission_energy_multiplier = 2.0
+		glow.visible = false
+		var marker := _add_station_marker(
+			stone,
+			"MoonstoneMarker_%s" % stone_id,
+			Vector3.ZERO,
+			"ATTUNE %s MOONSTONE" % stone_id.to_upper(),
+			Color("8ff3e3")
+		)
+		marker.visible = false
+		stones[stone_id] = stone
+		markers[stone_id] = marker
+		glows[stone_id] = glow
+	var rest_marker := _add_station_marker(
+		glade,
+		"MoonwellRestMarker",
+		WorldStateModel.MOONWELL_CENTER,
+		"REST AT MOONWELL",
+		Color("a4f8e9")
+	)
+	rest_marker.visible = false
+	return {
+		"label": label,
+		"stones": stones,
+		"markers": markers,
+		"glows": glows,
+		"spring_glow": spring_glow,
+		"light": light,
+		"rest_marker": rest_marker,
 	}
 
 

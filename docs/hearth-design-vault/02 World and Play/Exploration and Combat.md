@@ -14,6 +14,10 @@ Travel should feel risky and interesting on the first visit, then convenient. Re
 
 After the Old Stone Ruins waystone route is restored, Northwood offers one deterministic **trail survey** each world day. The shared marker rotates among a small authored set, but every standing player may record it once that day for one personal Exploration mastery point; one companion never consumes another's opportunity. The last recorded day persists per identity. Empty-world calendar catch-up may change which marker is current, but never records a survey or awards mastery. This makes repeat travel purposeful without privatizing the shared map or adding passive progression.
 
+Completing **Nima's Bearings** reveals her first follow-up destination at the homestead map table: **Moonwell Glade**, a sheltered spring on the western edge of Northwood. Any player may study the table, another may discover the glade, and companions may attune its three dormant moonstones in any order across sessions. Discovery and each first stone attunement award normal personal Exploration mastery to the player who performed that action; the landmark and its outcome remain shared immediately.
+
+Attuning all three stones permanently wakes the luminous spring, raises neighborhood morale and reputation once, and records the sanctuary in the shared chronicle. The restored Moonwell becomes a second safe recovery point where any standing injured player can rest without consuming supplies, advancing time, or affecting companions. It cannot revive a downed player. The story has no timer, one player may complete every step alone, and empty-world catch-up cannot reveal, attune, or complete it.
+
 ## Combat
 
 Combat is accessible 3D action in either the default first-person view or the close over-the-shoulder third-person view: basic attack, charged or alternate action, dodge or guard, tool use, and a small ability loadout. Weapons and magic offer distinct roles without permanent classes.

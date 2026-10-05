@@ -13,6 +13,13 @@ const NIMA_MAP_TABLE_POSITION := Vector3(-10.0, 0.6, 12.0)
 const NIMA_WAYSTONE_POSITION := Vector3(10.5, 0.6, 8.5)
 const NIMA_GATHERING_POSITION := Vector3(6.5, 0.6, 5.5)
 const NIMA_COTTAGE_POSITION := Vector3(-6.0, 0.6, 4.0)
+const MOONWELL_CENTER := Vector3(-12.0, 0.6, -42.0)
+const MOONWELL_REVEAL_RADIUS := 5.0
+const MOONSTONE_POSITIONS := {
+	"bough": Vector3(-12.0, 0.6, -45.0),
+	"brook": Vector3(-9.2, 0.6, -41.5),
+	"path": Vector3(-14.6, 0.6, -40.5),
+}
 const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
 const TRAILWORK_BENCH_POSITION := Vector3(-14.8, 0.6, 7.0)
 const HOMESTEAD_LANTERN_POSITIONS := {
@@ -164,12 +171,18 @@ var mara_position := MARA_POSITION
 var nima_story_stage := "locked"
 var nima_position := NIMA_ARRIVAL_POSITION
 var nima_activity := "traveling beyond Northwood"
+var moonwell_story_stage := "locked"
+var attuned_moonstones := {"bough": false, "brook": false, "path": false}
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
 var chronicle: Array = []
 var player_chronicle_read_count: Dictionary = {}
-var shared_map_discoveries := {"northwood": false, "old_stone_ruins": false}
+var shared_map_discoveries := {
+	"northwood": false,
+	"old_stone_ruins": false,
+	"moonwell_glade": false,
+}
 var exploration_stage := "locked"
 var ruin_guardian_position := RUIN_GUARDIAN_SPAWN
 var ruin_guardian_health := RUIN_GUARDIAN_MAX_HEALTH
@@ -314,21 +327,31 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 
 
 func update_exploration(player_token: String) -> bool:
-	if exploration_stage == "locked" or not positions.has(player_token):
+	if not positions.has(player_token):
 		return false
 	var changed := false
 	var player_position: Vector3 = positions[player_token]
-	if player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
+	if exploration_stage != "locked" and player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
 		shared_map_discoveries["northwood"] = true
 		exploration_stage = "find_ruins"
 		_add_mastery(player_token, "exploration")
 		changed = true
 	if (
+		exploration_stage != "locked"
+		and
 		player_position.distance_to(RUINS_POSITION) <= RUINS_REVEAL_RADIUS
 		and not bool(shared_map_discoveries["old_stone_ruins"])
 	):
 		shared_map_discoveries["old_stone_ruins"] = true
 		exploration_stage = "defeat_guardian"
+		_add_mastery(player_token, "exploration")
+		changed = true
+	if (
+		moonwell_story_stage == "find_glade"
+		and player_position.distance_to(MOONWELL_CENTER) <= MOONWELL_REVEAL_RADIUS
+	):
+		shared_map_discoveries["moonwell_glade"] = true
+		moonwell_story_stage = "attune_stones"
 		_add_mastery(player_token, "exploration")
 		changed = true
 	return changed
@@ -386,10 +409,58 @@ func interact_with_nima(player_token: String) -> bool:
 		nima_activity = "waiting for news of her field case"
 	else:
 		nima_story_stage = "complete"
+		if moonwell_story_stage == "locked":
+			moonwell_story_stage = "map_clue"
 		neighborhood_morale += 1
 		reputation += 1
 		chronicle.append("Nima recovered her Northwood charts and made a map table beside the homestead.")
 		_update_nima_routine()
+	return true
+
+
+func try_reveal_moonwell_from_map(player_token: String) -> bool:
+	if moonwell_story_stage != "map_clue" or nima_story_stage != "complete":
+		return false
+	if register_player(player_token).distance_to(NIMA_MAP_TABLE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	moonwell_story_stage = "find_glade"
+	return true
+
+
+func try_attune_moonstone(player_token: String) -> bool:
+	if moonwell_story_stage != "attune_stones":
+		return false
+	var player_position := register_player(player_token)
+	if bool(downed_players.get(player_token, false)):
+		return false
+	for stone_id: String in MOONSTONE_POSITIONS:
+		if bool(attuned_moonstones.get(stone_id, false)):
+			continue
+		if player_position.distance_to(MOONSTONE_POSITIONS[stone_id]) > INTERACTION_RADIUS:
+			continue
+		attuned_moonstones[stone_id] = true
+		_add_mastery(player_token, "exploration")
+		if _all_moonstones_attuned():
+			moonwell_story_stage = "complete"
+			neighborhood_morale += 1
+			reputation += 1
+			chronicle.append("The newcomers woke Moonwell Glade and made its luminous spring a shared sanctuary.")
+		return true
+	return false
+
+
+func try_rest_at_moonwell(player_token: String) -> bool:
+	if moonwell_story_stage != "complete":
+		return false
+	if register_player(player_token).distance_to(MOONWELL_CENTER) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	if int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
+		return false
+	player_health[player_token] = PLAYER_MAX_HEALTH
 	return true
 
 
@@ -532,10 +603,13 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_rest_at_moonwell(player_token)
 		or try_rest_at_cottage(player_token)
 		or try_read_chronicle(player_token)
+		or try_reveal_moonwell_from_map(player_token)
 		or try_recover_nima_field_case(player_token)
 		or interact_with_nima(player_token)
+		or try_attune_moonstone(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
 		or try_record_trail_survey(player_token)
@@ -557,6 +631,13 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_light_welcome_lantern(player_token)
 		or try_give_trail_provision(player_token, active_tokens)
 	)
+
+
+func _all_moonstones_attuned() -> bool:
+	for is_attuned: bool in attuned_moonstones.values():
+		if not is_attuned:
+			return false
+	return true
 
 
 func try_fishing_interaction(player_token: String) -> bool:
@@ -1672,7 +1753,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 22,
+		"version": 23,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1687,6 +1768,8 @@ func to_dictionary() -> Dictionary:
 		"reputation": reputation,
 		"map_rumor_unlocked": map_rumor_unlocked,
 		"nima_story_stage": nima_story_stage,
+		"moonwell_story_stage": moonwell_story_stage,
+		"attuned_moonstones": attuned_moonstones.duplicate(),
 		"neighborhood_event_stage": neighborhood_event_stage,
 		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": neighborhood_morale,
@@ -1784,6 +1867,7 @@ func load_dictionary(data: Dictionary) -> void:
 		shared_map_discoveries = {
 			"northwood": bool(saved_discoveries.get("northwood", false)),
 			"old_stone_ruins": bool(saved_discoveries.get("old_stone_ruins", false)),
+			"moonwell_glade": bool(saved_discoveries.get("moonwell_glade", false)),
 		}
 		exploration_stage = str(data.get("exploration_stage", "locked"))
 		var encoded_guardian: Array = data.get("ruin_guardian_position", [])
@@ -1797,7 +1881,7 @@ func load_dictionary(data: Dictionary) -> void:
 		ruin_guardian_defeated = bool(data.get("ruin_guardian_defeated", false))
 		ruin_waystone_activated = bool(data.get("ruin_waystone_activated", false))
 	else:
-		shared_map_discoveries = {"northwood": false, "old_stone_ruins": false}
+		shared_map_discoveries = {"northwood": false, "old_stone_ruins": false, "moonwell_glade": false}
 		exploration_stage = "follow_rumor" if neighborhood_event_stage == "complete" else "locked"
 		ruin_guardian_position = RUIN_GUARDIAN_SPAWN
 		ruin_guardian_health = RUIN_GUARDIAN_MAX_HEALTH
@@ -1832,6 +1916,22 @@ func load_dictionary(data: Dictionary) -> void:
 			nima_story_stage = "arrival" if ruin_waystone_activated else "locked"
 	else:
 		nima_story_stage = "arrival" if ruin_waystone_activated else "locked"
+	if save_version >= 23:
+		moonwell_story_stage = str(data.get("moonwell_story_stage", "map_clue" if nima_story_stage == "complete" else "locked"))
+		if moonwell_story_stage not in ["locked", "map_clue", "find_glade", "attune_stones", "complete"]:
+			moonwell_story_stage = "map_clue" if nima_story_stage == "complete" else "locked"
+		var saved_moonstones: Dictionary = data.get("attuned_moonstones", {})
+		attuned_moonstones = {
+			"bough": bool(saved_moonstones.get("bough", false)),
+			"brook": bool(saved_moonstones.get("brook", false)),
+			"path": bool(saved_moonstones.get("path", false)),
+		}
+		if moonwell_story_stage == "complete":
+			for stone_id: String in attuned_moonstones:
+				attuned_moonstones[stone_id] = true
+	else:
+		moonwell_story_stage = "map_clue" if nima_story_stage == "complete" else "locked"
+		attuned_moonstones = {"bough": false, "brook": false, "path": false}
 	if save_version >= 7:
 		pantry_stock = clampi(int(data.get("pantry_stock", 0)), 0, PANTRY_MAX_STOCK)
 		last_world_empty_unix = maxi(int(data.get("last_world_empty_unix", 0)), 0)

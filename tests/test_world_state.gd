@@ -208,7 +208,9 @@ func _init() -> void:
 	direct_explorer.register_player("direct")
 	direct_explorer.positions["direct"] = WorldStateModel.RUINS_POSITION
 	assert(direct_explorer.update_exploration("direct"))
-	assert(direct_explorer.shared_map_discoveries.values().all(func(value: bool) -> bool: return value))
+	assert(direct_explorer.shared_map_discoveries["northwood"])
+	assert(direct_explorer.shared_map_discoveries["old_stone_ruins"])
+	assert(not direct_explorer.shared_map_discoveries["moonwell_glade"])
 	assert(direct_explorer.player_mastery["direct"]["exploration"] == 2, "Crossing both new reveal conditions earns both discovery credits.")
 	exploration_state.positions["player-a"] = WorldStateModel.RUIN_GUARDIAN_SPAWN + Vector3(1.0, 0.0, 0.0)
 	for hit: int in WorldStateModel.RUIN_GUARDIAN_MAX_HEALTH:
@@ -249,6 +251,7 @@ func _init() -> void:
 	assert(nima_story.neighborhood_morale == 2)
 	assert(nima_story.reputation == 4)
 	assert(nima_story.chronicle.size() == 4)
+	assert(nima_story.moonwell_story_stage == "map_clue")
 	nima_story.world_minute = 6 * 60
 	assert(nima_story.simulate_world_clock(1.0))
 	assert(nima_story.nima_position == WorldStateModel.NIMA_MAP_TABLE_POSITION)
@@ -258,9 +261,59 @@ func _init() -> void:
 	assert(restored_nima_story.nima_story_stage == "complete")
 	assert(restored_nima_story.player_relationships["player-a"]["nima"] == 1)
 	assert(restored_nima_story.player_relationships["player-b"]["nima"] == 1)
+	assert(restored_nima_story.moonwell_story_stage == "map_clue")
 	var migrated_nima_story := WorldStateModel.new()
 	migrated_nima_story.load_dictionary({"version": 21, "ruin_waystone_activated": true})
 	assert(migrated_nima_story.nima_story_stage == "arrival", "Existing restored routes introduce Nima rather than skipping her story.")
+	assert(not restored_nima_story.try_reveal_moonwell_from_map("player-a"), "The new lead must be studied at Nima's table.")
+	restored_nima_story.positions["player-a"] = WorldStateModel.NIMA_MAP_TABLE_POSITION
+	assert(restored_nima_story.try_reveal_moonwell_from_map("player-a"))
+	assert(restored_nima_story.moonwell_story_stage == "find_glade")
+	var sleeping_moonwell := WorldStateModel.new()
+	sleeping_moonwell.load_dictionary(restored_nima_story.to_dictionary())
+	sleeping_moonwell.mark_world_empty(2000)
+	sleeping_moonwell.apply_offline_catch_up(200000)
+	assert(sleeping_moonwell.moonwell_story_stage == "find_glade", "Empty time never discovers a landmark for players.")
+	restored_nima_story.positions["player-b"] = WorldStateModel.MOONWELL_CENTER
+	assert(restored_nima_story.update_exploration("player-b"))
+	assert(restored_nima_story.shared_map_discoveries["moonwell_glade"])
+	assert(restored_nima_story.moonwell_story_stage == "attune_stones")
+	assert(restored_nima_story.player_mastery["player-b"]["exploration"] == 2)
+	restored_nima_story.positions["player-a"] = WorldStateModel.MOONSTONE_POSITIONS["bough"]
+	assert(restored_nima_story.try_attune_moonstone("player-a"))
+	assert(restored_nima_story.player_mastery["player-a"]["exploration"] == 3)
+	assert(not restored_nima_story.try_attune_moonstone("player-a"), "An attuned stone cannot duplicate personal credit.")
+	restored_nima_story.positions["player-b"] = WorldStateModel.MOONSTONE_POSITIONS["brook"]
+	assert(restored_nima_story.try_attune_moonstone("player-b"))
+	restored_nima_story.positions["player-a"] = WorldStateModel.MOONSTONE_POSITIONS["path"]
+	assert(restored_nima_story.try_attune_moonstone("player-a"), "A third contributor action should complete the shared sanctuary.")
+	assert(restored_nima_story.moonwell_story_stage == "complete")
+	assert(restored_nima_story.attuned_moonstones.values().all(func(value: bool) -> bool: return value))
+	assert(restored_nima_story.neighborhood_morale == 3)
+	assert(restored_nima_story.reputation == 5)
+	assert(restored_nima_story.chronicle.size() == 5)
+	restored_nima_story.player_health["player-b"] = 1
+	restored_nima_story.positions["player-b"] = WorldStateModel.MOONWELL_CENTER
+	assert(restored_nima_story.try_rest_at_moonwell("player-b"))
+	assert(restored_nima_story.player_health["player-b"] == WorldStateModel.PLAYER_MAX_HEALTH)
+	assert(not restored_nima_story.try_rest_at_moonwell("player-b"), "A healthy player cannot retrigger sanctuary recovery.")
+	restored_nima_story.player_health["player-b"] = 1
+	restored_nima_story.downed_players["player-b"] = true
+	assert(not restored_nima_story.try_rest_at_moonwell("player-b"), "Moonwell rest never replaces cooperative revival.")
+	var persisted_moonwell := WorldStateModel.new()
+	persisted_moonwell.load_dictionary(restored_nima_story.to_dictionary())
+	assert(persisted_moonwell.moonwell_story_stage == "complete")
+	assert(persisted_moonwell.shared_map_discoveries["moonwell_glade"])
+	assert(persisted_moonwell.attuned_moonstones.values().all(func(value: bool) -> bool: return value))
+	assert(persisted_moonwell.chronicle.size() == 5)
+	var migrated_moonwell := WorldStateModel.new()
+	migrated_moonwell.load_dictionary({
+		"version": 22,
+		"nima_story_stage": "complete",
+		"ruin_waystone_activated": true,
+	})
+	assert(migrated_moonwell.moonwell_story_stage == "map_clue", "Completed v22 Nima stories migrate to the unread Moonwell lead.")
+	assert(not migrated_moonwell.shared_map_discoveries["moonwell_glade"])
 	exploration_state.positions["player-a"] = exploration_state.daily_survey_position()
 	assert(exploration_state.try_record_trail_survey("player-a"))
 	assert(exploration_state.player_survey_day["player-a"] == exploration_state.world_day)
@@ -286,7 +339,9 @@ func _init() -> void:
 	assert(exploration_state.positions["player-a"] == WorldStateModel.RUIN_WAYSTONE_ARRIVAL)
 	var restored_exploration := WorldStateModel.new()
 	restored_exploration.load_dictionary(exploration_state.to_dictionary())
-	assert(restored_exploration.shared_map_discoveries.values().all(func(value: bool) -> bool: return value))
+	assert(restored_exploration.shared_map_discoveries["northwood"])
+	assert(restored_exploration.shared_map_discoveries["old_stone_ruins"])
+	assert(not restored_exploration.shared_map_discoveries["moonwell_glade"])
 	assert(restored_exploration.ruin_guardian_defeated)
 	assert(restored_exploration.ruin_waystone_activated)
 	assert(restored_exploration.exploration_stage == "complete")

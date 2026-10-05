@@ -38,6 +38,8 @@ Mara's routine also supports one optional personal check-in per player per world
 
 The restored Old Stone Ruins route drives the first resident arrival condition: Nima appears at the home waystone and remains available while her shared field-case story is unresolved. After that story is complete, she follows a small readable routine—mapping at her homestead table in the morning, studying the home waystone in the afternoon, meeting neighbors at the gathering place in the evening, and resting by the cottage at night. Her routine changes presentation only; it never makes the request missable or advances while the room is empty.
 
+Nima's completed map table also exposes the authored Moonwell Glade lead. Restoring its three dormant stones leaves a permanent luminous sanctuary in Northwood. This is a remembered place change driven only by player actions: weather, routine simulation, and empty-world calendar catch-up may change its ambience but never advance its restoration.
+
 ## First weather and daylight depth
 
 Each world day has one deterministic forecast derived from the region seed and authoritative day number: clear, overcast, or gentle rain. Every client receives the same named weather in the world snapshot, while daylight color and brightness follow the shared clock. Night remains navigable and inviting through cool ambient light and warm authored landmarks rather than becoming black.

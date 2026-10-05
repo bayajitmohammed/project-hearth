@@ -1,0 +1,36 @@
+{
+  "version": 23,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true, "moonwell_glade": false},
+  "exploration_stage": "complete",
+  "livelihood_stage": "food_need",
+  "nima_story_stage": "complete",
+  "moonwell_story_stage": "map_clue",
+  "attuned_moonstones": {"bough": false, "brook": false, "path": false},
+  "reputation": 4,
+  "neighborhood_morale": 2,
+  "chronicle": [
+    "The newcomers repaired the abandoned cottage and made it their home.",
+    "Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
+    "The group found the Old Stone Ruins and restored its ancient waystone route.",
+    "Nima recovered her Northwood charts and made a map table beside the homestead."
+  ],
+  "player_mastery": {
+    "moonwell-a": {"exploration": 0},
+    "moonwell-b": {"exploration": 0}
+  },
+  "player_relationships": {
+    "moonwell-a": {"mara": 0, "nima": 0},
+    "moonwell-b": {"mara": 0, "nima": 0}
+  },
+  "player_health": {"moonwell-a": 3, "moonwell-b": 1},
+  "downed_players": {"moonwell-a": false, "moonwell-b": false},
+  "positions": {
+    "moonwell-a": [-10.0, 0.6, 12.0],
+    "moonwell-b": [-12.0, 0.6, -42.0]
+  }
+}

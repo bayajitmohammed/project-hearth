@@ -24,6 +24,12 @@ Recovering the case grants one normal Exploration mastery point to the finder be
 
 The request has no timer and empty-world catch-up cannot advance it. Existing worlds with an already restored route migrate into Nima's arrival rather than skipping the story. Required appearances override her normal schedule until the field case returns.
 
+## Moonwell Glade
+
+Completing Nima's field-case story places a new shared lead at her map table. Any player may reveal Moonwell Glade, another may discover it, and any combination of players may attune the three moonstones. The sequence persists between sessions and never requires companions to be online together.
+
+The final attunement wakes the spring, adds one neighborhood morale and reputation once, and records the sanctuary in the chronicle. The player who discovers the glade and each player who attunes a stone receive only the normal Exploration mastery for their own actions. The completed spring is shared recovery access rather than exclusive power: every standing injured player may rest there, while downed players still need revival or a return to safety. Existing completed Nima saves migrate to the unread map lead, and empty-world catch-up cannot advance any step.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.
