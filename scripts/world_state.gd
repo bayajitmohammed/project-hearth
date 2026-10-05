@@ -36,6 +36,12 @@ const WORLD_MIN_X := -17.0
 const WORLD_MAX_X := 17.0
 const WORLD_MIN_Z := -48.0
 const WORLD_MAX_Z := 24.0
+const REEDBANK_MAX_X := 43.0
+const OREN_TRAIL_POSITION := Vector3(21.0, 0.6, -23.0)
+const OREN_MILL_POSITION := Vector3(31.0, 0.6, -27.0)
+const REEDBANK_SAIL_POSITION := Vector3(37.0, 0.6, -41.0)
+const REEDBANK_REPAIR_POSITION := Vector3(34.0, 0.6, -30.0)
+const REEDBANK_REST_POSITION := Vector3(30.0, 0.6, -33.0)
 const FURNISHING_ORIGIN := Vector3(-15.0, 0.0, 16.0)
 const FURNISHING_COLUMNS := 5
 const FURNISHING_ROWS := 3
@@ -186,6 +192,7 @@ var attuned_moonstones := {"bough": false, "brook": false, "path": false}
 var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
+var reedbank_stage := "meet_oren"
 var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
@@ -334,8 +341,14 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	var next_position: Vector3 = register_player(player_token) + direction * 4.0 * delta
-	next_position.x = clampf(next_position.x, WORLD_MIN_X, WORLD_MAX_X)
+	next_position.x = clampf(next_position.x, WORLD_MIN_X, REEDBANK_MAX_X)
 	next_position.z = clampf(next_position.z, WORLD_MIN_Z, WORLD_MAX_Z)
+	# Reedbank is an eastern branch, not an expansion of the empty southern edge.
+	if next_position.x > WORLD_MAX_X and next_position.z > -18.0:
+		if register_player(player_token).x > WORLD_MAX_X:
+			next_position.z = -18.0
+		else:
+			next_position.x = WORLD_MAX_X
 	positions[player_token] = next_position
 	return next_position
 
@@ -683,12 +696,49 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func try_reedbank_interaction(player_token: String) -> bool:
+	if nima_story_stage != "complete" or bool(downed_players.get(player_token, false)):
+		return false
+	var player_position := register_player(player_token)
+	match reedbank_stage:
+		"meet_oren":
+			if player_position.distance_to(OREN_TRAIL_POSITION) > INTERACTION_RADIUS:
+				return false
+			reedbank_stage = "recover_sail"
+		"recover_sail":
+			if player_position.distance_to(REEDBANK_SAIL_POSITION) > INTERACTION_RADIUS:
+				return false
+			reedbank_stage = "repair_mill"
+			_add_mastery(player_token, "exploration")
+		"repair_mill":
+			if player_position.distance_to(REEDBANK_REPAIR_POSITION) > INTERACTION_RADIUS or int(materials.get("wood", 0)) < 2:
+				return false
+			materials["wood"] -= 2
+			reedbank_stage = "return_oren"
+			_add_mastery(player_token, "building")
+		"return_oren":
+			if player_position.distance_to(OREN_MILL_POSITION) > INTERACTION_RADIUS:
+				return false
+			reedbank_stage = "complete"
+			reputation += 1
+			neighborhood_morale += 1
+			chronicle.append("Together, the newcomers repaired Oren's windmill and opened a travelers' rest in Reedbank Hollow.")
+		"complete":
+			if player_position.distance_to(REEDBANK_REST_POSITION) > INTERACTION_RADIUS or int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
+				return false
+			player_health[player_token] = PLAYER_MAX_HEALTH
+		_:
+			return false
+	return true
+
+
 func interact(player_token: String, active_tokens: Array = []) -> bool:
 	return (
 		try_revive_player(player_token, active_tokens)
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_reedbank_interaction(player_token)
 		or try_rest_at_moonwell(player_token)
 		or try_rest_at_cottage(player_token)
 		or try_read_chronicle(player_token)
@@ -1841,7 +1891,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 25,
+		"version": 26,
+		"reedbank_stage": reedbank_stage,
 		"furnishings": furnishings.duplicate(true),
 		"world_seed": world_seed,
 		"collectible_collected": collectible_collected,
@@ -1939,6 +1990,9 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	reedbank_stage = str(data.get("reedbank_stage", "meet_oren")) if save_version >= 26 else "meet_oren"
+	if reedbank_stage not in ["meet_oren", "recover_sail", "repair_mill", "return_oren", "complete"]:
+		reedbank_stage = "meet_oren"
 	if save_version >= 4:
 		neighborhood_event_stage = str(data.get("neighborhood_event_stage", "locked"))
 		var saved_lanterns: Dictionary = data.get("lit_welcome_lanterns", {})

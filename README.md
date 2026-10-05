@@ -113,6 +113,10 @@ Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at
 
 ## Run the state test
 
+Reedbank Hollow adds an eastern Northwood trail after Nima settles. Meet Oren, recover his sail from the northern reeds, fit it at the mill with two shared wood, and return to him to open a permanent rest shelter. Progress is shared across offline, LAN, and dedicated-room play; version-26 saves preserve each step.
+
+Focused content coverage: `Godot --headless --path . --script res://tests/test_reedbank.gd`. For the companion handoff check, copy `tests/fixtures/reedbank_ready_world.json` to a temporary save, start a server with `--port=9451 --room=REEDS --save-file=<temporary-save>`, then run `tests/reedbank_multiplayer_probe.gd` twice with `--connect=ws://127.0.0.1:9451 --room=REEDS` and distinct `--player-token=reedbank-a` / `--player-token=reedbank-b` identities. The browser pass starts from the same fixture and plays the full chain using WASD/E.
+
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_world_state.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/test_living_world_readability.gd

@@ -32,6 +32,12 @@ The final attunement wakes the spring, adds one neighborhood morale and reputati
 
 Once the produce stall also exists, Moonwell Glade hosts the **Moonwell Supper**. Players may split gathering moonroot, catching or storing fish, and preparing three courses across sessions. The cooks receive their normal personal Cooking mastery, while the finished gathering table, morale, reputation, and chronicle consequence are shared. The supper has no timer and empty-world catch-up cannot contribute ingredients or complete it.
 
+## Reedbank Hollow — content increment
+
+An authored eastern branch of Northwood leads to Reedbank Hollow. Once Nima has settled, millkeeper **Oren** asks travelers to recover a sail blown into the northern reed beds, then fit it at his windmill with two shared wood. Any companion may continue any step; the recovered sail is shared story state, not an item one disconnected player can take away. The finder receives normal Exploration mastery and the repairer normal Building mastery. Returning to Oren completes the story once, raises morale and reputation, and records the group's work in the chronicle.
+
+The repaired sails turn permanently, Oren moves from the trail to the mill, and a warm rest shelter opens for standing injured travelers. It does not revive downed players, generate goods, or require upkeep. Earlier saves begin with the untouched mill; no calendar or empty-world catch-up advances the story. This is a compact authored destination and resident story, not continent streaming or final art. Its trail, reeds, softly colored trees, and illuminated mill provide a distinct graybox place within the existing stylized-fantasy direction.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.

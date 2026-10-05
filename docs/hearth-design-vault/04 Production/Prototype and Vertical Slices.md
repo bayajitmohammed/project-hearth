@@ -41,6 +41,8 @@ Until that later validation pass, completing a slice means its smallest promised
 
 ## Current implementation handoff
 
+- Content-first continuation: prioritize new playable places, resident stories, and activities now that the minimum base logic exists. Keep checks focused; interrupt content work for regressions that block play, corrupt saves, or break offline/co-op. Fresh-player and full-device release gates remain deferred, not waived.
+- Reedbank Hollow: an authored eastern Northwood branch now contains Oren's **The Wind Returns** story. Companions may split the conversation, northern reed-bed sail recovery, two-wood mill repair, and return. Completion leaves turning sails, a lit recovery shelter, and one shared chronicle/morale/reputation consequence; finder and builder keep their own mastery credit. Version-26 saves retain every step, and older worlds begin with the untouched mill. Focused state/presentation and play-mode checks, the full world-state suite, and simultaneous two-client handoff pass. Exported-Web Chromium completed the whole chain with conserved wood and no console errors or warnings. This remains authored graybox content, not final art or streamed continent generation.
 - Project: `/Users/kyrin0/Desktop/studio/garage/project-hearth`
 - Current checkpoint: the minimum cumulative Slice 6 promise, **Gather and Celebrate**, is implemented through the in-world Hearthlight Festival, explicit 1–8 player enrollment, a normalized checkpoint circuit, authoritative results, and persistent cosmetic ribbons.
 - Post-slice foundation: the startup flow now offers separate offline, native LAN-hosted, and join-room paths. Offline and LAN saves remain separate, while all modes use the same authoritative world rules. A focused headless test, a native host-plus-guest probe, and exported-Web offline movement pass verify the foundation; broader device validation remains deferred.
@@ -91,7 +93,7 @@ Until that later validation pass, completing a slice means its smallest promised
 - Focused desktop Web check: the Slice 5 HUD, room connection, WASD movement, camera toggle, pantry transfer, downed return, and recovery-pack prompt/label pass in Chromium through the exported build with no console errors. Synthetic pointer-lock mouse motion was not treated as a mouse-look validation.
 - Cumulative exported-Web check: a fresh-world Chromium journey passes through cottage repair, Welcome Lights, shared discovery, repeated solo guardian failure/return, eventual waystone restoration, the livelihood loop, empty-room sleep, reconnect catch-up, and pantry pickup. A non-blocking pointer-lock document message appeared only in the persistent-profile Playwright harness; focused gameplay runs and camera regression coverage remain clean.
 - Active completion work: follow [[Cumulative Slices 1-6 Playtest Checklist]] with a fresh player, then complete the full desktop Web, Windows, and native Android runtime pass. Archive the durable result here before deleting the temporary checklist.
-- After that validation: continue Slice 6 content and launch polish only where the playtest exposes a demonstrated need.
+- Current work continues content expansion under the user's content-first direction; later fresh-player feedback will guide broader usability and launch polish.
 
 ## Slice 5 — first cumulative increment
 

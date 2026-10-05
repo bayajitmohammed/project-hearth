@@ -101,6 +101,7 @@ var nima_node: Node3D
 var nima_field_case: Node3D
 var nima_case_marker: Node3D
 var nima_map_table: Node3D
+var reedbank: ReedbankHollow
 var moonwell_label: Label3D
 var moonwell_stones: Dictionary = {}
 var moonwell_stone_markers: Dictionary = {}
@@ -653,6 +654,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	nima_field_case.visible = nima_story_stage == "find_case"
 	nima_case_marker.visible = nima_story_stage == "find_case"
 	nima_map_table.visible = nima_story_stage == "complete"
+	reedbank.update_view(snapshot)
 	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
 	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
 	var map_table_label := nima_map_table.get_node_or_null("Label") as Label3D
@@ -1198,6 +1200,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"attuned_moonstones": world_state.attuned_moonstones.duplicate(),
 		"moonwell_supper_stage": world_state.moonwell_supper_stage,
 		"moonwell_supper_courses": world_state.moonwell_supper_courses,
+		"reedbank_stage": world_state.reedbank_stage,
 		"furnishings": world_state.furnishings.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
@@ -1398,6 +1401,8 @@ func _build_world() -> void:
 	nima_case_marker = world_nodes["nima_case_marker"]
 	nima_map_table = world_nodes["nima_map_table"]
 	moonwell_label = world_nodes["moonwell_label"]
+	reedbank = preload("res://scripts/reedbank_hollow.gd").new()
+	add_child(reedbank)
 	moonwell_stones = world_nodes["moonwell_stones"]
 	moonwell_stone_markers = world_nodes["moonwell_stone_markers"]
 	moonwell_stone_glows = world_nodes["moonwell_stone_glows"]
@@ -1869,6 +1874,8 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if str(latest_snapshot.get("nima_story_stage", "locked")) == "complete":
+		_append_mobile_target(candidates, reedbank.marker, ReedbankHollow.action_text(str(latest_snapshot.get("reedbank_stage", "meet_oren"))), "interact", WorldStateModel.INTERACTION_RADIUS)
 	var chronicle_size: int = latest_snapshot.get("chronicle", []).size()
 	var chronicle_read_count := clampi(
 		int(latest_snapshot.get("player_chronicle_read_count", {}).get(local_token, 0)),
@@ -2452,6 +2459,15 @@ func _update_quest_interface(
 		_update_moonwell_story_interface(moonwell_story_stage)
 	if str(latest_snapshot.get("moonwell_supper_stage", "locked")) == "available":
 		_update_moonwell_supper_interface()
+	if nima_story_stage == "complete":
+		var reedbank_stage := str(latest_snapshot.get("reedbank_stage", "meet_oren"))
+		var local_position: Vector3 = latest_snapshot.get("positions", {}).get(local_token, Vector3.ZERO)
+		if local_position.x > 17.0 or (moonwell_story_stage == "complete" and str(latest_snapshot.get("moonwell_supper_stage", "locked")) != "available" and reedbank_stage != "complete"):
+			quest_title_label.text = "THE WIND RETURNS"
+			objective_label.text = ReedbankHollow.action_text(reedbank_stage)
+			progress_label.visible = true
+			progress_label.text = "Reedbank Hollow · Shared resident story"
+			dialogue_label.text = ReedbankHollow.guidance(reedbank_stage)
 
 
 func _update_nima_story_interface(story_stage: String) -> void:
@@ -2602,6 +2618,12 @@ func _update_interaction_prompt(
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
 	var player_health: Dictionary = latest_snapshot.get("player_health", {})
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	if str(latest_snapshot.get("nima_story_stage", "locked")) == "complete":
+		var reedbank_stage := str(latest_snapshot.get("reedbank_stage", "meet_oren"))
+		if player_position.distance_to(ReedbankHollow.target_position(reedbank_stage)) <= WorldStateModel.INTERACTION_RADIUS:
+			interaction_prompt.text = "%s · %s" % [action_name, ReedbankHollow.action_text(reedbank_stage)]
+			interaction_prompt.visible = true
+			return
 	if int(latest_snapshot.get("player_provisions", {}).get(local_token, 0)) > 0:
 		for target_token: String in player_positions:
 			if target_token == local_token or bool(downed_players.get(target_token, false)):
@@ -2985,6 +3007,8 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_s
 			"complete": "restored sanctuary",
 		}.get(moonwell_story_stage, "unknown"))
 		map_text += "\n• Moonwell Glade — %s" % moonwell_status
+	if str(latest_snapshot.get("nima_story_stage", "locked")) == "complete":
+		map_text += "\n• Reedbank Hollow — %s" % ("working mill · rest shelter" if str(latest_snapshot.get("reedbank_stage", "")) == "complete" else "eastern trail · Oren's mill")
 	return map_text
 
 
