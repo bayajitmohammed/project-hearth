@@ -36,6 +36,8 @@ The HUD names the day, time of day, and Mara's current activity. This is a small
 
 Mara's routine also supports one optional personal check-in per player per world day after Welcome Lights. The server records the last check-in day separately for each persistent identity, so offline and cooperative players receive the same opportunity without repeated-input farming or one player consuming the room's conversation.
 
+The restored Old Stone Ruins route drives the first resident arrival condition: Nima appears at the home waystone and remains available while her shared field-case story is unresolved. After that story is complete, she follows a small readable routine—mapping at her homestead table in the morning, studying the home waystone in the afternoon, meeting neighbors at the gathering place in the evening, and resting by the cottage at night. Her routine changes presentation only; it never makes the request missable or advances while the room is empty.
+
 ## First weather and daylight depth
 
 Each world day has one deterministic forecast derived from the region seed and authoritative day number: clear, overcast, or gentle rain. Every client receives the same named weather in the world snapshot, while daylight color and brightness follow the shared clock. Night remains navigable and inviting through cool ambient light and warm authored landmarks rather than becoming black.

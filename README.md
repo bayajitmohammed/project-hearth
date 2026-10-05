@@ -83,6 +83,8 @@ The neighborhood HUD also shows a persistent day and time. The clock advances on
 
 After Welcome Lights, follow the road north beyond the original forest boundary. Crossing into the seed-derived Northwood and reaching the Old Stone Ruins reveals both places on the shared map. Defeat the ruin guardian with **Space** or the Attack button, then use **E** at the blue marker to restore the ancient waystone. The restored route persists and lets any player use the glowing stones at home or at the ruins for fast travel. It also reveals one rotating Northwood trail-survey marker per world day; every player may record that shared marker once for personal Exploration mastery without consuming anyone else's opportunity. A downed player can still be revived by a nearby friend, or can press **E** to return safely to the cottage with permanent progress intact.
 
+Restoring that route now brings **Nima**, a traveling mapmaker, to the home waystone and begins **Nima's Bearings**. Talk to her, recover the teal-marked field case she lost in Northwood, and return it. Different players may perform all three steps. The finder earns one Exploration mastery point, the speakers build their own Nima rapport, and completion permanently adds Nima and her map table to the neighborhood while raising morale and reputation and entering the shared chronicle. The story has no timer and never advances while the room is empty.
+
 Rooms now accept up to eight distinct players. After the produce stall opens, an empty room records when it goes to sleep. Returning players receive at most three safe catch-up trail provisions at the stall; press **E** there to take one. Use a provision while injured for one health, or press **E** near an injured standing friend to spend one of your provisions on their recovery. An injured standing player can also press **E** at the repaired cottage bedroll to rest and recover fully without advancing time or affecting companions. Returning home while downed leaves carried provisions in a persistent trail pack where the player fell, and either the owner or a friend can recover it for the owner. On Android, **Aid friend**, **Rest**, and **Use provision** appear as contextual actions when eligible.
 
 A standing player carrying a trail provision can press **E** near a healthy standing friend to hand over one provision. Revive and injury aid resolve first, followed by valid world interactions, so a handoff never replaces urgent help or a station action. The nearest eligible friend is chosen deterministically, transferred inventory persists for both identities, and the touch action reads **Give provision**.
@@ -382,6 +384,20 @@ cp tests/fixtures/chronicle_board_ready_world.json /tmp/project-hearth-chronicle
 
 The probes verify that both players see the same shared history while their acknowledgements persist and replicate independently.
 
+For Nima's cooperative resident story, copy `tests/fixtures/nima_story_ready_world.json`, start an isolated server on port `9425` with room `NIMA`, and run both participants simultaneously:
+
+```sh
+cp tests/fixtures/nima_story_ready_world.json /tmp/project-hearth-nima-story.json
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -- --server --port=9425 --room=NIMA --save-file=/tmp/project-hearth-nima-story.json
+```
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/nima_story_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9425 --room=NIMA --player-token=nima-a
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/nima_story_multiplayer_probe.gd -- --connect=ws://127.0.0.1:9425 --room=NIMA --player-token=nima-b
+```
+
+The probes verify that one player can handle Nima's conversations while another recovers the field case, with correct individual credit and one shared persistent consequence.
+
 ## Slice 0 platform status
 
 - macOS development client: connection, movement, collection, and persistence verified
@@ -419,6 +435,7 @@ The probes verify that both players see the same shared history while their ackn
 - World persistence uses atomic replacement and one previous-valid backup across offline, LAN-hosted, and dedicated saves; invalid primary JSON recovers automatically.
 - Mara's event-driven routine, the three-player-shared lantern states, neighborhood morale, and chronicle entries use version-4 persistence; version-3 Slice 1 saves migrate into Mara's invitation.
 - The cottage Chronicle Board uses version-21 persistence for independent player read positions. Existing history remains unread after migration so returning and newly joining identities can catch up; acknowledging it grants no reward and never changes another player's view.
+- Nima's Bearings uses version-22 persistence for the first condition-triggered additional resident story. Existing restored-route worlds migrate into her arrival, cooperative steps remain shared, conversation rapport and fieldwork credit remain personal, and completion leaves one persistent map table and scheduled resident.
 - Authoritative 20 Hz player positions are interpolated on rendered frames so movement and the following camera remain smooth without moving authority to the client.
 - Automated state, migration, presentation, and legacy regression checks pass.
 - Two simultaneous macOS clients still pass the shared-state networking probe.

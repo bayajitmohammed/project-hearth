@@ -14,6 +14,7 @@ func _init() -> void:
 	assert(main.waystone_marker.get_node_or_null("Label") != null)
 	assert(main.home_waystone != null and main.ruin_waystone != null)
 	assert(main.trail_survey_marker != null)
+	assert(main.nima_node != null and main.nima_field_case != null and main.nima_map_table != null)
 
 	var snapshot := _snapshot()
 	snapshot["positions"] = {"explorer": Vector3(0.0, 0.6, -20.0)}
@@ -83,6 +84,36 @@ func _init() -> void:
 	assert("waystone route active" in main.map_label.text)
 	assert("Travel to Old Stone Ruins" in main.interaction_prompt.text)
 
+	snapshot["nima_story_stage"] = "arrival"
+	snapshot["nima_position"] = WorldStateModel.NIMA_ARRIVAL_POSITION
+	snapshot["nima_activity"] = "newly arrived at the home waystone"
+	snapshot["positions"] = {"explorer": WorldStateModel.NIMA_ARRIVAL_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.nima_node.visible)
+	assert(main.quest_title_label.text == "NIMA'S BEARINGS")
+	assert("Meet Nima" in main.interaction_prompt.text)
+	assert("Nima:" in main.world_time_label.text)
+	snapshot["nima_story_stage"] = "find_case"
+	snapshot["positions"] = {"explorer": WorldStateModel.NIMA_FIELD_CASE_POSITION}
+	main.receive_snapshot(snapshot)
+	assert(main.nima_field_case.visible and main.nima_case_marker.visible)
+	assert("Recover Nima's field case" in main.interaction_prompt.text)
+	assert("field case in Northwood" in main.objective_label.text)
+	snapshot["nima_story_stage"] = "return_case"
+	snapshot["positions"] = {"explorer": WorldStateModel.NIMA_ARRIVAL_POSITION}
+	snapshot["player_relationships"] = {"explorer": {"mara": 0, "nima": 1}}
+	main.receive_snapshot(snapshot)
+	assert("Return Nima's field case" in main.interaction_prompt.text)
+	assert("NIMA KNOWS YOU · Map acquaintance · 1" in main.relationship_label.text)
+	snapshot["nima_story_stage"] = "complete"
+	snapshot["nima_position"] = WorldStateModel.NIMA_MAP_TABLE_POSITION
+	snapshot["nima_activity"] = "mapping at the homestead"
+	snapshot["player_relationships"]["explorer"]["nima"] = 2
+	main.receive_snapshot(snapshot)
+	assert(not main.nima_field_case.visible)
+	assert(main.nima_map_table.visible)
+	assert("NIMA KNOWS YOU · Trusted field partner · 2" in main.relationship_label.text)
+
 	snapshot["positions"] = {"explorer": snapshot["daily_survey_position"]}
 	main.receive_snapshot(snapshot)
 	assert(main.trail_survey_marker.visible)
@@ -117,6 +148,10 @@ func _snapshot() -> Dictionary:
 		"reputation": 2,
 		"map_rumor_unlocked": true,
 		"mara_position": WorldStateModel.MARA_WELCOME_POSITION,
+		"mara_activity": "meeting neighbors",
+		"nima_story_stage": "locked",
+		"nima_position": WorldStateModel.NIMA_ARRIVAL_POSITION,
+		"nima_activity": "traveling beyond Northwood",
 		"neighborhood_event_stage": "complete",
 		"lit_welcome_lanterns": {"cottage": true, "road": true, "forest": true},
 		"neighborhood_morale": 1,
@@ -128,5 +163,7 @@ func _snapshot() -> Dictionary:
 		"ruin_guardian_defeated": false,
 		"ruin_waystone_activated": false,
 		"player_survey_day": {"explorer": 0},
+		"player_relationships": {"explorer": {"mara": 0, "nima": 0}},
+		"player_npc_check_in_day": {"explorer": {"mara": 0}},
 		"daily_survey_position": WorldStateModel.DAILY_SURVEY_POSITIONS[0],
 	}

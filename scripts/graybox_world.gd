@@ -16,6 +16,7 @@ static func build(root: Node3D) -> Dictionary:
 	_add_old_stone_ruins(root)
 	_add_landmark_signs(root)
 	var mara := _add_mara(root)
+	var nima_story := _add_nima_story(root)
 	var resource_nodes := _add_resources(root)
 	var repair_nodes := _add_repair_markers(root)
 	var repair_result_nodes := _add_repair_results(root)
@@ -56,6 +57,10 @@ static func build(root: Node3D) -> Dictionary:
 		"collectible": supplies,
 		"camera": camera,
 		"mara": mara,
+		"nima": nima_story["nima"],
+		"nima_field_case": nima_story["field_case"],
+		"nima_case_marker": nima_story["case_marker"],
+		"nima_map_table": nima_story["map_table"],
 		"resources": resource_nodes,
 		"repairs": repair_nodes,
 		"repair_results": repair_result_nodes,
@@ -369,6 +374,73 @@ static func _add_mara(root: Node3D) -> Node3D:
 	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	routine.add_child(name_label)
 	return routine
+
+
+static func _add_nima_story(root: Node3D) -> Dictionary:
+	var nima := Node3D.new()
+	nima.name = "NimaRoutine"
+	nima.position = WorldStateModel.NIMA_ARRIVAL_POSITION
+	root.add_child(nima)
+	var body := MeshInstance3D.new()
+	body.name = "Nima"
+	var body_mesh := CapsuleMesh.new()
+	body_mesh.radius = 0.42
+	body_mesh.height = 1.35
+	body.mesh = body_mesh
+	body.material_override = _material(Color("477f83"))
+	nima.add_child(body)
+	_add_box(nima, "MapSatchel", Vector3(0.38, 0.52, 0.18), Vector3(0.42, 0.12, 0.0), Color("b88955"))
+	var name_label := Label3D.new()
+	name_label.name = "NimaName"
+	name_label.text = "Nima · Mapmaker"
+	name_label.position = Vector3(0.0, 1.25, 0.0)
+	name_label.font_size = 36
+	name_label.outline_size = 8
+	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	nima.add_child(name_label)
+	nima.visible = false
+
+	var field_case := Node3D.new()
+	field_case.name = "NimaFieldCase"
+	field_case.position = WorldStateModel.NIMA_FIELD_CASE_POSITION
+	root.add_child(field_case)
+	_add_box(field_case, "Case", Vector3(0.9, 0.52, 0.28), Vector3(0.0, -0.15, 0.0), Color("8b6543"), Vector3(0.0, 18.0, 0.0))
+	_add_box(field_case, "MapRoll", Vector3(0.58, 0.16, 0.16), Vector3(0.0, 0.18, -0.05), Color("e4d4a4"), Vector3(0.0, 18.0, 0.0))
+	var case_marker := _add_station_marker(
+		field_case,
+		"NimaCaseMarker",
+		Vector3.ZERO,
+		"NIMA'S FIELD CASE",
+		Color("78d5d0")
+	)
+	field_case.visible = false
+	case_marker.visible = false
+
+	var map_table := Node3D.new()
+	map_table.name = "NimaMapTable"
+	map_table.position = WorldStateModel.NIMA_MAP_TABLE_POSITION
+	root.add_child(map_table)
+	_add_box(map_table, "TableTop", Vector3(2.3, 0.22, 1.25), Vector3(0.0, 0.55, 0.0), Color("75533a"))
+	for x_position: float in [-0.82, 0.82]:
+		_add_box(map_table, "TableLeg", Vector3(0.18, 1.1, 0.18), Vector3(x_position, 0.0, 0.0), Color("553b2b"))
+	_add_box(map_table, "NorthwoodMap", Vector3(1.65, 0.04, 0.82), Vector3(0.0, 0.69, 0.0), Color("d8c98e"), Vector3(0.0, -7.0, 0.0))
+	for pin_position: Vector3 in [Vector3(-0.45, 0.76, -0.16), Vector3(0.32, 0.76, 0.2)]:
+		_add_cylinder(map_table, "MapPin", 0.07, 0.18, pin_position, Color("7ad8d2"), 8)
+	var table_label := Label3D.new()
+	table_label.name = "Label"
+	table_label.text = "NIMA'S NORTHWOOD MAP TABLE"
+	table_label.position = Vector3(0.0, 1.35, 0.0)
+	table_label.font_size = 36
+	table_label.outline_size = 8
+	table_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	map_table.add_child(table_label)
+	map_table.visible = false
+	return {
+		"nima": nima,
+		"field_case": field_case,
+		"case_marker": case_marker,
+		"map_table": map_table,
+	}
 
 
 static func _add_resources(root: Node3D) -> Dictionary:

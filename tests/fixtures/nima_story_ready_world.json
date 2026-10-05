@@ -1,0 +1,33 @@
+{
+  "version": 22,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true},
+  "exploration_stage": "complete",
+  "livelihood_stage": "food_need",
+  "nima_story_stage": "arrival",
+  "reputation": 3,
+  "neighborhood_morale": 1,
+  "chronicle": [
+    "The newcomers repaired the abandoned cottage and made it their home.",
+    "Together, the neighborhood lit welcome lanterns to celebrate its new residents.",
+    "The group found the Old Stone Ruins and restored its ancient waystone route."
+  ],
+  "player_mastery": {
+    "nima-a": {"exploration": 0},
+    "nima-b": {"exploration": 0}
+  },
+  "player_relationships": {
+    "nima-a": {"mara": 0, "nima": 0},
+    "nima-b": {"mara": 0, "nima": 0}
+  },
+  "player_health": {"nima-a": 3, "nima-b": 3},
+  "downed_players": {"nima-a": false, "nima-b": false},
+  "positions": {
+    "nima-a": [11.5, 0.6, 9.5],
+    "nima-b": [13.0, 0.6, -25.0]
+  }
+}

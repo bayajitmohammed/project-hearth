@@ -7,6 +7,12 @@ const CHRONICLE_BOARD_POSITION := Vector3(-13.0, 0.6, 3.5)
 const MARA_POSITION := Vector3(-4.0, 0.6, 4.0)
 const MARA_WELCOME_POSITION := Vector3(4.0, 0.6, 4.0)
 const MARA_MARKET_POSITION := Vector3(7.0, 0.6, 4.0)
+const NIMA_ARRIVAL_POSITION := Vector3(11.5, 0.6, 9.5)
+const NIMA_FIELD_CASE_POSITION := Vector3(13.0, 0.6, -25.0)
+const NIMA_MAP_TABLE_POSITION := Vector3(-10.0, 0.6, 12.0)
+const NIMA_WAYSTONE_POSITION := Vector3(10.5, 0.6, 8.5)
+const NIMA_GATHERING_POSITION := Vector3(6.5, 0.6, 5.5)
+const NIMA_COTTAGE_POSITION := Vector3(-6.0, 0.6, 4.0)
 const GEAR_RACK_POSITION := Vector3(-10.0, 0.6, 7.2)
 const TRAILWORK_BENCH_POSITION := Vector3(-14.8, 0.6, 7.0)
 const HOMESTEAD_LANTERN_POSITIONS := {
@@ -155,6 +161,9 @@ var creature_returning := false
 var reputation := 0
 var map_rumor_unlocked := false
 var mara_position := MARA_POSITION
+var nima_story_stage := "locked"
+var nima_position := NIMA_ARRIVAL_POSITION
+var nima_activity := "traveling beyond Northwood"
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
 var neighborhood_morale := 0
@@ -249,11 +258,13 @@ func register_player(player_token: String) -> Vector3:
 				mastery[track] = 0
 		player_mastery[player_token] = mastery
 	if not player_relationships.has(player_token):
-		player_relationships[player_token] = {"mara": 0}
+		player_relationships[player_token] = {"mara": 0, "nima": 0}
 	else:
 		var relationships: Dictionary = player_relationships[player_token]
 		if not relationships.has("mara"):
 			relationships["mara"] = 0
+		if not relationships.has("nima"):
+			relationships["nima"] = 0
 		player_relationships[player_token] = relationships
 	if not player_npc_check_in_day.has(player_token):
 		player_npc_check_in_day[player_token] = {"mara": 0}
@@ -360,6 +371,39 @@ func interact_with_mara(player_token: String) -> bool:
 				_add_npc_rapport(player_token, "mara")
 				return true
 	return false
+
+
+func interact_with_nima(player_token: String) -> bool:
+	if nima_story_stage not in ["arrival", "return_case"]:
+		return false
+	if register_player(player_token).distance_to(nima_position) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	_add_npc_rapport(player_token, "nima")
+	if nima_story_stage == "arrival":
+		nima_story_stage = "find_case"
+		nima_activity = "waiting for news of her field case"
+	else:
+		nima_story_stage = "complete"
+		neighborhood_morale += 1
+		reputation += 1
+		chronicle.append("Nima recovered her Northwood charts and made a map table beside the homestead.")
+		_update_nima_routine()
+	return true
+
+
+func try_recover_nima_field_case(player_token: String) -> bool:
+	if nima_story_stage != "find_case":
+		return false
+	if register_player(player_token).distance_to(NIMA_FIELD_CASE_POSITION) > INTERACTION_RADIUS:
+		return false
+	if bool(downed_players.get(player_token, false)):
+		return false
+	nima_story_stage = "return_case"
+	nima_activity = "waiting to recover her Northwood charts"
+	_add_mastery(player_token, "exploration")
+	return true
 
 
 func try_gather_resource(player_token: String) -> bool:
@@ -490,6 +534,8 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_recover_pack(player_token)
 		or try_rest_at_cottage(player_token)
 		or try_read_chronicle(player_token)
+		or try_recover_nima_field_case(player_token)
+		or interact_with_nima(player_token)
 		or try_festival_interaction(player_token)
 		or try_use_waystone(player_token)
 		or try_record_trail_survey(player_token)
@@ -813,6 +859,7 @@ func simulate_world_clock(delta: float) -> bool:
 	var previous_day := world_day
 	var previous_checkpoint := floori(float(world_minute) / float(WORLD_SAVE_INTERVAL_MINUTES))
 	var previous_activity := mara_activity
+	var previous_nima_activity := nima_activity
 	world_clock_fraction += delta * WORLD_MINUTES_PER_REAL_SECOND
 	var elapsed_minutes := floori(world_clock_fraction)
 	if elapsed_minutes <= 0:
@@ -823,6 +870,7 @@ func simulate_world_clock(delta: float) -> bool:
 		world_day != previous_day
 		or floori(float(world_minute) / float(WORLD_SAVE_INTERVAL_MINUTES)) != previous_checkpoint
 		or mara_activity != previous_activity
+		or nima_activity != previous_nima_activity
 	)
 
 
@@ -844,6 +892,7 @@ func _advance_world_minutes(elapsed_minutes: int) -> void:
 			supply_basket_stock = SUPPLY_BASKET_DAILY_STOCK
 			_begin_daily_food_order()
 	_update_mara_routine()
+	_update_nima_routine()
 
 
 func _renew_daily_forest_encounter() -> void:
@@ -967,6 +1016,35 @@ func _update_mara_routine() -> void:
 		_:
 			mara_position = MARA_POSITION
 			mara_activity = "resting at the cottage"
+
+
+func _update_nima_routine() -> void:
+	if nima_story_stage == "locked":
+		nima_position = NIMA_ARRIVAL_POSITION
+		nima_activity = "traveling beyond Northwood"
+		return
+	if nima_story_stage != "complete":
+		nima_position = NIMA_ARRIVAL_POSITION
+		if nima_story_stage == "arrival":
+			nima_activity = "newly arrived at the home waystone"
+		elif nima_story_stage == "find_case":
+			nima_activity = "waiting for news of her field case"
+		else:
+			nima_activity = "waiting to recover her Northwood charts"
+		return
+	match world_time_period():
+		"Morning":
+			nima_position = NIMA_MAP_TABLE_POSITION
+			nima_activity = "mapping at the homestead"
+		"Afternoon":
+			nima_position = NIMA_WAYSTONE_POSITION
+			nima_activity = "studying the home waystone"
+		"Evening":
+			nima_position = NIMA_GATHERING_POSITION
+			nima_activity = "meeting neighbors"
+		_:
+			nima_position = NIMA_COTTAGE_POSITION
+			nima_activity = "resting by the cottage"
 
 
 func _simulate_forest_creature(delta: float, active_tokens: Array) -> bool:
@@ -1351,8 +1429,10 @@ func try_use_waystone(player_token: String) -> bool:
 			ruin_waystone_activated = true
 			exploration_stage = "complete"
 			livelihood_stage = "food_need"
+			nima_story_stage = "arrival"
 			reputation += 1
 			chronicle.append("The group found the Old Stone Ruins and restored its ancient waystone route.")
+			_update_nima_routine()
 		else:
 			positions[player_token] = HOME_WAYSTONE_ARRIVAL
 		return true
@@ -1592,7 +1672,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 21,
+		"version": 22,
 		"world_seed": REGION_SEED,
 		"collectible_collected": collectible_collected,
 		"quest_stage": quest_stage,
@@ -1606,6 +1686,7 @@ func to_dictionary() -> Dictionary:
 		"creature_defeated": creature_defeated,
 		"reputation": reputation,
 		"map_rumor_unlocked": map_rumor_unlocked,
+		"nima_story_stage": nima_story_stage,
 		"neighborhood_event_stage": neighborhood_event_stage,
 		"lit_welcome_lanterns": lit_welcome_lanterns.duplicate(),
 		"neighborhood_morale": neighborhood_morale,
@@ -1745,6 +1826,12 @@ func load_dictionary(data: Dictionary) -> void:
 		stews_delivered = 0
 		produce_stall_open = false
 		player_mastery = {}
+	if save_version >= 22:
+		nima_story_stage = str(data.get("nima_story_stage", "arrival" if ruin_waystone_activated else "locked"))
+		if nima_story_stage not in ["locked", "arrival", "find_case", "return_case", "complete"]:
+			nima_story_stage = "arrival" if ruin_waystone_activated else "locked"
+	else:
+		nima_story_stage = "arrival" if ruin_waystone_activated else "locked"
 	if save_version >= 7:
 		pantry_stock = clampi(int(data.get("pantry_stock", 0)), 0, PANTRY_MAX_STOCK)
 		last_world_empty_unix = maxi(int(data.get("last_world_empty_unix", 0)), 0)
@@ -1880,6 +1967,7 @@ func load_dictionary(data: Dictionary) -> void:
 	festival_participants = {}
 	festival_finishers = []
 	_update_mara_routine()
+	_update_nima_routine()
 	positions.clear()
 	var encoded_positions: Dictionary = data.get("positions", {})
 	for player_token: String in encoded_positions:

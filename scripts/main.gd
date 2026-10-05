@@ -89,6 +89,10 @@ var world_environment: WorldEnvironment
 var sun_light: DirectionalLight3D
 var rain_particles: CPUParticles3D
 var mara_node: Node3D
+var nima_node: Node3D
+var nima_field_case: Node3D
+var nima_case_marker: Node3D
+var nima_map_table: Node3D
 var resource_nodes: Dictionary = {}
 var repair_nodes: Dictionary = {}
 var repair_result_nodes: Dictionary = {}
@@ -565,6 +569,12 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		welcome_lantern_markers[lantern_id].visible = event_stage == "lighting" and not is_lit
 		welcome_lantern_lights[lantern_id].visible = is_lit
 	mara_node.position = snapshot.get("mara_position", WorldStateModel.MARA_POSITION)
+	var nima_story_stage := str(snapshot.get("nima_story_stage", "locked"))
+	nima_node.visible = nima_story_stage != "locked"
+	nima_node.position = snapshot.get("nima_position", WorldStateModel.NIMA_ARRIVAL_POSITION)
+	nima_field_case.visible = nima_story_stage == "find_case"
+	nima_case_marker.visible = nima_story_stage == "find_case"
+	nima_map_table.visible = nima_story_stage == "complete"
 	var world_minute := int(snapshot.get("world_minute", WorldStateModel.WORLD_START_MINUTE))
 	var weather := str(snapshot.get("world_weather", "clear"))
 	world_time_label.text = _world_time_text(
@@ -572,7 +582,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		world_minute,
 		str(snapshot.get("world_time_period", "Afternoon")),
 		str(snapshot.get("world_weather_label", "Clear skies")),
-		str(snapshot.get("mara_activity", "waiting by the cottage"))
+		str(snapshot.get("mara_activity", "waiting by the cottage")),
+		str(snapshot.get("nima_activity", "")) if nima_story_stage != "locked" else ""
 	)
 	world_time_label.visible = true
 	_apply_world_atmosphere(world_minute, weather)
@@ -765,6 +776,14 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		"Morale: %d" % int(snapshot.get("neighborhood_morale", 0)),
 		food_status,
 	])
+	if nima_story_stage != "locked":
+		var nima_status: String = str({
+			"arrival": "Nima arrived",
+			"find_case": "Nima's field case missing",
+			"return_case": "Nima's field case recovered",
+			"complete": "Nima settled in",
+		}.get(nima_story_stage, "Nima traveling"))
+		world_status_parts.append(nima_status)
 	if quest_stage == "home_repaired":
 		world_status_parts.append(
 			"Creel %d/%d" % [shared_riverfish_stock, WorldStateModel.RIVERFISH_CREEL_CAPACITY]
@@ -1034,6 +1053,9 @@ func _snapshot_for_clients() -> Dictionary:
 		"map_rumor_unlocked": world_state.map_rumor_unlocked,
 		"mara_position": world_state.mara_position,
 		"mara_activity": world_state.mara_activity,
+		"nima_story_stage": world_state.nima_story_stage,
+		"nima_position": world_state.nima_position,
+		"nima_activity": world_state.nima_activity,
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
@@ -1220,6 +1242,10 @@ func _build_world() -> void:
 	collectible_mesh = world_nodes["collectible"]
 	game_camera = world_nodes["camera"]
 	mara_node = world_nodes["mara"]
+	nima_node = world_nodes["nima"]
+	nima_field_case = world_nodes["nima_field_case"]
+	nima_case_marker = world_nodes["nima_case_marker"]
+	nima_map_table = world_nodes["nima_map_table"]
 	resource_nodes = world_nodes["resources"]
 	repair_nodes = world_nodes["repairs"]
 	repair_result_nodes = world_nodes["repair_results"]
@@ -1696,6 +1722,11 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 			"interact",
 			WorldStateModel.INTERACTION_RADIUS
 		)
+	var nima_story_stage := str(latest_snapshot.get("nima_story_stage", "locked"))
+	if nima_story_stage in ["arrival", "return_case"]:
+		_append_mobile_target(candidates, nima_node, "Talk to Nima", "interact", WorldStateModel.INTERACTION_RADIUS)
+	elif nima_story_stage == "find_case":
+		_append_mobile_target(candidates, nima_case_marker, "Recover case", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for lantern_node: Node3D in welcome_lantern_markers.values():
 		_append_mobile_target(candidates, lantern_node, "Light", "interact", WorldStateModel.INTERACTION_RADIUS)
 	_append_mobile_target(candidates, waystone_marker, "Restore", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2219,6 +2250,25 @@ func _update_quest_interface(
 			pantry_stock,
 			coins
 		)
+	var nima_story_stage := str(latest_snapshot.get("nima_story_stage", "locked"))
+	if nima_story_stage in ["arrival", "find_case", "return_case"]:
+		_update_nima_story_interface(nima_story_stage)
+
+
+func _update_nima_story_interface(story_stage: String) -> void:
+	quest_title_label.text = "NIMA'S BEARINGS"
+	progress_label.visible = true
+	progress_label.text = "Shared resident story · Any player may continue it"
+	match story_stage:
+		"arrival":
+			objective_label.text = "Meet Nima at the restored home waystone"
+			dialogue_label.text = "A traveling mapmaker followed the route home. Use E to hear what happened in Northwood."
+		"find_case":
+			objective_label.text = "Recover Nima's field case in Northwood"
+			dialogue_label.text = "Follow the teal field-case marker north. Whoever finds it earns Exploration mastery."
+		"return_case":
+			objective_label.text = "Return the recovered field case to Nima"
+			dialogue_label.text = "Nima is waiting at the home waystone. Any companion may finish the shared request."
 
 
 func _update_festival_interface(
@@ -2350,6 +2400,25 @@ func _update_interaction_prompt(
 			unread_chronicle_count,
 			"entry" if unread_chronicle_count == 1 else "entries",
 		]
+		interaction_prompt.visible = true
+		return
+	var nima_story_stage := str(latest_snapshot.get("nima_story_stage", "locked"))
+	if (
+		nima_story_stage in ["arrival", "return_case"]
+		and player_position.distance_to(nima_node.position) <= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  %s" % [
+			action_name,
+			"Meet Nima" if nima_story_stage == "arrival" else "Return Nima's field case",
+		]
+		interaction_prompt.visible = true
+		return
+	if (
+		nima_story_stage == "find_case"
+		and player_position.distance_to(WorldStateModel.NIMA_FIELD_CASE_POSITION)
+		<= WorldStateModel.INTERACTION_RADIUS + 0.35
+	):
+		interaction_prompt.text = "%s  ·  Recover Nima's field case" % action_name
 		interaction_prompt.visible = true
 		return
 	if (
@@ -2643,12 +2712,21 @@ func _update_relationship_interface(snapshot: Dictionary) -> void:
 		if bool(snapshot.get("player_mara_keepsakes", {}).get(local_token, false))
 		else ""
 	)
-	relationship_label.text = "MARA REMEMBERS YOU · %s · %d%s%s" % [
+	var relationship_lines := PackedStringArray(["MARA REMEMBERS YOU · %s · %d%s%s" % [
 		recognition,
 		rapport,
 		" · checked in today" if checked_in_today else "",
 		keepsake_text,
-	]
+	]])
+	if str(snapshot.get("nima_story_stage", "locked")) != "locked":
+		var nima_rapport := int(snapshot.get("player_relationships", {}).get(local_token, {}).get("nima", 0))
+		var nima_recognition := "New arrival"
+		if nima_rapport >= 2:
+			nima_recognition = "Trusted field partner"
+		elif nima_rapport >= 1:
+			nima_recognition = "Map acquaintance"
+		relationship_lines.append("NIMA KNOWS YOU · %s · %d" % [nima_recognition, nima_rapport])
+	relationship_label.text = "\n".join(relationship_lines)
 
 
 func _festival_player_name(player_token: String) -> String:
@@ -2697,10 +2775,20 @@ func _mastery_text(mastery: Dictionary) -> String:
 	]
 
 
-func _world_time_text(day: int, minute_of_day: int, period: String, weather: String, activity: String) -> String:
+func _world_time_text(
+	day: int,
+	minute_of_day: int,
+	period: String,
+	weather: String,
+	activity: String,
+	nima_activity: String = ""
+) -> String:
 	var hour := floori(float(minute_of_day) / 60.0)
 	var minute := minute_of_day % 60
-	return "Day %d · %s %02d:%02d · %s · Mara: %s" % [day, period, hour, minute, weather, activity]
+	var text := "Day %d · %s %02d:%02d · %s · Mara: %s" % [day, period, hour, minute, weather, activity]
+	if not nima_activity.is_empty():
+		text += " · Nima: %s" % nima_activity
+	return text
 
 
 func _apply_world_atmosphere(minute_of_day: int, weather: String) -> void:

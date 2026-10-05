@@ -16,6 +16,14 @@ The first personal relationship memory belongs to **Mara**. A player gains one r
 
 At three rapport, Mara gives that player one permanent **Woven Hearth Charm**. It is an identity-only keepsake: the relationship HUD names it and a small warm charm appears on that player's model for companions to recognize. It cannot be spent, dropped, duplicated, or used to gate shared content, and later rapport does not award additional copies. Existing identities already at three rapport receive it when an older save migrates.
 
+## Nima's Bearings
+
+The first additional resident story is triggered by a place changing rather than by a generic quest list. Restoring the Old Stone Ruins waystone brings **Nima**, a traveling mapmaker and fellow newcomer, to the home route. She asks the group to recover the field case she lost while crossing Northwood. Any player may hear the request, another may recover the case, and another may return it; the story is shared immediately and never requires simultaneous attendance.
+
+Recovering the case grants one normal Exploration mastery point to the finder because that player performed the fieldwork. The conversations that begin and finish the request add personal Nima rapport to the speakers, but relationship state never owns or gates the shared story. Completion raises neighborhood morale and reputation once, records the outcome in the chronicle, makes Nima a permanent resident, and leaves her map table beside the homestead as a visible trace. It grants no exclusive route, power, currency, or missable reward.
+
+The request has no timer and empty-world catch-up cannot advance it. Existing worlds with an already restored route migrate into Nima's arrival rather than skipping the story. Required appearances override her normal schedule until the field case returns.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.
