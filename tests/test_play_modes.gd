@@ -75,6 +75,24 @@ func _init() -> void:
 	main._request_furnishing(Vector2i.ZERO, "", 0, true)
 	assert(main.world_state.furnishings.is_empty())
 	assert(main.world_state.materials["wood"] == 2)
+	main.set_physics_process(false)
+	main.set_process(false)
+	main.world_state.positions[main.local_token] = WorldStateModel.CREATURE_SPAWN
+	main.world_state.creature_position = WorldStateModel.CREATURE_SPAWN
+	main.world_state.creature_defeated = false
+	main.world_state.creature_health = WorldStateModel.CREATURE_MAX_HEALTH
+	main.homestead_builder.toggle_mode()
+	Input.action_press("power_strike")
+	main._update_local_authority_input()
+	Input.action_release("power_strike")
+	assert(main.world_state.creature_health == WorldStateModel.CREATURE_MAX_HEALTH, "The furnishing rotation key must not also attack.")
+	main._request_attack()
+	main._request_brace()
+	assert(main.world_state.creature_health == WorldStateModel.CREATURE_MAX_HEALTH)
+	assert(float(main.world_state.player_brace_time.get(main.local_token, 0.0)) == 0.0)
+	main.homestead_builder.toggle_mode()
+	main._request_power_strike()
+	assert(main.world_state.creature_health == WorldStateModel.CREATURE_MAX_HEALTH - 2, "Combat resumes after closing furnishing mode.")
 
 	root.remove_child(main)
 	main.free()

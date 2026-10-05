@@ -232,15 +232,15 @@ func _update_local_authority_input() -> void:
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
-		_try_craft(local_token)
+		_request_craft()
 	if Input.is_action_just_pressed("attack"):
-		_try_attack(local_token)
+		_request_attack()
 	if Input.is_action_just_pressed("power_strike"):
-		_try_power_strike(local_token)
+		_request_power_strike()
 	if Input.is_action_just_pressed("brace"):
-		_try_brace(local_token)
+		_request_brace()
 	if Input.is_action_just_pressed("use_provision"):
-		_try_use_trail_provision(local_token)
+		_request_use_provision()
 	if Input.is_action_just_pressed("toggle_debug"):
 		debug_panel.visible = not debug_panel.visible
 	if Input.is_action_just_pressed("toggle_camera"):
@@ -249,6 +249,8 @@ func _update_local_authority_input() -> void:
 
 func _process(delta: float) -> void:
 	homestead_builder.update_view(latest_snapshot, local_token, camera_yaw, client_connected or local_authority_player)
+	if homestead_builder.active:
+		interaction_prompt.visible = false
 	_interpolate_player_positions(delta)
 	if game_camera == null or not player_nodes.has(local_token):
 		return
@@ -1772,7 +1774,7 @@ func _touch_input_vector() -> Vector2:
 func _update_mobile_targeting() -> void:
 	if mobile_context_button == null or mobile_crosshair == null:
 		return
-	if touch_controls == null or not touch_controls.visible or not client_connected:
+	if touch_controls == null or not touch_controls.visible or not client_connected or homestead_builder.active:
 		mobile_context_target = {}
 		mobile_context_button.visible = false
 		return
@@ -2047,6 +2049,8 @@ func _request_interaction() -> void:
 
 
 func _request_collect() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_collect(local_token)
 	elif client_connected:
@@ -2054,6 +2058,8 @@ func _request_collect() -> void:
 
 
 func _request_craft() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_craft(local_token)
 	elif client_connected:
@@ -2061,6 +2067,8 @@ func _request_craft() -> void:
 
 
 func _request_attack() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_attack(local_token)
 	elif client_connected:
@@ -2068,6 +2076,8 @@ func _request_attack() -> void:
 
 
 func _request_power_strike() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_power_strike(local_token)
 	elif client_connected:
@@ -2075,6 +2085,8 @@ func _request_power_strike() -> void:
 
 
 func _request_brace() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_brace(local_token)
 	elif client_connected:
@@ -2082,6 +2094,8 @@ func _request_brace() -> void:
 
 
 func _request_use_provision() -> void:
+	if homestead_builder.active:
+		return
 	if local_authority_player:
 		_try_use_trail_provision(local_token)
 	elif client_connected:
