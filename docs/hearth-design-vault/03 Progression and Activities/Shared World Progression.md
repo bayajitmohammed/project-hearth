@@ -33,3 +33,9 @@ Completion permanently blooms the planter, raises neighborhood morale and reputa
 ## First cross-livelihood gathering project
 
 When both the produce stall and restored Moonwell exist, the neighborhood may prepare a three-course **Moonwell Supper** at the glade. Each course conservatively combines one shared moonroot with one personal or creel riverfish, persists immediately, and credits normal Cooking mastery only to the cook. Completion leaves a permanent dressed gathering table plus one-time morale, reputation, and chronicle recognition. It creates no recurring output, private ownership, or unattended progress.
+
+## Fartrail Outpost — wilderness project increment
+
+A seed-located clearing in the western wilderness offers three independent jobs: raise a shelter with three shared wood, stock a remedy shelf with two shared herbs, and prepare a field meal from two riverfish. The meal uses the cook's personal fish first, then conserved shared-creel stock for any remainder. Each job has its own marker and consumes its complete cost only once; friends can divide jobs in any order or one player can finish them across sessions. Shelter construction gives one Building credit, the meal gives two Cooking credits, and stocking remedies gives no mastery.
+
+Finishing all three leaves a permanent **Fartrail Outpost**, grants one shared reputation and chronicle outcome, and opens a free standing-player rest point plus a trailwork bench using the existing one-wood/one-herb-to-one-personal-provision recipe. Rest and crafting use distinct markers. There is no passive production, upkeep, private ownership, mandatory attendance, resurrection, or mastery reward for repeated use. The site is generated from the saved seed; construction state is independent of client terrain loading. These are authored modular project pieces at a generated location, not unrestricted wilderness building or a complete generated settlement.

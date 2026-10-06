@@ -2,7 +2,7 @@ extends RefCounted
 
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -15,6 +15,10 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 				charted.append(Wilderness.title(cell))
 	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore west beyond the home and Northwood", "Nine seed-shaped woodland sections share map discoveries. Each trail stone holds one provision per player, once; use E nearby. Return east to reach the authored home road. Charted: %s." % (", ".join(charted) if not charted.is_empty() else "none yet"))
 	var home := str(state.get("quest_stage", "meet_mara"))
+	if not state.get("wilderness_discoveries", {}).is_empty():
+		var outpost: Dictionary = state.get("outpost_parts", {})
+		var site := Wilderness.outpost_position(int(state.get("world_seed", 1)))
+		_add(result, "outpost", "Fartrail Outpost", "Shared project", outpost.size() == 3, "Fartrail offers rest and trailcraft" if outpost.size() == 3 else "Establish a wilderness outpost · %d / 3 jobs" % outpost.size(), "In %s, near %.0fm west / %.0fm north of home. Shelter: 3 shared wood; remedies: 2 shared herbs; meal: 2 personal/creel fish. Any order, any companion. Finished jobs: %s. Completion opens separate rest and supply-crafting stations." % [Wilderness.title(Wilderness.outpost_cell(int(state.get("world_seed", 1)))), -site.x, 10 - site.z, ", ".join(outpost.keys()) if not outpost.is_empty() else "none"])
 	_add(result, "home", "A New Home", "Story", home == "home_repaired",
 		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
 		"Use E near people, supplies, and repair markers. Craft the repair kit with C; rest at the repaired cottage when injured.")

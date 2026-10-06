@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+**Fartrail Outpost** is a seed-located wilderness project. Its journal entry appears after entering the western trails and names its section and direction from home. Complete three independent jobs with **E**: shelter (3 shared wood), remedies (2 shared herbs), and a meal (2 fish, using personal stock before the shared creel). Completion permanently opens separate rest and trailcraft stations and records one shared outcome. Partial work survives saves and terrain unloading.
+
+Outpost coverage: `Godot --headless --path . --script res://tests/test_outpost.gd`. For cooperative jobs, use an isolated copy of `tests/fixtures/outpost_ready_world.json`, serve room `POST` on port `9463`, and launch `tests/outpost_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9463 --room=POST` and identities `--player-token=outpost-a` / `--player-token=outpost-b`.
+
 The **Western Trails** expand exploration west of home and Northwood into nine 32-metre woodland sections. Scenery and trail-cache positions derive from the world's saved seed. Nearby terrain loads independently for each player; shared discoveries and personal one-time cache claims persist regardless of unloaded scenery. The journal lists charted sections, and entering the wilderness shows local cache distance/directions. Each cache supplies one personal trail provision with **E**. Return east to the home road. This is flat graybox wilderness, not final biomes or continent-scale generation.
 
 Focused coverage: `Godot --headless --path . --script res://tests/test_wilderness.gd`. Copy `tests/fixtures/wilderness_ready_world.json` to an isolated save and serve room `WILD` on port `9461`. Launch `tests/wilderness_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9461 --room=WILD` and distinct `--player-token=wild-a` / `--player-token=wild-b` identities to verify independent streams and claims with shared map discovery.

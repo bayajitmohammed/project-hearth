@@ -1,0 +1,10 @@
+{
+  "version": 31,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "materials": {"wood": 4, "herb": 3},
+  "shared_riverfish_stock": 2,
+  "positions": {"outpost-a": [-97, 0.6, -26], "outpost-b": [-97, 0.6, -26]}
+}

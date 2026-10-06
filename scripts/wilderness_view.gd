@@ -5,6 +5,9 @@ const Art = preload("res://scripts/graybox_world.gd")
 var sections: Dictionary = {}
 var cache_markers: Dictionary = {}
 var rendered_seed := -1
+var outpost_root: Node3D
+var outpost_markers: Dictionary = {}
+var outpost_pieces: Dictionary = {}
 
 
 func update_view(snapshot: Dictionary, token: String) -> void:
@@ -28,12 +31,21 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 			sections[section_id].free()
 			sections.erase(section_id)
 			cache_markers.erase(section_id)
+	if not is_instance_valid(outpost_root):
+		outpost_markers.clear()
+		outpost_pieces.clear()
 	var claims: Dictionary = snapshot.get("player_wilderness_caches", {}).get(token, {})
 	for section_id: String in needed:
 		if not sections.has(section_id):
 			_build_section(needed[section_id])
 		var marker: Node3D = cache_markers[section_id]
 		(marker.get_node("Label") as Label3D).text = "%s\n%s" % [Layout.title(needed[section_id]).to_upper(), "CACHE COLLECTED" if claims.has(section_id) else "TRAIL CACHE · E"]
+	if is_instance_valid(outpost_root):
+		var parts: Dictionary = snapshot.get("outpost_parts", {})
+		for part: String in outpost_pieces:
+			outpost_pieces[part].visible = parts.has(part)
+		for station: String in outpost_markers:
+			outpost_markers[station].visible = (parts.size() == 3) if station in ["rest", "craft"] else (parts.size() < 3 and not parts.has(station))
 
 
 func _build_section(cell: Vector2i) -> void:
@@ -50,3 +62,46 @@ func _build_section(cell: Vector2i) -> void:
 	var marker := Art._add_station_marker(section, "CacheMarker", cache, Layout.title(cell), Color("e9cf92"))
 	sections[Layout.key(cell)] = section
 	cache_markers[Layout.key(cell)] = marker
+	if cell == Layout.outpost_cell(rendered_seed):
+		_build_outpost(section)
+
+
+func _build_outpost(section: Node3D) -> void:
+	outpost_root = Node3D.new()
+	outpost_root.name = "FartrailOutpost"
+	section.add_child(outpost_root)
+	var site := Layout.outpost_position(rendered_seed)
+	Art._add_box(outpost_root, "Clearing", Vector3(10, 0.05, 10), Vector3(site.x, 0.025, site.z), Color("92997a"))
+	Art._add_station_marker(outpost_root, "OutpostSign", site + Vector3(0, 0, -4), "FARTRAIL OUTPOST", Color("efd4a4"))
+	for part: String in ["shelter", "remedies", "meal"]:
+		var piece := Node3D.new()
+		piece.position = Layout.outpost_station(rendered_seed, part) - Vector3(0, 0.6, 0)
+		outpost_root.add_child(piece)
+		outpost_pieces[part] = piece
+		match part:
+			"shelter":
+				Art._add_box(piece, "Roof", Vector3(4, 0.2, 4), Vector3(0, 2.8, 0), Color("8f7654"), Vector3(0, 0, -8))
+				for x in [-1.6, 1.6]:
+					for z in [-1.6, 1.6]:
+						Art._add_box(piece, "Post", Vector3(0.18, 2.7, 0.18), Vector3(x, 1.35, z), Color("6b5844"))
+				Art._add_box(piece, "Bedroll", Vector3(1.6, 0.25, 0.8), Vector3(0, 0.2, 0), Color("a2b6bd"))
+			"remedies":
+				Art._add_box(piece, "Workbench", Vector3(2, 0.9, 0.9), Vector3(0, 0.45, 0), Color("897254"))
+				for x in [-0.6, 0, 0.6]:
+					Art._add_cylinder(piece, "RemedyJar", 0.15, 0.35, Vector3(x, 1.05, 0), Color("82b59a"), 8)
+			"meal":
+				Art._add_cylinder(piece, "CookHearth", 0.7, 0.25, Vector3(0, 0.15, 0), Color("cf9d5b"), 8)
+				Art._add_cylinder(piece, "MealPot", 0.35, 0.4, Vector3(0, 0.4, 0), Color("766866"), 10)
+	for station: String in Layout.OUTPOST_OFFSETS:
+		outpost_markers[station] = Art._add_station_marker(outpost_root, "Station_" + station, Layout.outpost_station(rendered_seed, station), station.to_upper(), Color("edd49d"))
+
+
+static func outpost_targets(snapshot: Dictionary) -> Array[Dictionary]:
+	var seed_value := int(snapshot.get("world_seed", 1))
+	var parts: Dictionary = snapshot.get("outpost_parts", {})
+	var titles := {"shelter": "Raise shelter · 3 shared wood", "remedies": "Stock remedies · 2 shared herbs", "meal": "Prepare field meal · 2 personal/creel fish", "rest": "Rest at Fartrail", "craft": "Trailcraft · 1 wood + 1 herb"}
+	var result: Array[Dictionary] = []
+	for station: String in Layout.OUTPOST_OFFSETS:
+		if (station in ["rest", "craft"] and parts.size() == 3) or (station not in ["rest", "craft"] and parts.size() < 3 and not parts.has(station)):
+			result.append({"id": station, "position": Layout.outpost_station(seed_value, station), "text": titles[station]})
+	return result

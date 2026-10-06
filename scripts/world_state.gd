@@ -217,6 +217,7 @@ var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
+var outpost_parts: Dictionary = {}
 var player_wilderness_caches: Dictionary = {}
 var briarwatch_stage := "rumor"
 var broken_briarwatch_bindings: Dictionary = {}
@@ -756,6 +757,53 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func try_outpost_interaction(player_token: String) -> bool:
+	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	var point: Vector3 = positions[player_token]
+	if outpost_parts.size() == 3:
+		if point.distance_to(Wilderness.outpost_station(world_seed, "rest")) <= INTERACTION_RADIUS:
+			if int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
+				return false
+			player_health[player_token] = PLAYER_MAX_HEALTH
+			return true
+		if point.distance_to(Wilderness.outpost_station(world_seed, "craft")) <= INTERACTION_RADIUS:
+			if int(materials.get("wood", 0)) < 1 or int(materials.get("herb", 0)) < 1:
+				return false
+			materials["wood"] -= 1
+			materials["herb"] -= 1
+			player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+			return true
+		return false
+	for part: String in ["shelter", "remedies", "meal"]:
+		if outpost_parts.has(part) or point.distance_to(Wilderness.outpost_station(world_seed, part)) > INTERACTION_RADIUS:
+			continue
+		match part:
+			"shelter":
+				if int(materials.get("wood", 0)) < 3:
+					return false
+				materials["wood"] -= 3
+				_add_mastery(player_token, "building")
+			"remedies":
+				if int(materials.get("herb", 0)) < 2:
+					return false
+				materials["herb"] -= 2
+			"meal":
+				var personal := int(player_riverfish.get(player_token, 0))
+				if personal + shared_riverfish_stock < 2:
+					return false
+				var used_personal := mini(personal, 2)
+				player_riverfish[player_token] = personal - used_personal
+				shared_riverfish_stock -= 2 - used_personal
+				_add_mastery(player_token, "cooking", 2)
+		outpost_parts[part] = true
+		if outpost_parts.size() == 3:
+			reputation += 1
+			chronicle.append("The newcomers established Fartrail Outpost in %s, leaving shelter and a trailwork bench for every traveler." % Wilderness.title(Wilderness.outpost_cell(world_seed)))
+		return true
+	return false
+
+
 func try_wilderness_cache(player_token: String) -> bool:
 	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
@@ -935,6 +983,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_outpost_interaction(player_token)
 		or try_wilderness_cache(player_token)
 		or try_briarwatch_interaction(player_token)
 		or try_reedbank_interaction(player_token)
@@ -2091,7 +2140,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 30,
+		"version": 31,
+		"outpost_parts": outpost_parts.duplicate(),
 		"wilderness_discoveries": wilderness_discoveries.duplicate(),
 		"player_wilderness_caches": player_wilderness_caches.duplicate(true),
 		"briarwatch_stage": briarwatch_stage,
@@ -2198,6 +2248,12 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	outpost_parts.clear()
+	if save_version >= 31:
+		var saved_outpost: Dictionary = data.get("outpost_parts", {})
+		for part: String in ["shelter", "remedies", "meal"]:
+			if bool(saved_outpost.get(part, false)):
+				outpost_parts[part] = true
 	wilderness_discoveries.clear()
 	player_wilderness_caches.clear()
 	if save_version >= 30:

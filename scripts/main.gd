@@ -31,6 +31,7 @@ const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
 const ActivityJournal = preload("res://scripts/activity_journal.gd")
 const Briarwatch = preload("res://scripts/briarwatch.gd")
 const WildernessLayout = preload("res://scripts/wilderness_layout.gd")
+const WildernessView = preload("res://scripts/wilderness_view.gd")
 var wilderness: Node3D
 var briarwatch: Node3D
 var activity_journal: CanvasLayer
@@ -1266,6 +1267,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_activity_pins": world_state.player_activity_pins.duplicate(),
 		"briarwatch_stage": world_state.briarwatch_stage,
 		"wilderness_discoveries": world_state.wilderness_discoveries.duplicate(),
+		"outpost_parts": world_state.outpost_parts.duplicate(),
 		"player_wilderness_caches": world_state.player_wilderness_caches.duplicate(true),
 		"broken_briarwatch_bindings": world_state.broken_briarwatch_bindings.duplicate(),
 		"briarwatch_windup": world_state.briarwatch_windup,
@@ -1474,7 +1476,7 @@ func _build_world() -> void:
 	add_child(reedbank)
 	briarwatch = Briarwatch.new()
 	add_child(briarwatch)
-	wilderness = preload("res://scripts/wilderness_view.gd").new()
+	wilderness = WildernessView.new()
 	add_child(wilderness)
 	moonwell_stones = world_nodes["moonwell_stones"]
 	moonwell_stone_markers = world_nodes["moonwell_stone_markers"]
@@ -1950,6 +1952,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for section_id: String in wilderness.cache_markers:
 		if not latest_snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(section_id):
 			_append_mobile_target(candidates, wilderness.cache_markers[section_id], "Take trail provision", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
+		if wilderness.outpost_markers.has(target["id"]):
+			_append_mobile_target(candidates, wilderness.outpost_markers[target["id"]], target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	for target: Dictionary in Briarwatch.targets(latest_snapshot):
 		var marker: Node3D = briarwatch.entry_marker if target["id"] == "entrance" else (briarwatch.beacon_marker if target["id"] == "beacon" else briarwatch.binding_markers[target["id"]])
 		_append_mobile_target(candidates, marker, target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2564,15 +2569,20 @@ func _update_pinned_activity(snapshot: Dictionary) -> void:
 	var local_position: Vector3 = snapshot.get("positions", {}).get(local_token, Vector3.ZERO)
 	var automatic_watch := selected == "automatic" and local_position.z < -49 and bool(snapshot.get("ruin_waystone_activated", false))
 	var automatic_wilderness := selected == "automatic" and WildernessLayout.valid(WildernessLayout.cell_at(local_position))
+	var automatic_outpost := selected == "automatic" and local_position.distance_to(WildernessLayout.outpost_position(int(snapshot.get("world_seed", 1)))) < 10
 	if automatic_wilderness:
 		selected = "wilderness"
 		automatic_watch = false
 	if automatic_watch:
 		selected = "briarwatch"
+	if automatic_outpost:
+		selected = "outpost"
+		automatic_wilderness = false
+		automatic_watch = false
 	var entry := ActivityCatalog.find_entry(snapshot, selected)
 	if entry.is_empty():
 		return
-	quest_title_label.text = str(entry["title"]).to_upper() + ("" if automatic_watch or automatic_wilderness else " · PINNED")
+	quest_title_label.text = str(entry["title"]).to_upper() + ("" if automatic_watch or automatic_wilderness or automatic_outpost else " · PINNED")
 	objective_label.text = str(entry["objective"])
 	progress_label.visible = true
 	progress_label.text = "%s · %s · Change with J" % [entry["category"], "Complete" if entry["complete"] else ("Shared outing" if automatic_watch else "Your chosen activity")]
@@ -2747,6 +2757,11 @@ func _update_interaction_prompt(
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
 	var player_health: Dictionary = latest_snapshot.get("player_health", {})
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
+		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
+			interaction_prompt.text = "%s · %s" % [action_name, target["text"]]
+			interaction_prompt.visible = true
+			return
 	var wilderness_cell := WildernessLayout.cell_at(player_position)
 	if WildernessLayout.valid(wilderness_cell):
 		var cache_position := WildernessLayout.cache_position(int(latest_snapshot.get("world_seed", 1)), wilderness_cell)
@@ -3159,6 +3174,8 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_s
 	if route_activated:
 		map_text += "\n• Briarwatch — %s" % ("safe beacon · return home" if str(latest_snapshot.get("briarwatch_stage", "rumor")) == "complete" else "northern watch · spirit bindings")
 	map_text += "\n• Western wilderness — %d / 9 sections charted" % latest_snapshot.get("wilderness_discoveries", {}).size()
+	if not latest_snapshot.get("wilderness_discoveries", {}).is_empty():
+		map_text += "\n• Fartrail Outpost — %s" % ("rest and trailcraft" if latest_snapshot.get("outpost_parts", {}).size() == 3 else "shared project")
 	return map_text
 
 
