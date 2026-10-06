@@ -3,6 +3,7 @@ extends RefCounted
 
 const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
+const Structures = preload("res://scripts/structure_layout.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -62,13 +63,14 @@ const BRIARWATCH_BINDINGS := {
 }
 const BRIARWATCH_WARNING_SECONDS := 1.2
 const BRIARWATCH_PULSE_RADIUS := 2.4
-const FURNISHING_ORIGIN := Vector3(-15.0, 0.0, 16.0)
-const FURNISHING_COLUMNS := 5
-const FURNISHING_ROWS := 3
-const FURNISHING_SPACING := 3.0
+const FURNISHING_ORIGIN := Structures.ORIGIN
+const FURNISHING_COLUMNS := Structures.COLUMNS
+const FURNISHING_ROWS := Structures.ROWS
+const FURNISHING_SPACING := Structures.SPACING
 const FURNISHING_REACH := 4.5
 const FURNISHING_WOOD_COST := 2
 const FURNISHING_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
+const BUILDING_KINDS := FURNISHING_KINDS + Structures.KINDS
 const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table"}
 const REGION_SEED := 73021
 const MAX_WORLD_SEED := 2147483647
@@ -213,6 +215,7 @@ var attuned_moonstones := {"bough": false, "brook": false, "path": false}
 var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
+var structures: Dictionary = {}
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
@@ -394,6 +397,7 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 			next_position.z = -48.0
 		else:
 			next_position.x = WORLD_MAX_X
+	next_position = Structures.constrain_movement(structures, positions[player_token], next_position)
 	positions[player_token] = next_position
 	return next_position
 
@@ -551,13 +555,32 @@ static func furnishing_requirement(kind: String, progress: Dictionary) -> String
 	return ""
 
 
-func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> bool:
+func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool, active_tokens: Array = []) -> bool:
 	if quest_stage != "home_repaired" or not furnishing_cell_valid(cell):
 		return false
 	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
 	if positions[player_token].distance_to(furnishing_position(cell)) > FURNISHING_REACH:
 		return false
+	if kind in Structures.KINDS:
+		var active_positions: Array = []
+		for token: String in active_tokens:
+			if positions.has(token):
+				active_positions.append(positions[token])
+		if active_positions.is_empty():
+			active_positions.append(positions[player_token])
+		if not Structures.change_error(structures, cell, kind, quarter_turns, remove, active_positions).is_empty():
+			return false
+		var slot := Structures.key(cell, kind, quarter_turns)
+		if remove:
+			structures.erase(slot)
+			materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
+			return true
+		if int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
+			return false
+		materials["wood"] -= FURNISHING_WOOD_COST
+		structures[slot] = {"kind": kind, "rotation": quarter_turns}
+		return true
 	var key := furnishing_cell_key(cell)
 	if remove:
 		if not furnishings.has(key):
@@ -2156,7 +2179,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 32,
+		"version": 33,
+		"structures": structures.duplicate(true),
 		"wilderness_forage_days": wilderness_forage_days.duplicate(),
 		"outpost_parts": outpost_parts.duplicate(),
 		"wilderness_discoveries": wilderness_discoveries.duplicate(),
@@ -2265,6 +2289,7 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	structures = Structures.sanitize(data.get("structures", {})) if save_version >= 33 else {}
 	wilderness_forage_days.clear()
 	if save_version >= 32:
 		var saved_forage: Dictionary = data.get("wilderness_forage_days", {})

@@ -1,0 +1,8 @@
+{
+  "version": 33,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "materials": {"wood": 10, "herb": 0},
+  "positions": {"structure-a": [-15, 0.6, 17], "structure-b": [-15, 0.6, 17]}
+}

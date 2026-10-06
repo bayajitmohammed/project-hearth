@@ -561,7 +561,7 @@ func _request_activity_pin(activity_id: String) -> void:
 
 
 func _try_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
-	if world_state.try_change_furnishing(player_token, cell, kind, quarter_turns, remove):
+	if world_state.try_change_furnishing(player_token, cell, kind, quarter_turns, remove, peer_to_token.values()):
 		_save_world()
 		_publish_snapshot()
 
@@ -1274,6 +1274,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_windup": world_state.briarwatch_windup,
 		"briarwatch_pulse_position": world_state.briarwatch_pulse_position,
 		"furnishings": world_state.furnishings.duplicate(true),
+		"structures": world_state.structures.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),

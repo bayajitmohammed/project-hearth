@@ -12,6 +12,8 @@ var can_place := false
 var can_remove := false
 var pieces: Dictionary = {}
 var rendered_layout: Dictionary = {}
+var rendered_structures: Dictionary = {}
+var structure_nodes: Dictionary = {}
 var preview: Node3D
 var grid: Node3D
 var panel: VBoxContainer
@@ -80,8 +82,8 @@ func toggle_mode() -> void:
 
 
 func cycle_piece() -> void:
-	kind = World.FURNISHING_KINDS[(World.FURNISHING_KINDS.find(kind) + 1) % World.FURNISHING_KINDS.size()]
-	choose.text = "%s · change (T)" % World.FURNISHING_NAMES[kind]
+	kind = World.BUILDING_KINDS[(World.BUILDING_KINDS.find(kind) + 1) % World.BUILDING_KINDS.size()]
+	choose.text = "%s · change (T)" % _piece_name()
 	_rebuild_preview()
 
 
@@ -96,6 +98,18 @@ func request_change(remove: bool) -> void:
 
 func update_view(snapshot: Dictionary, token: String, yaw: float, connected: bool) -> void:
 	var layout: Dictionary = snapshot.get("furnishings", {})
+	var structures: Dictionary = snapshot.get("structures", {})
+	if structures != rendered_structures:
+		for node: Node3D in structure_nodes.values():
+			node.free()
+		structure_nodes.clear()
+		for slot: String in structures:
+			var piece := make_piece(str(structures[slot]["kind"]))
+			add_child(piece)
+			piece.position = World.Structures.position(World.Structures.cell_for(slot))
+			piece.rotation.y = int(structures[slot]["rotation"]) * PI / 2
+			structure_nodes[slot] = piece
+		rendered_structures = structures.duplicate(true)
 	if layout != rendered_layout:
 		for node: Node3D in pieces.values():
 			node.free()
@@ -136,6 +150,11 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	var requirement := World.furnishing_requirement(kind, snapshot)
 	can_remove = valid and nearby and occupied
 	can_place = valid and nearby and not occupied and wood >= World.FURNISHING_WOOD_COST and requirement.is_empty()
+	var structure_error := ""
+	if kind in World.Structures.KINDS:
+		structure_error = World.Structures.change_error(structures, cell, kind, quarter_turns, false, snapshot.get("positions", {}).values())
+		can_place = valid and nearby and structure_error.is_empty() and wood >= World.FURNISHING_WOOD_COST
+		can_remove = valid and nearby and World.Structures.change_error(structures, cell, kind, quarter_turns, true).is_empty()
 	preview.visible = valid
 	preview.position = target
 	preview.rotation.y = quarter_turns * PI / 2.0
@@ -149,8 +168,16 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 		hint = "Occupied · remove to rearrange." if occupied else ("Ready to place." if can_place else "Gather 2 shared wood to build.")
 	if not requirement.is_empty():
 		hint = "RECIPE LOCKED · " + requirement
-	choose.text = "%s · change (T)" % World.FURNISHING_NAMES[kind]
+	if kind in World.Structures.KINDS and valid and nearby:
+		hint = structure_error if not structure_error.is_empty() else ("Ready to build." if can_place else "Gather 2 shared wood to build.")
+		if structures.has(World.Structures.key(cell, kind, quarter_turns)):
+			hint = "Selected slot occupied · remove to rearrange." if can_remove else World.Structures.change_error(structures, cell, kind, quarter_turns, true)
+	choose.text = "%s · change (T)" % _piece_name()
 	details.text = "SHARED SOUTH YARD\nWood %d · Rotation %d°\n%s\nMove; hold right mouse to look." % [wood, quarter_turns * 90, hint]
+
+
+func _piece_name() -> String:
+	return str(World.FURNISHING_NAMES.get(kind, World.Structures.NAMES.get(kind, kind)))
 
 
 func _rebuild_preview() -> void:
@@ -170,7 +197,18 @@ func _rebuild_preview() -> void:
 
 static func make_piece(piece_kind: String) -> Node3D:
 	var result := Node3D.new()
-	if piece_kind == "bench":
+	if piece_kind == "foundation":
+		_box(result, Vector3(2.8, 0.12, 2.8), Vector3(0, 0.06, 0), Color("ab9470"))
+	elif piece_kind in ["wall", "doorway"]:
+		if piece_kind == "wall":
+			_box(result, Vector3(2.8, 2.4, 0.16), Vector3(0, 1.2, -1.4), Color("9d805b"))
+		else:
+			for x in [-1.05, 1.05]:
+				_box(result, Vector3(0.7, 2.4, 0.16), Vector3(x, 1.2, -1.4), Color("9d805b"))
+			_box(result, Vector3(1.4, 0.3, 0.16), Vector3(0, 2.25, -1.4), Color("9d805b"))
+	elif piece_kind == "roof":
+		_box(result, Vector3(3, 0.16, 3), Vector3(0, 2.52, 0), Color("71867b"))
+	elif piece_kind == "bench":
 		_box(result, Vector3(2.1, 0.2, 0.7), Vector3(0, 0.65, 0), Color("92704e"))
 		_box(result, Vector3(2.1, 0.55, 0.15), Vector3(0, 1.05, 0.3), Color("aa8760"))
 		for x: float in [-0.8, 0.8]:
