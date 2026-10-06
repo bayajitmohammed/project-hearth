@@ -1,6 +1,6 @@
 extends RefCounted
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -18,6 +18,9 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 	if exploration != "locked":
 		_add(result, "northwood", "Beyond the Road", "Adventure", exploration == "complete", str({"follow_rumor": "Follow the road north into Northwood", "find_ruins": "Find the Old Stone Ruins", "defeat_guardian": "Overcome the ruin guardian", "restore_waystone": "Restore the ancient waystone", "complete": "The shared ruins route is restored"}.get(exploration, "Explore the Old Stone Ruins")), "Travel north. Brace with F, strike with Space, or use R for a committed power strike. The restored waystones connect the ruins and home.")
 	var nima := str(state.get("nima_story_stage", "locked"))
+	if bool(state.get("ruin_waystone_activated", false)):
+		var watch_stage := str(state.get("briarwatch_stage", "rumor"))
+		_add(result, "briarwatch", "The Briarwatch Signal", "Adventure", watch_stage == "complete", str({"rumor": "Follow the road beyond the ruins to Briarwatch", "bindings": "Break the three spirit bindings", "rekindle": "Rekindle the watch beacon", "complete": "Briarwatch is safe; its beacon returns travelers home"}.get(watch_stage, "Explore Briarwatch")), "Begin at the northern trail marker. Strikes cannot reach the spirit: use E at its bindings. Leave marked ground or time F to brace before the pulse. Bindings broken: %d / 3." % state.get("broken_briarwatch_bindings", {}).size())
 	if nima != "locked":
 		_add(result, "nima", "Nima's Bearings", "Story", nima == "complete", str({"arrival": "Meet Nima at the home waystone", "find_case": "Recover Nima's field case in eastern Northwood", "return_case": "Return the recovered case to Nima", "complete": "Nima has settled beside the homestead"}.get(nima, "Speak to Nima")), "Her charts and map table open new shared leads. Friends can continue each other's story steps.")
 	var moonwell := str(state.get("moonwell_story_stage", "locked"))

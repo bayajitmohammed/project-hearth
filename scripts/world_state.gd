@@ -36,7 +36,7 @@ const PICKUP_RADIUS := 1.15
 const INTERACTION_RADIUS := 1.8
 const WORLD_MIN_X := -17.0
 const WORLD_MAX_X := 17.0
-const WORLD_MIN_Z := -48.0
+const WORLD_MIN_Z := -74.0
 const WORLD_MAX_Z := 24.0
 const REEDBANK_MAX_X := 43.0
 const OREN_TRAIL_POSITION := Vector3(21.0, 0.6, -23.0)
@@ -52,6 +52,15 @@ const SUNWHEAT_BEDS := {
 const SUNWHEAT_GROW_MINUTES := 120
 const MILL_HOPPER_POSITION := Vector3(37, 0.6, -33)
 const REEDBANK_OVEN_POSITION := Vector3(29, 0.6, -38)
+const BRIARWATCH_ENTRANCE := Vector3(0, 0.6, -52)
+const BRIARWATCH_BEACON := Vector3(0, 0.6, -66)
+const BRIARWATCH_BINDINGS := {
+	"west": Vector3(-8, 0.6, -59),
+	"east": Vector3(8, 0.6, -59),
+	"north": Vector3(0, 0.6, -71),
+}
+const BRIARWATCH_WARNING_SECONDS := 1.2
+const BRIARWATCH_PULSE_RADIUS := 2.4
 const FURNISHING_ORIGIN := Vector3(-15.0, 0.0, 16.0)
 const FURNISHING_COLUMNS := 5
 const FURNISHING_ROWS := 3
@@ -205,6 +214,12 @@ var furnishings: Dictionary = {}
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
+var briarwatch_stage := "rumor"
+var broken_briarwatch_bindings: Dictionary = {}
+var briarwatch_windup := 0.0
+var briarwatch_cooldown := 3.0
+var briarwatch_pulse_position := Vector3.ZERO
+var briarwatch_target_cursor := 0
 var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
@@ -361,6 +376,11 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	if next_position.x > WORLD_MAX_X and next_position.z > -18.0:
 		if register_player(player_token).x > WORLD_MAX_X:
 			next_position.z = -18.0
+		else:
+			next_position.x = WORLD_MAX_X
+	if next_position.x > WORLD_MAX_X and next_position.z < -48.0:
+		if register_player(player_token).x > WORLD_MAX_X:
+			next_position.z = -48.0
 		else:
 			next_position.x = WORLD_MAX_X
 	positions[player_token] = next_position
@@ -710,6 +730,76 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func try_briarwatch_interaction(player_token: String) -> bool:
+	if not ruin_waystone_activated or bool(downed_players.get(player_token, false)):
+		return false
+	var player_position := register_player(player_token)
+	if briarwatch_stage == "rumor":
+		if player_position.distance_to(BRIARWATCH_ENTRANCE) > INTERACTION_RADIUS:
+			return false
+		briarwatch_stage = "bindings"
+		briarwatch_cooldown = 3.0
+		return true
+	if briarwatch_stage == "bindings":
+		for binding_id: String in BRIARWATCH_BINDINGS:
+			if broken_briarwatch_bindings.has(binding_id):
+				continue
+			if player_position.distance_to(BRIARWATCH_BINDINGS[binding_id]) <= INTERACTION_RADIUS:
+				broken_briarwatch_bindings[binding_id] = true
+				_add_mastery(player_token, "exploration")
+				if broken_briarwatch_bindings.size() == BRIARWATCH_BINDINGS.size():
+					briarwatch_stage = "rekindle"
+					briarwatch_windup = 0.0
+				return true
+		return false
+	if player_position.distance_to(BRIARWATCH_BEACON) > INTERACTION_RADIUS:
+		return false
+	if briarwatch_stage == "rekindle":
+		briarwatch_stage = "complete"
+		reputation += 1
+		neighborhood_morale += 1
+		chronicle.append("The newcomers freed Briarwatch from its bound spirit and rekindled the watch beacon above Northwood.")
+		return true
+	if briarwatch_stage == "complete":
+		positions[player_token] = HOME_WAYSTONE_ARRIVAL
+		return true
+	return false
+
+
+func simulate_briarwatch(delta: float, active_tokens: Array) -> bool:
+	if delta <= 0.0:
+		return false
+	var eligible: Array[String] = []
+	for token: String in active_tokens:
+		if positions.has(token) and not bool(downed_players.get(token, false)):
+			var point: Vector3 = positions[token]
+			if absf(point.x) <= 12.0 and point.z <= -55.0 and point.z >= WORLD_MIN_Z:
+				eligible.append(token)
+	eligible.sort()
+	if not ruin_waystone_activated or briarwatch_stage != "bindings" or eligible.is_empty():
+		briarwatch_windup = 0.0
+		briarwatch_cooldown = 3.0
+		return false
+	if briarwatch_windup > 0.0:
+		briarwatch_windup = maxf(0.0, briarwatch_windup - delta)
+		if briarwatch_windup > 0.0:
+			return false
+		briarwatch_cooldown = 3.0
+		var struck := false
+		for token: String in eligible:
+			if (positions[token] as Vector3).distance_to(briarwatch_pulse_position) <= BRIARWATCH_PULSE_RADIUS:
+				_apply_enemy_hit(token, eligible, briarwatch_pulse_position)
+				struck = true
+		return struck
+	briarwatch_cooldown = maxf(0.0, briarwatch_cooldown - delta)
+	if briarwatch_cooldown <= 0.0:
+		var target: String = eligible[briarwatch_target_cursor % eligible.size()]
+		briarwatch_target_cursor += 1
+		briarwatch_pulse_position = positions[target]
+		briarwatch_windup = BRIARWATCH_WARNING_SECONDS
+	return false
+
+
 func try_pin_activity(player_token: String, activity_id: String) -> bool:
 	if not positions.has(player_token):
 		return false
@@ -803,6 +893,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_briarwatch_interaction(player_token)
 		or try_reedbank_interaction(player_token)
 		or try_reedbank_livelihood(player_token)
 		or try_rest_at_moonwell(player_token)
@@ -1957,7 +2048,9 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 28,
+		"version": 29,
+		"briarwatch_stage": briarwatch_stage,
+		"broken_briarwatch_bindings": broken_briarwatch_bindings.duplicate(),
 		"player_activity_pins": player_activity_pins.duplicate(),
 		"sunwheat_planted_at": sunwheat_planted_at.duplicate(),
 		"reedbank_stage": reedbank_stage,
@@ -2060,6 +2153,21 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	briarwatch_stage = str(data.get("briarwatch_stage", "rumor")) if save_version >= 29 else "rumor"
+	if briarwatch_stage not in ["rumor", "bindings", "rekindle", "complete"]:
+		briarwatch_stage = "rumor"
+	broken_briarwatch_bindings.clear()
+	if save_version >= 29:
+		var saved_bindings: Dictionary = data.get("broken_briarwatch_bindings", {})
+		for binding_id: String in BRIARWATCH_BINDINGS:
+			if bool(saved_bindings.get(binding_id, false)) or briarwatch_stage in ["rekindle", "complete"]:
+				broken_briarwatch_bindings[binding_id] = true
+		if broken_briarwatch_bindings.size() == BRIARWATCH_BINDINGS.size() and briarwatch_stage == "bindings":
+			briarwatch_stage = "rekindle"
+	briarwatch_windup = 0.0
+	briarwatch_cooldown = 3.0
+	briarwatch_target_cursor = 0
+	briarwatch_pulse_position = Vector3.ZERO
 	player_activity_pins.clear()
 	if save_version >= 28:
 		var saved_pins: Dictionary = data.get("player_activity_pins", {})

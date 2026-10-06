@@ -18,6 +18,14 @@ Completing **Nima's Bearings** reveals her first follow-up destination at the ho
 
 Attuning all three stones permanently wakes the luminous spring, raises neighborhood morale and reputation once, and records the sanctuary in the shared chronicle. The restored Moonwell becomes a second safe recovery point where any standing injured player can rest without consuming supplies, advancing time, or affecting companions. It cannot revive a downed player. The story has no timer, one player may complete every step alone, and empty-world catch-up cannot reveal, attune, or complete it.
 
+## Briarwatch — a marked-ground encounter
+
+Restoring the ruins route reveals a northern outing to **Briarwatch**, an abandoned watch clearing beyond the Old Stone Ruins. A trail marker explicitly begins the encounter. Players break three separated spirit bindings with E, then rekindle the watch beacon. Broken bindings persist across retreats, defeat, disconnects, and sessions; nobody must remain online to own the outing.
+
+While bindings remain, the watch spirit periodically marks a standing traveler's current ground position for 1.2 seconds before one pulse strikes a 2.4-metre circle. The mark does not chase its target. Any standing active player still inside at impact risks one health; leaving the circle, a timed brace, or existing nearby Guardian interception can prevent the hit. Targets rotate through eligible identities, not increased enemy health. Friends may draw a mark aside while others work on bindings; one player can evade and finish all three alone. Ordinary attacks do not damage the spirit: its visible bindings are the objective, and this is stated in the guidance.
+
+The warning and cooldown are transient. Empty worlds and empty clearings cancel pending pulses, and rejoining never resumes a saved surprise hit. Damage stays inside the clearing and never reaches homes. Each first broken binding grants normal Exploration mastery to its contributor. Rekindling the beacon awards one shared morale/reputation/chronicle outcome, permanently ends the danger, and leaves a beacon that any standing traveler can use to return home. This is an authored encounter and new place, not continent streaming or final encounter scaling.
+
 ## Combat
 
 Combat is accessible 3D action in either the default first-person view or the close over-the-shoulder third-person view: basic attack, charged or alternate action, dodge or guard, tool use, and a small ability loadout. Weapons and magic offer distinct roles without permanent classes.

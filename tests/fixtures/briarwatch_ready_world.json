@@ -1,0 +1,21 @@
+{
+  "version": 29,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "creature_defeated": true,
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "exploration_stage": "complete",
+  "shared_map_discoveries": {"northwood": true, "old_stone_ruins": true, "moonwell_glade": true},
+  "nima_story_stage": "complete",
+  "moonwell_story_stage": "complete",
+  "moonwell_supper_stage": "complete",
+  "livelihood_stage": "complete",
+  "produce_stall_open": true,
+  "reedbank_stage": "complete",
+  "briarwatch_stage": "rumor",
+  "reputation": 0,
+  "world_minute": 600,
+  "positions": {"briar-a": [0, 0.6, -52], "briar-b": [-8, 0.6, -59]}
+}
