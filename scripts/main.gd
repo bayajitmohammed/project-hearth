@@ -1268,6 +1268,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_stage": world_state.briarwatch_stage,
 		"wilderness_discoveries": world_state.wilderness_discoveries.duplicate(),
 		"outpost_parts": world_state.outpost_parts.duplicate(),
+		"wilderness_forage_days": world_state.wilderness_forage_days.duplicate(),
 		"player_wilderness_caches": world_state.player_wilderness_caches.duplicate(true),
 		"broken_briarwatch_bindings": world_state.broken_briarwatch_bindings.duplicate(),
 		"briarwatch_windup": world_state.briarwatch_windup,
@@ -1955,6 +1956,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
 		if wilderness.outpost_markers.has(target["id"]):
 			_append_mobile_target(candidates, wilderness.outpost_markers[target["id"]], target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
+	for source_id: String in wilderness.forage:
+		if int(latest_snapshot.get("wilderness_forage_days", {}).get(source_id, 0)) < int(latest_snapshot.get("world_day", 1)):
+			_append_mobile_target(candidates, wilderness.forage[source_id]["marker"], "Gather " + wilderness.forage[source_id]["kind"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	for target: Dictionary in Briarwatch.targets(latest_snapshot):
 		var marker: Node3D = briarwatch.entry_marker if target["id"] == "entrance" else (briarwatch.beacon_marker if target["id"] == "beacon" else briarwatch.binding_markers[target["id"]])
 		_append_mobile_target(candidates, marker, target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2593,7 +2597,7 @@ func _update_pinned_activity(snapshot: Dictionary) -> void:
 		var claimed: bool = snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(WildernessLayout.key(cell))
 		objective_label.text = "%s · %s" % [WildernessLayout.title(cell), "cache collected" if claimed else "find the trail cache"]
 		progress_label.text = "Shared map %d / 9 · Your caches %d / 9" % [snapshot.get("wilderness_discoveries", {}).size(), snapshot.get("player_wilderness_caches", {}).get(local_token, {}).size()]
-		dialogue_label.text = "Cache %.0fm %s / %s. E takes one personal provision. Your companions keep their own claim. Home lies east." % [local_position.distance_to(cache_position), "west" if cache_position.x < local_position.x else "east", "north" if cache_position.z < local_position.z else "south"]
+		dialogue_label.text = "Cache %.0fm %s / %s. E takes one personal provision. Gather marked wood and herbs for shared supplies; sources renew each day. Home lies east." % [local_position.distance_to(cache_position), "west" if cache_position.x < local_position.x else "east", "north" if cache_position.z < local_position.z else "south"]
 	if selected == "festival":
 		_update_festival_interface(
 			str(snapshot.get("festival_stage", "available")),
@@ -2763,6 +2767,12 @@ func _update_interaction_prompt(
 			interaction_prompt.visible = true
 			return
 	var wilderness_cell := WildernessLayout.cell_at(player_position)
+	for source: Dictionary in WildernessLayout.forage_nodes(int(latest_snapshot.get("world_seed", 1)), wilderness_cell):
+		if player_position.distance_to(source["position"]) <= WorldStateModel.INTERACTION_RADIUS:
+			var ready := int(latest_snapshot.get("wilderness_forage_days", {}).get(source["id"], 0)) < int(latest_snapshot.get("world_day", 1))
+			interaction_prompt.text = "%s · Gather 1 shared %s" % [action_name, source["kind"]] if ready else "Gathered · returns next world day"
+			interaction_prompt.visible = true
+			return
 	if WildernessLayout.valid(wilderness_cell):
 		var cache_position := WildernessLayout.cache_position(int(latest_snapshot.get("world_seed", 1)), wilderness_cell)
 		if player_position.distance_to(cache_position) <= WorldStateModel.INTERACTION_RADIUS:

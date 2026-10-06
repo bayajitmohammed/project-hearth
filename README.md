@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+Western sections now contain **two wood piles and one herb patch each**. Use **E** nearby to gather one shared material. Sources renew on the next world day, with saved room-wide depletion and no unattended harvesting. These materials feed existing building, outpost, cooking and trailcraft recipes.
+
+Forage coverage: `Godot --headless --path . --script res://tests/test_wilderness_forage.gd`. Use an isolated copy of `tests/fixtures/wilderness_forage_ready_world.json`, serve room `FORAGE` on port `9465`, and run `tests/wilderness_forage_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9465 --room=FORAGE` and identities `--player-token=forage-a` / `--player-token=forage-b` to check competing harvests.
+
 **Fartrail Outpost** is a seed-located wilderness project. Its journal entry appears after entering the western trails and names its section and direction from home. Complete three independent jobs with **E**: shelter (3 shared wood), remedies (2 shared herbs), and a meal (2 fish, using personal stock before the shared creel). Completion permanently opens separate rest and trailcraft stations and records one shared outcome. Partial work survives saves and terrain unloading.
 
 Outpost coverage: `Godot --headless --path . --script res://tests/test_outpost.gd`. For cooperative jobs, use an isolated copy of `tests/fixtures/outpost_ready_world.json`, serve room `POST` on port `9463`, and launch `tests/outpost_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9463 --room=POST` and identities `--player-token=outpost-a` / `--player-token=outpost-b`.

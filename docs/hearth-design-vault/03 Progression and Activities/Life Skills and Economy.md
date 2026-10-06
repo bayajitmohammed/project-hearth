@@ -18,6 +18,10 @@ After the cottage is repaired, the five authored forest wood and herb nodes rene
 
 At the cottage **trailwork bench**, a nearby standing player may spend one shared wood and one shared herb to make one personal trail provision. The original repair-kit recipe keeps priority while the cottage tutorial is active. Trailcraft grants no mastery, coin, reputation, or shared-project credit; it simply gives gathering and crafting a renewable preparation purpose in offline, LAN-hosted, and dedicated worlds. Each craft conserves its inputs and output, so friends may divide foraging and preparation without creating passive supplies.
 
+### Western forage — streamed supply-loop increment
+
+Each western section has two seed-positioned fallen-wood piles and one herb patch. A standing player may explicitly gather one shared material from each source per authoritative world day. Depletion is room-wide and persistent; unloading terrain, reconnecting, or another companion arriving never creates a second same-day harvest. The next day makes that source available again, but missed days never accumulate yields and empty-world time never gathers materials. These supplies feed the existing outpost, home-building, bread and trailcraft costs. Gathering grants no new mastery track, currency, or milestone reward. Sources stay clear of trail caches and the Fartrail project stations.
+
 ## First fishing loop
 
 Repairing the cottage makes its simple shared fishing gear available at **Willowmere Pond**. Each standing player may cast independently. The authoritative world provides a short wait followed by a clearly named one-second bite window; reeling early ends that cast without a catch, while missing the window lets the fish go and returns the player to ready. Cast timing is transient, never advances while the room is empty, and one player's cast cannot consume or reset another's.

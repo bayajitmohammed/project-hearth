@@ -8,6 +8,7 @@ var rendered_seed := -1
 var outpost_root: Node3D
 var outpost_markers: Dictionary = {}
 var outpost_pieces: Dictionary = {}
+var forage: Dictionary = {}
 
 
 func update_view(snapshot: Dictionary, token: String) -> void:
@@ -34,12 +35,19 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 	if not is_instance_valid(outpost_root):
 		outpost_markers.clear()
 		outpost_pieces.clear()
+	for source_id: String in forage.keys():
+		if not is_instance_valid(forage[source_id]["growth"]):
+			forage.erase(source_id)
 	var claims: Dictionary = snapshot.get("player_wilderness_caches", {}).get(token, {})
 	for section_id: String in needed:
 		if not sections.has(section_id):
 			_build_section(needed[section_id])
 		var marker: Node3D = cache_markers[section_id]
 		(marker.get_node("Label") as Label3D).text = "%s\n%s" % [Layout.title(needed[section_id]).to_upper(), "CACHE COLLECTED" if claims.has(section_id) else "TRAIL CACHE · E"]
+	for source_id: String in forage:
+		var ready := int(snapshot.get("wilderness_forage_days", {}).get(source_id, 0)) < int(snapshot.get("world_day", 1))
+		forage[source_id]["growth"].visible = ready
+		(forage[source_id]["marker"].get_node("Label") as Label3D).text = "%s · %s" % [str(forage[source_id]["kind"]).to_upper(), "GATHER" if ready else "RETURNS TOMORROW"]
 	if is_instance_valid(outpost_root):
 		var parts: Dictionary = snapshot.get("outpost_parts", {})
 		for part: String in outpost_pieces:
@@ -62,6 +70,18 @@ func _build_section(cell: Vector2i) -> void:
 	var marker := Art._add_station_marker(section, "CacheMarker", cache, Layout.title(cell), Color("e9cf92"))
 	sections[Layout.key(cell)] = section
 	cache_markers[Layout.key(cell)] = marker
+	for source: Dictionary in Layout.forage_nodes(rendered_seed, cell):
+		var growth := Node3D.new()
+		growth.position = source["position"] - Vector3(0, 0.6, 0)
+		section.add_child(growth)
+		Art._add_cylinder(section, "ForageBase", 0.6, 0.08, source["position"] - Vector3(0, 0.56, 0), Color("786e4e"), 8)
+		for offset in [-0.35, 0, 0.35]:
+			if source["kind"] == "wood":
+				Art._add_cylinder(growth, "FallenWood", 0.12, 1.3, Vector3(offset, 0.22, 0), Color("92734f"), 7).rotation.z = PI / 2
+			else:
+				Art._add_box(growth, "HerbLeaves", Vector3(0.25, 0.5, 0.25), Vector3(offset, 0.3, 0), Color("91c9ae"), Vector3(0, 0, offset * 45))
+		var forage_marker := Art._add_station_marker(section, "ForageMarker", source["position"], "GATHER " + source["kind"], Color("b9dc9b"))
+		forage[source["id"]] = {"growth": growth, "marker": forage_marker, "kind": source["kind"]}
 	if cell == Layout.outpost_cell(rendered_seed):
 		_build_outpost(section)
 

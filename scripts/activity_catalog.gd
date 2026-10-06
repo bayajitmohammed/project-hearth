@@ -13,7 +13,7 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 			var cell := Vector2i(x, z)
 			if state.get("wilderness_discoveries", {}).has(Wilderness.key(cell)):
 				charted.append(Wilderness.title(cell))
-	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore west beyond the home and Northwood", "Nine seed-shaped woodland sections share map discoveries. Each trail stone holds one provision per player, once; use E nearby. Return east to reach the authored home road. Charted: %s." % (", ".join(charted) if not charted.is_empty() else "none yet"))
+	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore west beyond the home and Northwood", "Nine seed-shaped woodland sections share map discoveries. Each trail stone holds one provision per player, once. Two wood piles and one herb patch per section renew each world day for shared projects and crafting. Use E nearby. Return east to reach home. Charted: %s." % (", ".join(charted) if not charted.is_empty() else "none yet"))
 	var home := str(state.get("quest_stage", "meet_mara"))
 	if not state.get("wilderness_discoveries", {}).is_empty():
 		var outpost: Dictionary = state.get("outpost_parts", {})

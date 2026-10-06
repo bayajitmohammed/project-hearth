@@ -217,6 +217,7 @@ var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
+var wilderness_forage_days: Dictionary = {}
 var outpost_parts: Dictionary = {}
 var player_wilderness_caches: Dictionary = {}
 var briarwatch_stage := "rumor"
@@ -757,6 +758,20 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func try_gather_wilderness(player_token: String) -> bool:
+	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	var point: Vector3 = positions[player_token]
+	for source: Dictionary in Wilderness.forage_nodes(world_seed, Wilderness.cell_at(point)):
+		if int(wilderness_forage_days.get(source["id"], 0)) >= world_day:
+			continue
+		if point.distance_to(source["position"]) <= INTERACTION_RADIUS:
+			wilderness_forage_days[source["id"]] = world_day
+			materials[source["kind"]] = int(materials.get(source["kind"], 0)) + 1
+			return true
+	return false
+
+
 func try_outpost_interaction(player_token: String) -> bool:
 	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
@@ -985,6 +1000,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_recover_pack(player_token)
 		or try_outpost_interaction(player_token)
 		or try_wilderness_cache(player_token)
+		or try_gather_wilderness(player_token)
 		or try_briarwatch_interaction(player_token)
 		or try_reedbank_interaction(player_token)
 		or try_reedbank_livelihood(player_token)
@@ -2140,7 +2156,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 31,
+		"version": 32,
+		"wilderness_forage_days": wilderness_forage_days.duplicate(),
 		"outpost_parts": outpost_parts.duplicate(),
 		"wilderness_discoveries": wilderness_discoveries.duplicate(),
 		"player_wilderness_caches": player_wilderness_caches.duplicate(true),
@@ -2248,6 +2265,14 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	wilderness_forage_days.clear()
+	if save_version >= 32:
+		var saved_forage: Dictionary = data.get("wilderness_forage_days", {})
+		for x in range(Wilderness.COUNT):
+			for z in range(Wilderness.COUNT):
+				for source: Dictionary in Wilderness.forage_nodes(world_seed, Vector2i(x, z)):
+					if saved_forage.has(source["id"]):
+						wilderness_forage_days[source["id"]] = clampi(int(saved_forage[source["id"]]), 0, maxi(int(data.get("world_day", 1)), 1))
 	outpost_parts.clear()
 	if save_version >= 31:
 		var saved_outpost: Dictionary = data.get("outpost_parts", {})

@@ -56,8 +56,32 @@ static func scenery(seed_value: int, cell: Vector2i) -> Array[Vector3]:
 	var random := random_for(seed_value, cell)
 	var cache := cache_position(seed_value, cell)
 	var result: Array[Vector3] = []
+	var forage := forage_nodes(seed_value, cell)
 	for index in range(18):
 		var point := center(cell) + Vector3(random.randf_range(-14, 14), 0, random.randf_range(-14, 14))
-		if point.distance_to(cache) > 4 and (cell != outpost_cell(seed_value) or point.distance_to(outpost_position(seed_value)) > 8):
+		var clear := true
+		for source: Dictionary in forage:
+			if point.distance_to(source["position"]) <= 4:
+				clear = false
+		if clear and point.distance_to(cache) > 4 and (cell != outpost_cell(seed_value) or point.distance_to(outpost_position(seed_value)) > 8):
 			result.append(point)
+	return result
+
+
+static func forage_nodes(seed_value: int, cell: Vector2i) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not valid(cell):
+		return result
+	var corners := [Vector3(-12, 0.6, -12), Vector3(12, 0.6, -12), Vector3(-12, 0.6, 12), Vector3(12, 0.6, 12)]
+	var omit := posmod(seed_value + cell.x * 7 + cell.y * 13, 4)
+	if cell == outpost_cell(seed_value):
+		var offset := outpost_position(seed_value) - center(cell)
+		omit = (1 if offset.x > 0 else 0) + (2 if offset.z > 0 else 0)
+	var random := random_for(seed_value + 104729, cell)
+	for index in range(4):
+		if index == omit:
+			continue
+		var kind := "wood" if result.size() < 2 else "herb"
+		var point: Vector3 = center(cell) + corners[index] + Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
+		result.append({"id": "%s/%d" % [key(cell), result.size()], "kind": kind, "position": point})
 	return result

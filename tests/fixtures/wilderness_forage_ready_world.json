@@ -1,0 +1,8 @@
+{
+  "version": 32,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "positions": {"forage-a": [-44.8, 0.6, -5.3], "forage-b": [-44.8, 0.6, -5.3]}
+}
