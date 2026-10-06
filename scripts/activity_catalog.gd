@@ -1,0 +1,51 @@
+extends RefCounted
+
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival"]
+
+
+static func entries(state: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var home := str(state.get("quest_stage", "meet_mara"))
+	_add(result, "home", "A New Home", "Story", home == "home_repaired",
+		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
+		"Use E near people, supplies, and repair markers. Craft the repair kit with C; rest at the repaired cottage when injured.")
+	if home == "home_repaired":
+		var welcome := str(state.get("neighborhood_event_stage", "invitation"))
+		_add(result, "welcome", "Welcome Lights", "Story", welcome == "complete", "The welcome lanterns are lit" if welcome == "complete" else ("Speak to Mara about the gathering" if welcome == "invitation" else "Light the three neighborhood lanterns"), "The gathering lives beside the home road. Any companion can contribute.")
+		_add(result, "fishing", "Willowmere Fishing", "Livelihood", false, "Cast at Willowmere Pond", "West of the home road: E casts, then E during BITE reels in a riverfish. Cook it at the cottage fire or leave it in the shared creel.")
+		_add(result, "building", "Make the Homestead Yours", "Building", false, "Gather wood and furnish the south yard", "Use B at the home yard to choose, rotate, place, and remove shared benches or flower boxes. Furnishings cost two wood; removal refunds it.")
+	var exploration := str(state.get("exploration_stage", "locked"))
+	if exploration != "locked":
+		_add(result, "northwood", "Beyond the Road", "Adventure", exploration == "complete", str({"follow_rumor": "Follow the road north into Northwood", "find_ruins": "Find the Old Stone Ruins", "defeat_guardian": "Overcome the ruin guardian", "restore_waystone": "Restore the ancient waystone", "complete": "The shared ruins route is restored"}.get(exploration, "Explore the Old Stone Ruins")), "Travel north. Brace with F, strike with Space, or use R for a committed power strike. The restored waystones connect the ruins and home.")
+	var nima := str(state.get("nima_story_stage", "locked"))
+	if nima != "locked":
+		_add(result, "nima", "Nima's Bearings", "Story", nima == "complete", str({"arrival": "Meet Nima at the home waystone", "find_case": "Recover Nima's field case in eastern Northwood", "return_case": "Return the recovered case to Nima", "complete": "Nima has settled beside the homestead"}.get(nima, "Speak to Nima")), "Her charts and map table open new shared leads. Friends can continue each other's story steps.")
+	var moonwell := str(state.get("moonwell_story_stage", "locked"))
+	if moonwell != "locked":
+		_add(result, "moonwell", "Moonwell Glade", "Adventure", moonwell == "complete", str({"map_clue": "Study the lead at Nima's home map table", "find_glade": "Find the glade west of the Old Stone Ruins", "attune_stones": "Attune the three dormant moonstones", "complete": "The luminous spring is a shared sanctuary"}.get(moonwell, "Explore Moonwell Glade")), "Use E at each dormant stone. The restored spring heals standing travelers; it does not revive downed companions.")
+	var supper := str(state.get("moonwell_supper_stage", "locked"))
+	if supper != "locked":
+		_add(result, "supper", "Moonwell Supper", "Shared project", supper == "complete", "The glade table is ready for everyone" if supper == "complete" else "Prepare three courses at the Moonwell hearth", "Each course needs one shared moonroot and one personal or creel fish. Courses prepared: %d / 3." % int(state.get("moonwell_supper_courses", 0)))
+	if nima == "complete":
+		var reedbank := str(state.get("reedbank_stage", "meet_oren"))
+		_add(result, "reedbank", "The Wind Returns", "Story", reedbank == "complete", str({"meet_oren": "Meet Oren on Northwood's eastern trail", "recover_sail": "Recover the sail in Reedbank's northern reeds", "repair_mill": "Fit the sail with two shared wood at the mill", "return_oren": "Tell Oren beside the mill it is ready", "complete": "Oren's windmill and rest shelter are open"}.get(reedbank, "Visit Reedbank Hollow")), "Follow the eastern branch beyond Northwood. Oren's repaired mill opens sunwheat farming and bread baking.")
+		if reedbank == "complete":
+			var bag: Dictionary = state.get("materials", {})
+			_add(result, "sunwheat", "Sunwheat and Trail Bread", "Livelihood", false, "Sow, harvest, mill flour, and bake bread", "Reedbank beds ripen in two active minutes. Mill two grain into one flour; bake flour plus herb into two provisions. Shared grain %d · Flour %d · Herbs %d." % [int(bag.get("sunwheat", 0)), int(bag.get("flour", 0)), int(bag.get("herb", 0))])
+	if str(state.get("livelihood_stage", "locked")) != "locked":
+		var stall := bool(state.get("produce_stall_open", false))
+		_add(result, "food", "Neighborhood Food", "Livelihood", false, "Fill today's market request" if bool(state.get("daily_food_order_active", false)) else ("Tend moonroot and prepare for the next market day" if stall else "Grow moonroot, cook stew, and open the produce stall"), "Use the cottage garden and cookfire, then deliver at the market crate. Each new day brings ripe moonroot and one new order after the stall opens.")
+	if str(state.get("festival_stage", "locked")) != "locked" or bool(state.get("produce_stall_open", false)):
+		_add(result, "festival", "Hearthlight Circuit", "Social activity", false, "Join the festival at the neighborhood arch", "Opt in with E, then interact again to start when your friends are ready. Follow the three ordered checkpoints; each finisher earns a cosmetic ribbon.")
+	return result
+
+
+static func find_entry(state: Dictionary, activity_id: String) -> Dictionary:
+	for entry: Dictionary in entries(state):
+		if entry["id"] == activity_id:
+			return entry
+	return {}
+
+
+static func _add(result: Array[Dictionary], activity_id: String, title: String, category: String, complete: bool, objective: String, description: String) -> void:
+	result.append({"id": activity_id, "title": title, "category": category, "complete": complete, "objective": objective, "description": description})

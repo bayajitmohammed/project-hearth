@@ -113,6 +113,10 @@ Opening the produce stall also begins the **Hearthlight Festival**. Use **E** at
 
 ## Run the state test
 
+Press **J** or click **Activity journal** to browse revealed stories and activities. Pin one to your own objective card, or restore automatic guidance. Each identity's choice persists separately in its world; pins never reserve quests or alter companions' objectives. The journal reserves local controls while open, but does not pause the shared world.
+
+Journal coverage: `Godot --headless --path . --script res://tests/test_activity_journal.gd`. The play-mode test also checks offline pin save/load. For a connected independence check, copy `tests/fixtures/sunwheat_ready_world.json` to a temporary save, serve room `JOURNAL` on port `9455`, and run `tests/activity_journal_multiplayer_probe.gd` twice with `--connect=ws://127.0.0.1:9455 --room=JOURNAL` and distinct identities `--player-token=journal-a` / `--player-token=journal-b`.
+
 After repairing Oren's mill, Reedbank's three beds support a repeatable sunwheat loop: sow, wait two active minutes, harvest two grain, mill two grain into one flour, then bake one flour plus one herb into two trail provisions. Plantings and shared ingredients persist; empty-world catch-up can ripen but never harvest or replant crops.
 
 Run `Godot --headless --path . --script res://tests/test_sunwheat.gd` for focused coverage. The fixture `tests/fixtures/sunwheat_ready_world.json` starts with one mature bed. Copy it to a temporary save, serve room `WHEAT` on port `9453`, and run `tests/sunwheat_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9453 --room=WHEAT` and identities `--player-token=wheat-a` / `--player-token=wheat-b` to check the farmer-to-baker handoff.

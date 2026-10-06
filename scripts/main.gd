@@ -27,6 +27,9 @@ const WorldStateModel = preload("res://scripts/world_state.gd")
 const GrayboxWorldBuilder = preload("res://scripts/graybox_world.gd")
 const TouchJoystick = preload("res://scripts/touch_joystick.gd")
 const HomesteadBuilder = preload("res://scripts/homestead_builder.gd")
+const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
+const ActivityJournal = preload("res://scripts/activity_journal.gd")
+var activity_journal: CanvasLayer
 
 var homestead_builder: Node3D
 var northern_region: Node3D
@@ -160,7 +163,21 @@ func _ready() -> void:
 	homestead_builder.change_requested.connect(_request_furnishing)
 	homestead_builder.mode_changed.connect(func(active: bool) -> void:
 		if active:
+			if activity_journal != null and activity_journal.active:
+				activity_journal.toggle_mode()
 			_release_mouse()
+	)
+	activity_journal = ActivityJournal.new()
+	add_child(activity_journal)
+	activity_journal.pin_requested.connect(_request_activity_pin)
+	activity_journal.mode_changed.connect(func(active: bool) -> void:
+		if active:
+			if homestead_builder.active:
+				homestead_builder.toggle_mode()
+			_release_mouse()
+		else:
+			if client_connected or local_authority_player:
+				_capture_mouse()
 	)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -200,6 +217,8 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	input_vector = input_vector.rotated(-camera_yaw)
+	if activity_journal.blocks_gameplay():
+		input_vector = Vector2.ZERO
 	client_input_send_accumulator += delta
 	if (
 		not input_vector.is_equal_approx(last_sent_input)
@@ -208,6 +227,8 @@ func _physics_process(delta: float) -> void:
 		submit_input.rpc_id(1, input_vector)
 		last_sent_input = input_vector
 		client_input_send_accumulator = 0.0
+	if activity_journal.blocks_gameplay():
+		return
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
@@ -230,6 +251,9 @@ func _update_local_authority_input() -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	peer_inputs[1] = input_vector.rotated(-camera_yaw)
+	if activity_journal.blocks_gameplay():
+		peer_inputs[1] = Vector2.ZERO
+		return
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
 	if Input.is_action_just_pressed("craft"):
@@ -249,13 +273,16 @@ func _update_local_authority_input() -> void:
 
 
 func _process(delta: float) -> void:
+	if activity_journal.available and not (client_connected or local_authority_player):
+		activity_journal.update_view({}, local_token, false)
 	homestead_builder.update_view(latest_snapshot, local_token, camera_yaw, client_connected or local_authority_player)
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		interaction_prompt.visible = false
 	_interpolate_player_positions(delta)
 	if game_camera == null or not player_nodes.has(local_token):
 		return
-	_update_controller_camera(delta)
+	if not activity_journal.blocks_gameplay():
+		_update_controller_camera(delta)
 	var player_node: MeshInstance3D = player_nodes[local_token]
 	var eye_position := player_node.position + FIRST_PERSON_EYE_OFFSET
 	var horizontal_forward := Vector3(-sin(camera_yaw), 0.0, -cos(camera_yaw))
@@ -291,6 +318,8 @@ func _interpolate_player_positions(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_server and not local_authority_player:
+		return
+	if activity_journal.blocks_gameplay():
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (client_connected or local_authority_player):
 		if event.keycode == KEY_B and str(latest_snapshot.get("quest_stage", "")) == "home_repaired":
@@ -500,6 +529,28 @@ func request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove
 	var sender_id := multiplayer.get_remote_sender_id()
 	if peer_to_token.has(sender_id):
 		_try_furnishing(peer_to_token[sender_id], cell, kind, quarter_turns, remove)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_activity_pin(activity_id: String) -> void:
+	if not is_server:
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if peer_to_token.has(sender_id):
+		_try_activity_pin(peer_to_token[sender_id], activity_id)
+
+
+func _try_activity_pin(player_token: String, activity_id: String) -> void:
+	if world_state.try_pin_activity(player_token, activity_id):
+		_save_world()
+		_publish_snapshot()
+
+
+func _request_activity_pin(activity_id: String) -> void:
+	if local_authority_player:
+		_try_activity_pin(local_token, activity_id)
+	elif client_connected:
+		request_activity_pin.rpc_id(1, activity_id)
 
 
 func _try_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
@@ -737,6 +788,8 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		int(snapshot.get("festival_ribbons", {}).get(local_token, 0))
 	)
 	_update_relationship_interface(snapshot)
+	activity_journal.update_view(snapshot, local_token, client_connected or local_authority_player)
+	_update_pinned_activity(snapshot)
 	_sync_recovery_packs(snapshot.get("recovery_packs", {}))
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
 	creature_node.visible = not creature_defeated
@@ -1202,6 +1255,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"moonwell_supper_courses": world_state.moonwell_supper_courses,
 		"reedbank_stage": world_state.reedbank_stage,
 		"sunwheat_planted_at": world_state.sunwheat_planted_at.duplicate(),
+		"player_activity_pins": world_state.player_activity_pins.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
@@ -1780,7 +1834,7 @@ func _touch_input_vector() -> Vector2:
 func _update_mobile_targeting() -> void:
 	if mobile_context_button == null or mobile_crosshair == null:
 		return
-	if touch_controls == null or not touch_controls.visible or not client_connected or homestead_builder.active:
+	if touch_controls == null or not touch_controls.visible or not client_connected or homestead_builder.active or activity_journal.blocks_gameplay():
 		mobile_context_target = {}
 		mobile_context_button.visible = false
 		return
@@ -2050,6 +2104,8 @@ func _activate_mobile_context_target() -> void:
 
 
 func _request_interaction() -> void:
+	if activity_journal.blocks_gameplay():
+		return
 	if homestead_builder.active:
 		homestead_builder.request_change(false)
 		return
@@ -2060,7 +2116,7 @@ func _request_interaction() -> void:
 
 
 func _request_collect() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_collect(local_token)
@@ -2069,7 +2125,7 @@ func _request_collect() -> void:
 
 
 func _request_craft() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_craft(local_token)
@@ -2078,7 +2134,7 @@ func _request_craft() -> void:
 
 
 func _request_attack() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_attack(local_token)
@@ -2087,7 +2143,7 @@ func _request_attack() -> void:
 
 
 func _request_power_strike() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_power_strike(local_token)
@@ -2096,7 +2152,7 @@ func _request_power_strike() -> void:
 
 
 func _request_brace() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_brace(local_token)
@@ -2105,7 +2161,7 @@ func _request_brace() -> void:
 
 
 func _request_use_provision() -> void:
-	if homestead_builder.active:
+	if homestead_builder.active or activity_journal.blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_use_trail_provision(local_token)
@@ -2477,6 +2533,31 @@ func _update_quest_interface(
 				var bag: Dictionary = latest_snapshot.get("materials", {})
 				progress_label.text = "Shared sunwheat %d · Flour %d · Herbs %d" % [int(bag.get("sunwheat", 0)), int(bag.get("flour", 0)), int(bag.get("herb", 0))]
 				dialogue_label.text = "Oren: Sow the western beds; they ripen in two real minutes. Mill grain beside the tower, then bake with herbs at our oven. The shelter is always open for rest."
+
+
+func _update_pinned_activity(snapshot: Dictionary) -> void:
+	var selected := str(snapshot.get("player_activity_pins", {}).get(local_token, "automatic"))
+	var entry := ActivityCatalog.find_entry(snapshot, selected)
+	if entry.is_empty():
+		return
+	quest_title_label.text = "%s · PINNED" % str(entry["title"]).to_upper()
+	objective_label.text = str(entry["objective"])
+	progress_label.visible = true
+	progress_label.text = "%s · %s · Change with J" % [entry["category"], "Complete" if entry["complete"] else "Your chosen activity"]
+	dialogue_label.text = str(entry["description"])
+	if selected == "festival":
+		_update_festival_interface(
+			str(snapshot.get("festival_stage", "available")),
+			snapshot.get("festival_participants", {}),
+			snapshot.get("festival_finishers", []),
+			str(snapshot.get("festival_last_winner", "")),
+			int(snapshot.get("festival_ribbons", {}).get(local_token, 0)),
+			int(snapshot.get("active_player_count", 0)),
+			int(snapshot.get("max_players", MAX_PLAYERS)),
+			int(snapshot.get("pantry_stock", 0)),
+			int(snapshot.get("player_coins", {}).get(local_token, 0))
+		)
+		quest_title_label.text = "HEARTHLIGHT CIRCUIT · PINNED"
 
 
 func _update_nima_story_interface(story_stage: String) -> void:

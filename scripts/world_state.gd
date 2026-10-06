@@ -1,6 +1,8 @@
 class_name WorldState
 extends RefCounted
 
+const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
+
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
 const CHRONICLE_BOARD_POSITION := Vector3(-13.0, 0.6, 3.5)
@@ -202,6 +204,7 @@ var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
+var player_activity_pins: Dictionary = {}
 var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
 var lit_welcome_lanterns := {"cottage": false, "road": false, "forest": false}
@@ -272,6 +275,8 @@ var mara_activity := "waiting by the cottage"
 
 
 func register_player(player_token: String) -> Vector3:
+	if not player_activity_pins.has(player_token):
+		player_activity_pins[player_token] = "automatic"
 	if not positions.has(player_token):
 		positions[player_token] = SPAWN_POINT
 	if not player_health.has(player_token):
@@ -703,6 +708,17 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 				_update_mara_routine()
 			return true
 	return false
+
+
+func try_pin_activity(player_token: String, activity_id: String) -> bool:
+	if not positions.has(player_token):
+		return false
+	if activity_id != "automatic" and ActivityCatalog.find_entry(to_dictionary(), activity_id).is_empty():
+		return false
+	if str(player_activity_pins.get(player_token, "automatic")) == activity_id:
+		return false
+	player_activity_pins[player_token] = activity_id
+	return true
 
 
 func world_calendar_minutes() -> int:
@@ -1941,7 +1957,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 27,
+		"version": 28,
+		"player_activity_pins": player_activity_pins.duplicate(),
 		"sunwheat_planted_at": sunwheat_planted_at.duplicate(),
 		"reedbank_stage": reedbank_stage,
 		"furnishings": furnishings.duplicate(true),
@@ -2043,6 +2060,13 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	player_activity_pins.clear()
+	if save_version >= 28:
+		var saved_pins: Dictionary = data.get("player_activity_pins", {})
+		for player_token: String in saved_pins:
+			var activity_id := str(saved_pins[player_token])
+			if activity_id in ActivityCatalog.IDS:
+				player_activity_pins[player_token] = activity_id
 	reedbank_stage = str(data.get("reedbank_stage", "meet_oren")) if save_version >= 26 else "meet_oren"
 	if reedbank_stage not in ["meet_oren", "recover_sail", "repair_mill", "return_oren", "complete"]:
 		reedbank_stage = "meet_oren"
