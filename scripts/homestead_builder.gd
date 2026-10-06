@@ -80,8 +80,8 @@ func toggle_mode() -> void:
 
 
 func cycle_piece() -> void:
-	kind = "flower_box" if kind == "bench" else "bench"
-	choose.text = "%s · change (T)" % ("Bench" if kind == "bench" else "Flower box")
+	kind = World.FURNISHING_KINDS[(World.FURNISHING_KINDS.find(kind) + 1) % World.FURNISHING_KINDS.size()]
+	choose.text = "%s · change (T)" % World.FURNISHING_NAMES[kind]
 	_rebuild_preview()
 
 
@@ -133,18 +133,23 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	var nearby := position.distance_to(target) <= World.FURNISHING_REACH
 	var occupied := layout.has(World.furnishing_cell_key(cell))
 	var wood := int(snapshot.get("materials", {}).get("wood", 0))
+	var requirement := World.furnishing_requirement(kind, snapshot)
 	can_remove = valid and nearby and occupied
-	can_place = valid and nearby and not occupied and wood >= World.FURNISHING_WOOD_COST
+	can_place = valid and nearby and not occupied and wood >= World.FURNISHING_WOOD_COST and requirement.is_empty()
 	preview.visible = valid
 	preview.position = target
 	preview.rotation.y = quarter_turns * PI / 2.0
-	for mesh: MeshInstance3D in preview.get_children():
-		(mesh.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.9, 0.65, 0.55) if can_place else Color(0.95, 0.4, 0.3, 0.45)
+	for child: Node in preview.get_children():
+		if child is MeshInstance3D:
+			(child.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.9, 0.65, 0.55) if can_place else Color(0.95, 0.4, 0.3, 0.45)
 	place.disabled = not can_place
 	remove_button.disabled = not can_remove
 	var hint := "Walk to the south yard and look toward a cell."
 	if valid and nearby:
 		hint = "Occupied · remove to rearrange." if occupied else ("Ready to place." if can_place else "Gather 2 shared wood to build.")
+	if not requirement.is_empty():
+		hint = "RECIPE LOCKED · " + requirement
+	choose.text = "%s · change (T)" % World.FURNISHING_NAMES[kind]
 	details.text = "SHARED SOUTH YARD\nWood %d · Rotation %d°\n%s\nMove; hold right mouse to look." % [wood, quarter_turns * 90, hint]
 
 
@@ -154,9 +159,13 @@ func _rebuild_preview() -> void:
 	preview = make_piece(kind)
 	add_child(preview)
 	preview.visible = active
-	for mesh: MeshInstance3D in preview.get_children():
-		var material := mesh.material_override as StandardMaterial3D
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for child: Node in preview.get_children():
+		if child is MeshInstance3D:
+			var material := child.material_override as StandardMaterial3D
+			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			material.emission_enabled = false
+		elif child is Light3D:
+			child.visible = false
 
 
 static func make_piece(piece_kind: String) -> Node3D:
@@ -166,6 +175,27 @@ static func make_piece(piece_kind: String) -> Node3D:
 		_box(result, Vector3(2.1, 0.55, 0.15), Vector3(0, 1.05, 0.3), Color("aa8760"))
 		for x: float in [-0.8, 0.8]:
 			_box(result, Vector3(0.18, 0.65, 0.6), Vector3(x, 0.325, 0), Color("634d3b"))
+	elif piece_kind == "watch_lantern":
+		_box(result, Vector3(0.65, 0.2, 0.65), Vector3(0, 0.1, 0), Color("70877f"))
+		_box(result, Vector3(0.15, 1.3, 0.15), Vector3(0, 0.8, 0), Color("806448"))
+		_box(result, Vector3(0.75, 0.12, 0.65), Vector3(0, 1.9, 0), Color("70877f"))
+		var glow := _box(result, Vector3(0.42, 0.48, 0.36), Vector3(0, 1.6, 0), Color("f3d991"))
+		(glow.material_override as StandardMaterial3D).emission_enabled = true
+		(glow.material_override as StandardMaterial3D).emission = Color("f3d991")
+		var light := OmniLight3D.new()
+		light.name = "WarmLight"
+		light.position = Vector3(0, 1.6, 0)
+		light.light_color = Color("ffd694")
+		light.omni_range = 4
+		result.add_child(light)
+	elif piece_kind == "gathering_table":
+		_box(result, Vector3(2.2, 0.16, 1.3), Vector3(0, 0.9, 0), Color("92704e"))
+		for x: float in [-0.85, 0.85]:
+			for z: float in [-0.4, 0.4]:
+				_box(result, Vector3(0.16, 0.85, 0.16), Vector3(x, 0.425, z), Color("634d3b"))
+		_box(result, Vector3(0.65, 0.03, 1.35), Vector3(0, 1, 0), Color("b7b0d9"))
+		for x: float in [-0.7, 0.7]:
+			_box(result, Vector3(0.4, 0.06, 0.4), Vector3(x, 1.02, 0), Color("e6dcc0"))
 	else:
 		_box(result, Vector3(1.8, 0.55, 0.8), Vector3(0, 0.275, 0), Color("967559"))
 		_box(result, Vector3(1.6, 0.1, 0.65), Vector3(0, 0.55, 0), Color("446544"))

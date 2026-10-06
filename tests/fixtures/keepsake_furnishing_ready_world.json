@@ -1,0 +1,12 @@
+{
+  "version": 29,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "briarwatch_stage": "complete",
+  "moonwell_supper_stage": "complete",
+  "moonwell_supper_courses": 3,
+  "materials": {"wood": 4, "herb": 0, "moonroot": 0, "hearth_stew": 0, "repair_kit": 0},
+  "positions": {"builder-a": [-15, 0.6, 17], "builder-b": [-15, 0.6, 17]},
+  "furnishings": {}
+}

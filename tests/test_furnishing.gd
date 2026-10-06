@@ -58,5 +58,40 @@ func _init() -> void:
 	assert(builder.kind == "flower_box" and builder.quarter_turns == 1)
 	builder.update_view(snapshot, "a", 0.0, false)
 	assert(not builder.active)
+	world.furnishings.clear()
+	world.materials["wood"] = 4
+	for locked_kind: String in ["watch_lantern", "gathering_table"]:
+		assert(not world.try_change_furnishing("a", Vector2i.ZERO, locked_kind, 0, false))
+	assert(world.materials["wood"] == 4)
+	world.briarwatch_stage = "complete"
+	world.moonwell_supper_stage = "complete"
+	assert(world.try_change_furnishing("b", Vector2i.ZERO, "watch_lantern", 2, false))
+	assert(world.try_change_furnishing("a", Vector2i(1, 0), "gathering_table", 3, false))
+	assert(world.materials["wood"] == 0)
+	restored.load_dictionary(world.to_dictionary())
+	assert(restored.furnishings == world.furnishings)
+	assert(restored.try_change_furnishing("a", Vector2i.ZERO, "", 0, true))
+	assert(restored.try_change_furnishing("b", Vector2i.ZERO, "watch_lantern", 0, false))
+	assert(restored.materials["wood"] == 0)
+	assert(restored.player_mastery == world.player_mastery)
+	builder.toggle_mode()
+	builder.cycle_piece()
+	assert(builder.kind == "watch_lantern")
+	builder.update_view(snapshot, "a", 0, true)
+	assert(not builder.can_place and "Briarwatch" in builder.details.text)
+	assert(not builder.preview.get_node("WarmLight").visible)
+	snapshot["briarwatch_stage"] = "complete"
+	snapshot["moonwell_supper_stage"] = "complete"
+	snapshot["materials"] = {"wood": 4}
+	snapshot["furnishings"] = world.furnishings
+	builder.update_view(snapshot, "a", 0, true)
+	assert(builder.pieces["0,0"].get_node("WarmLight").visible)
+	snapshot["furnishings"] = {}
+	builder.update_view(snapshot, "a", 0, true)
+	assert(builder.can_place)
+	builder.cycle_piece()
+	assert(builder.kind == "gathering_table")
+	builder.cycle_piece()
+	assert(builder.kind == "bench")
 	print("PASS: shared furnishing conservation, authority, persistence, and preview")
 	quit()

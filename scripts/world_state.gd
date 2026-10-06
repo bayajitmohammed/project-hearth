@@ -67,7 +67,8 @@ const FURNISHING_ROWS := 3
 const FURNISHING_SPACING := 3.0
 const FURNISHING_REACH := 4.5
 const FURNISHING_WOOD_COST := 2
-const FURNISHING_KINDS := ["bench", "flower_box"]
+const FURNISHING_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
+const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table"}
 const REGION_SEED := 73021
 const MAX_WORLD_SEED := 2147483647
 const NORTHWOOD_REVEAL_Z := -16.0
@@ -525,6 +526,14 @@ static func furnishing_position(cell: Vector2i) -> Vector3:
 	return FURNISHING_ORIGIN + Vector3(cell.x, 0.0, cell.y) * FURNISHING_SPACING
 
 
+static func furnishing_requirement(kind: String, progress: Dictionary) -> String:
+	if kind == "watch_lantern" and str(progress.get("briarwatch_stage", "rumor")) != "complete":
+		return "Rekindle the Briarwatch beacon."
+	if kind == "gathering_table" and str(progress.get("moonwell_supper_stage", "locked")) != "complete":
+		return "Complete the Moonwell Supper."
+	return ""
+
+
 func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> bool:
 	if quest_stage != "home_repaired" or not furnishing_cell_valid(cell):
 		return false
@@ -540,6 +549,8 @@ func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, q
 		materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
 		return true
 	if kind not in FURNISHING_KINDS or quarter_turns < 0 or quarter_turns > 3:
+		return false
+	if not furnishing_requirement(kind, {"briarwatch_stage": briarwatch_stage, "moonwell_supper_stage": moonwell_supper_stage}).is_empty():
 		return false
 	if furnishings.has(key) or int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
 		return false
