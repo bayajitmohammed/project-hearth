@@ -16,7 +16,7 @@ func _init() -> void:
 	state.move_player("player-a", Vector2(0.0, -1.0), 1.5)
 	assert(state.register_player("player-a").z < first_spawn.z)
 	state.move_player("player-a", Vector2(-1.0, 0.0), 100.0)
-	assert(state.register_player("player-a").x == WorldStateModel.WORLD_MIN_X)
+	assert(state.register_player("player-a").x == WorldStateModel.Wilderness.ORIGIN.x)
 	assert(not state.interact_with_mara("player-a"))
 	state.positions["player-a"] = WorldStateModel.MARA_POSITION
 	assert(state.interact_with_mara("player-a"))

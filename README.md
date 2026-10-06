@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+The **Western Trails** expand exploration west of home and Northwood into nine 32-metre woodland sections. Scenery and trail-cache positions derive from the world's saved seed. Nearby terrain loads independently for each player; shared discoveries and personal one-time cache claims persist regardless of unloaded scenery. The journal lists charted sections, and entering the wilderness shows local cache distance/directions. Each cache supplies one personal trail provision with **E**. Return east to the home road. This is flat graybox wilderness, not final biomes or continent-scale generation.
+
+Focused coverage: `Godot --headless --path . --script res://tests/test_wilderness.gd`. Copy `tests/fixtures/wilderness_ready_world.json` to an isolated save and serve room `WILD` on port `9461`. Launch `tests/wilderness_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9461 --room=WILD` and distinct `--player-token=wild-a` / `--player-token=wild-b` identities to verify independent streams and claims with shared map discovery.
+
 The game now opens with three play choices:
 
 - **Play Offline** runs the authoritative world simulation on the player's device without opening a network listener. It uses `user://offline_world.json`.

@@ -1,0 +1,8 @@
+{
+  "version": 30,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "positions": {"wild-a": [-18, 0.6, 10], "wild-b": [-18, 0.6, 10]}
+}

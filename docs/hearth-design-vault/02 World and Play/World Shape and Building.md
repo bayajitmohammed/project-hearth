@@ -14,6 +14,12 @@ This gives each group a distinct world while preserving designed characters and 
 
 The first per-world generation increment assigns a positive saved seed when an offline, LAN-hosted, or dedicated world is first created. Existing saves retain their recorded seed, falling back to the original prototype seed when absent. A creation-only `--world-seed=<positive integer>` option supports reproducible worlds; it never overrides an existing save or backup. The authority publishes the seed to joining clients, which generate matching Northwood scenery; forecasts and daily surveys use the same saved seed. Authored story sites and interaction coordinates remain fixed. This diversifies the existing region without claiming continent streaming or new regions are complete.
 
+### Western wilderness — first streaming increment
+
+The next implementation expands the playable footprint west of the home/Northwood corridor into nine contiguous 32-metre sections. Section scenery and a trail-cache location derive from the saved world seed. The client keeps only the local section and its immediate neighbors rendered; each companion streams independently, while world rules never depend on which terrain nodes are loaded. The finite boundary remains authoritative. Authored homes and story sites stay untouched.
+
+Entering a section adds its name to the shared map once and credits the discoverer's normal Exploration mastery. Each section has one persistent personal trail-cache claim: a standing player at the marker can take one provision once, without consuming a companion's claim. Discovery and cache claims never happen during empty-world catch-up. Terrain can unload and regenerate without losing either kind of progress. This first wilderness is peaceful graybox exploration, not final biomes, elevation, continent-scale streaming, or additional settlement simulation.
+
 ## Building and destruction
 
 Players receive a shared homestead and can claim additional wilderness plots. Building uses snap-friendly modular pieces with free decoration and limited terrain shaping.

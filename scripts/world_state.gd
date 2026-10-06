@@ -2,6 +2,7 @@ class_name WorldState
 extends RefCounted
 
 const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
+const Wilderness = preload("res://scripts/wilderness_layout.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -215,6 +216,8 @@ var furnishings: Dictionary = {}
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
+var wilderness_discoveries: Dictionary = {}
+var player_wilderness_caches: Dictionary = {}
 var briarwatch_stage := "rumor"
 var broken_briarwatch_bindings: Dictionary = {}
 var briarwatch_windup := 0.0
@@ -371,8 +374,13 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	var next_position: Vector3 = register_player(player_token) + direction * 4.0 * delta
-	next_position.x = clampf(next_position.x, WORLD_MIN_X, REEDBANK_MAX_X)
+	next_position.x = clampf(next_position.x, Wilderness.ORIGIN.x, REEDBANK_MAX_X)
 	next_position.z = clampf(next_position.z, WORLD_MIN_Z, WORLD_MAX_Z)
+	if next_position.x < WORLD_MIN_X and next_position.z > 22.0:
+		if positions[player_token].x < WORLD_MIN_X:
+			next_position.z = 22.0
+		else:
+			next_position.x = WORLD_MIN_X
 	# Reedbank is an eastern branch, not an expansion of the empty southern edge.
 	if next_position.x > WORLD_MAX_X and next_position.z > -18.0:
 		if register_player(player_token).x > WORLD_MAX_X:
@@ -393,7 +401,14 @@ func update_exploration(player_token: String) -> bool:
 		return false
 	var changed := false
 	var player_position: Vector3 = positions[player_token]
-	if exploration_stage != "locked" and player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
+	var wilderness_cell := Wilderness.cell_at(player_position)
+	if Wilderness.valid(wilderness_cell) and not bool(downed_players.get(player_token, false)):
+		var section_id := Wilderness.key(wilderness_cell)
+		if not wilderness_discoveries.has(section_id):
+			wilderness_discoveries[section_id] = true
+			_add_mastery(player_token, "exploration")
+			changed = true
+	if exploration_stage != "locked" and player_position.x >= WORLD_MIN_X and player_position.z <= NORTHWOOD_REVEAL_Z and not bool(shared_map_discoveries["northwood"]):
 		shared_map_discoveries["northwood"] = true
 		exploration_stage = "find_ruins"
 		_add_mastery(player_token, "exploration")
@@ -741,6 +756,22 @@ func try_light_welcome_lantern(player_token: String) -> bool:
 	return false
 
 
+func try_wilderness_cache(player_token: String) -> bool:
+	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	var cell := Wilderness.cell_at(positions[player_token])
+	if not Wilderness.valid(cell):
+		return false
+	var section_id := Wilderness.key(cell)
+	var claims: Dictionary = player_wilderness_caches.get(player_token, {})
+	if claims.has(section_id) or positions[player_token].distance_to(Wilderness.cache_position(world_seed, cell)) > INTERACTION_RADIUS:
+		return false
+	claims[section_id] = true
+	player_wilderness_caches[player_token] = claims
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	return true
+
+
 func try_briarwatch_interaction(player_token: String) -> bool:
 	if not ruin_waystone_activated or bool(downed_players.get(player_token, false)):
 		return false
@@ -904,6 +935,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_wilderness_cache(player_token)
 		or try_briarwatch_interaction(player_token)
 		or try_reedbank_interaction(player_token)
 		or try_reedbank_livelihood(player_token)
@@ -2059,7 +2091,9 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 29,
+		"version": 30,
+		"wilderness_discoveries": wilderness_discoveries.duplicate(),
+		"player_wilderness_caches": player_wilderness_caches.duplicate(true),
 		"briarwatch_stage": briarwatch_stage,
 		"broken_briarwatch_bindings": broken_briarwatch_bindings.duplicate(),
 		"player_activity_pins": player_activity_pins.duplicate(),
@@ -2164,6 +2198,21 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	wilderness_discoveries.clear()
+	player_wilderness_caches.clear()
+	if save_version >= 30:
+		var saved_sections: Dictionary = data.get("wilderness_discoveries", {})
+		var saved_claims: Dictionary = data.get("player_wilderness_caches", {})
+		for x in range(Wilderness.COUNT):
+			for z in range(Wilderness.COUNT):
+				var section_id := Wilderness.key(Vector2i(x, z))
+				if bool(saved_sections.get(section_id, false)):
+					wilderness_discoveries[section_id] = true
+				for token: String in saved_claims:
+					if saved_claims[token] is Dictionary and bool(saved_claims[token].get(section_id, false)):
+						if not player_wilderness_caches.has(token):
+							player_wilderness_caches[token] = {}
+						player_wilderness_caches[token][section_id] = true
 	briarwatch_stage = str(data.get("briarwatch_stage", "rumor")) if save_version >= 29 else "rumor"
 	if briarwatch_stage not in ["rumor", "bindings", "rekindle", "complete"]:
 		briarwatch_stage = "rumor"

@@ -1,10 +1,19 @@
 extends RefCounted
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch"]
+const Wilderness = preload("res://scripts/wilderness_layout.gd")
+
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	var charted: Array[String] = []
+	for x in range(Wilderness.COUNT):
+		for z in range(Wilderness.COUNT):
+			var cell := Vector2i(x, z)
+			if state.get("wilderness_discoveries", {}).has(Wilderness.key(cell)):
+				charted.append(Wilderness.title(cell))
+	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore west beyond the home and Northwood", "Nine seed-shaped woodland sections share map discoveries. Each trail stone holds one provision per player, once; use E nearby. Return east to reach the authored home road. Charted: %s." % (", ".join(charted) if not charted.is_empty() else "none yet"))
 	var home := str(state.get("quest_stage", "meet_mara"))
 	_add(result, "home", "A New Home", "Story", home == "home_repaired",
 		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
