@@ -60,12 +60,25 @@ static func scenery(seed_value: int, cell: Vector2i) -> Array[Vector3]:
 	for index in range(18):
 		var point := center(cell) + Vector3(random.randf_range(-14, 14), 0, random.randf_range(-14, 14))
 		var clear := true
+		if cell != outpost_cell(seed_value):
+			var plot := plot_origin(seed_value, cell)
+			if Rect2(Vector2(plot.x - 3, plot.z - 3), Vector2(24, 12)).has_point(Vector2(point.x, point.z)):
+				clear = false
 		for source: Dictionary in forage:
 			if point.distance_to(source["position"]) <= 4:
 				clear = false
 		if clear and point.distance_to(cache) > 4 and (cell != outpost_cell(seed_value) or point.distance_to(outpost_position(seed_value)) > 8):
 			result.append(point)
 	return result
+
+
+static func plot_origin(seed_value: int, cell: Vector2i) -> Vector3:
+	var cache := cache_position(seed_value, cell) - center(cell)
+	return center(cell) + Vector3(-6, 0, (-7 if cache.z >= 0 else 7) - 3)
+
+
+static func claim_post(seed_value: int, cell: Vector2i) -> Vector3:
+	return plot_origin(seed_value, cell) + Vector3(15, 0.6, 3)
 
 
 static func forage_nodes(seed_value: int, cell: Vector2i) -> Array[Dictionary]:

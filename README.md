@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+**Wilderness homesteads:** after cottage repair, each western section except the Fartrail Outpost section offers a marked clearing. Press **E** at its post to claim the shared plot for two wood once. Use **B** nearby to build with the same furniture, foundations, walls, doorways and roofs as the south yard. Claims belong to the group, persist independently in version-34 saves, and never decay or generate passive goods. Buildings stream with nearby sections while their collision stays authoritative. Unclaimed land, caches, forage and authored landmarks remain protected.
+
+Plot coverage: `Godot --headless --path . --script res://tests/test_wilderness_plots.gd`. Use an isolated copy of `tests/fixtures/wilderness_plots_ready_world.json`, serve room `PLOTS` on port `9469`, and run `tests/wilderness_plots_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9469 --room=PLOTS` and identities `--player-token=plot-a` / `--player-token=plot-b`.
+
 Western sections now contain **two wood piles and one herb patch each**. Use **E** nearby to gather one shared material. Sources renew on the next world day, with saved room-wide depletion and no unattended harvesting. These materials feed existing building, outpost, cooking and trailcraft recipes.
 
 Forage coverage: `Godot --headless --path . --script res://tests/test_wilderness_forage.gd`. Use an isolated copy of `tests/fixtures/wilderness_forage_ready_world.json`, serve room `FORAGE` on port `9465`, and run `tests/wilderness_forage_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9465 --room=FORAGE` and identities `--player-token=forage-a` / `--player-token=forage-b` to check competing harvests.

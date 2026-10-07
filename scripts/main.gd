@@ -530,12 +530,12 @@ func request_use_trail_provision() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
+func request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool, plot_id: String = "") -> void:
 	if not is_server:
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	if peer_to_token.has(sender_id):
-		_try_furnishing(peer_to_token[sender_id], cell, kind, quarter_turns, remove)
+		_try_furnishing(peer_to_token[sender_id], cell, kind, quarter_turns, remove, plot_id)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -560,17 +560,17 @@ func _request_activity_pin(activity_id: String) -> void:
 		request_activity_pin.rpc_id(1, activity_id)
 
 
-func _try_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
-	if world_state.try_change_furnishing(player_token, cell, kind, quarter_turns, remove, peer_to_token.values()):
+func _try_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool, plot_id: String = "") -> void:
+	if world_state.try_change_furnishing(player_token, cell, kind, quarter_turns, remove, peer_to_token.values(), plot_id):
 		_save_world()
 		_publish_snapshot()
 
 
-func _request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool) -> void:
+func _request_furnishing(cell: Vector2i, kind: String, quarter_turns: int, remove: bool, plot_id: String = "") -> void:
 	if local_authority_player:
-		_try_furnishing(local_token, cell, kind, quarter_turns, remove)
+		_try_furnishing(local_token, cell, kind, quarter_turns, remove, plot_id)
 	elif client_connected:
-		request_furnishing.rpc_id(1, cell, kind, quarter_turns, remove)
+		request_furnishing.rpc_id(1, cell, kind, quarter_turns, remove, plot_id)
 
 
 func _try_interaction(player_token: String) -> void:
@@ -1275,6 +1275,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_pulse_position": world_state.briarwatch_pulse_position,
 		"furnishings": world_state.furnishings.duplicate(true),
 		"structures": world_state.structures.duplicate(true),
+		"wilderness_plots": world_state.wilderness_plots.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
 		"world_time_period": world_state.world_time_period(),
@@ -1954,6 +1955,10 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for section_id: String in wilderness.cache_markers:
 		if not latest_snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(section_id):
 			_append_mobile_target(candidates, wilderness.cache_markers[section_id], "Take trail provision", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if latest_snapshot.get("quest_stage", "") == "home_repaired":
+		for section_id: String in wilderness.claim_markers:
+			if not latest_snapshot.get("wilderness_plots", {}).has(section_id):
+				_append_mobile_target(candidates, wilderness.claim_markers[section_id], "Claim plot · 2 wood", "interact", WorldStateModel.INTERACTION_RADIUS)
 	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
 		if wilderness.outpost_markers.has(target["id"]):
 			_append_mobile_target(candidates, wilderness.outpost_markers[target["id"]], target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2768,6 +2773,12 @@ func _update_interaction_prompt(
 			interaction_prompt.visible = true
 			return
 	var wilderness_cell := WildernessLayout.cell_at(player_position)
+	var seed_value := int(latest_snapshot.get("world_seed", 1))
+	if WildernessLayout.valid(wilderness_cell) and wilderness_cell != WildernessLayout.outpost_cell(seed_value) and player_position.distance_to(WildernessLayout.claim_post(seed_value, wilderness_cell)) <= WorldStateModel.INTERACTION_RADIUS:
+		var claimed_plot: bool = latest_snapshot.get("wilderness_plots", {}).has(WildernessLayout.key(wilderness_cell))
+		interaction_prompt.text = "Shared homestead · B to build" if claimed_plot else ("%s · Claim shared plot · 2 wood" % action_name if latest_snapshot.get("quest_stage", "") == "home_repaired" else "Repair the cottage before claiming a plot")
+		interaction_prompt.visible = true
+		return
 	for source: Dictionary in WildernessLayout.forage_nodes(int(latest_snapshot.get("world_seed", 1)), wilderness_cell):
 		if player_position.distance_to(source["position"]) <= WorldStateModel.INTERACTION_RADIUS:
 			var ready := int(latest_snapshot.get("wilderness_forage_days", {}).get(source["id"], 0)) < int(latest_snapshot.get("world_day", 1))

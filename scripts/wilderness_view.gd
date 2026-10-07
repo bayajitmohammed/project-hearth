@@ -9,6 +9,7 @@ var outpost_root: Node3D
 var outpost_markers: Dictionary = {}
 var outpost_pieces: Dictionary = {}
 var forage: Dictionary = {}
+var claim_markers: Dictionary = {}
 
 
 func update_view(snapshot: Dictionary, token: String) -> void:
@@ -18,6 +19,7 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 			section.free()
 		sections.clear()
 		cache_markers.clear()
+		claim_markers.clear()
 		rendered_seed = seed_value
 	var point: Vector3 = snapshot.get("positions", {}).get(token, Vector3.ZERO)
 	var local_cell := Layout.cell_at(point)
@@ -32,6 +34,7 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 			sections[section_id].free()
 			sections.erase(section_id)
 			cache_markers.erase(section_id)
+			claim_markers.erase(section_id)
 	if not is_instance_valid(outpost_root):
 		outpost_markers.clear()
 		outpost_pieces.clear()
@@ -44,6 +47,9 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 			_build_section(needed[section_id])
 		var marker: Node3D = cache_markers[section_id]
 		(marker.get_node("Label") as Label3D).text = "%s\n%s" % [Layout.title(needed[section_id]).to_upper(), "CACHE COLLECTED" if claims.has(section_id) else "TRAIL CACHE · E"]
+		if claim_markers.has(section_id):
+			var plot_claimed: bool = snapshot.get("wilderness_plots", {}).has(section_id)
+			(claim_markers[section_id].get_node("Label") as Label3D).text = "%s HOMESTEAD\n%s" % [Layout.title(needed[section_id]).to_upper(), "SHARED PLOT · B TO BUILD" if plot_claimed else ("CLAIM · E · 2 WOOD" if snapshot.get("quest_stage", "") == "home_repaired" else "REPAIR THE COTTAGE FIRST")]
 	for source_id: String in forage:
 		var ready := int(snapshot.get("wilderness_forage_days", {}).get(source_id, 0)) < int(snapshot.get("world_day", 1))
 		forage[source_id]["growth"].visible = ready
@@ -70,6 +76,12 @@ func _build_section(cell: Vector2i) -> void:
 	var marker := Art._add_station_marker(section, "CacheMarker", cache, Layout.title(cell), Color("e9cf92"))
 	sections[Layout.key(cell)] = section
 	cache_markers[Layout.key(cell)] = marker
+	if cell != Layout.outpost_cell(rendered_seed):
+		var plot_origin := Layout.plot_origin(rendered_seed, cell)
+		Art._add_box(section, "HomesteadClearing", Vector3(15, 0.02, 9), plot_origin + Vector3(6, 0.01, 3), Color("819475"))
+		var post := Layout.claim_post(rendered_seed, cell)
+		Art._add_box(section, "ClaimPost", Vector3(0.15, 1.3, 0.15), post, Color("937357"))
+		claim_markers[Layout.key(cell)] = Art._add_station_marker(section, "ClaimMarker", post, "HOMESTEAD", Color("e5cf9c"))
 	for source: Dictionary in Layout.forage_nodes(rendered_seed, cell):
 		var growth := Node3D.new()
 		growth.position = source["position"] - Vector3(0, 0.6, 0)

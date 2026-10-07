@@ -1,0 +1,9 @@
+{
+  "version": 34,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "materials": {"wood": 20, "herb": 0},
+  "positions": {"plot-a": [-24, 0.6, 6], "plot-b": [-24, 0.6, 6]}
+}

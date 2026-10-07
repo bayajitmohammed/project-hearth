@@ -216,6 +216,7 @@ var moonwell_supper_stage := "locked"
 var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
 var structures: Dictionary = {}
+var wilderness_plots: Dictionary = {}
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
@@ -398,6 +399,9 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 		else:
 			next_position.x = WORLD_MAX_X
 	next_position = Structures.constrain_movement(structures, positions[player_token], next_position)
+	for plot_id: String in wilderness_plots:
+		var shift := Wilderness.plot_origin(world_seed, Structures.cell_for(plot_id)) - FURNISHING_ORIGIN
+		next_position = Structures.constrain_movement(wilderness_plots[plot_id]["structures"], positions[player_token] - shift, next_position - shift) + shift
 	positions[player_token] = next_position
 	return next_position
 
@@ -555,48 +559,83 @@ static func furnishing_requirement(kind: String, progress: Dictionary) -> String
 	return ""
 
 
-func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool, active_tokens: Array = []) -> bool:
+func try_claim_plot(player_token: String) -> bool:
+	if quest_stage != "home_repaired" or not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	var cell := Wilderness.cell_at(positions[player_token])
+	var plot_id := Wilderness.key(cell)
+	if not Wilderness.valid(cell) or cell == Wilderness.outpost_cell(world_seed) or wilderness_plots.has(plot_id):
+		return false
+	if positions[player_token].distance_to(Wilderness.claim_post(world_seed, cell)) > INTERACTION_RADIUS or int(materials.get("wood", 0)) < 2:
+		return false
+	materials["wood"] -= 2
+	wilderness_plots[plot_id] = {"furnishings": {}, "structures": {}}
+	chronicle.append("The newcomers established a shared homestead in %s." % Wilderness.title(cell))
+	return true
+
+
+func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, quarter_turns: int, remove: bool, active_tokens: Array = [], plot_id: String = "") -> bool:
 	if quest_stage != "home_repaired" or not furnishing_cell_valid(cell):
 		return false
 	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
-	if positions[player_token].distance_to(furnishing_position(cell)) > FURNISHING_REACH:
+	if not plot_id.is_empty() and not wilderness_plots.has(plot_id):
+		return false
+	var shift := Vector3.ZERO if plot_id.is_empty() else Wilderness.plot_origin(world_seed, Structures.cell_for(plot_id)) - FURNISHING_ORIGIN
+	var plot_structures: Dictionary = structures if plot_id.is_empty() else wilderness_plots[plot_id]["structures"]
+	var plot_furnishings: Dictionary = furnishings if plot_id.is_empty() else wilderness_plots[plot_id]["furnishings"]
+	if positions[player_token].distance_to(furnishing_position(cell) + shift) > FURNISHING_REACH:
 		return false
 	if kind in Structures.KINDS:
 		var active_positions: Array = []
 		for token: String in active_tokens:
 			if positions.has(token):
-				active_positions.append(positions[token])
+				active_positions.append(positions[token] - shift)
 		if active_positions.is_empty():
-			active_positions.append(positions[player_token])
-		if not Structures.change_error(structures, cell, kind, quarter_turns, remove, active_positions).is_empty():
+			active_positions.append(positions[player_token] - shift)
+		if not Structures.change_error(plot_structures, cell, kind, quarter_turns, remove, active_positions).is_empty():
 			return false
 		var slot := Structures.key(cell, kind, quarter_turns)
 		if remove:
-			structures.erase(slot)
+			plot_structures.erase(slot)
 			materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
 			return true
 		if int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
 			return false
 		materials["wood"] -= FURNISHING_WOOD_COST
-		structures[slot] = {"kind": kind, "rotation": quarter_turns}
+		plot_structures[slot] = {"kind": kind, "rotation": quarter_turns}
 		return true
 	var key := furnishing_cell_key(cell)
 	if remove:
-		if not furnishings.has(key):
+		if not plot_furnishings.has(key):
 			return false
-		furnishings.erase(key)
+		plot_furnishings.erase(key)
 		materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
 		return true
 	if kind not in FURNISHING_KINDS or quarter_turns < 0 or quarter_turns > 3:
 		return false
 	if not furnishing_requirement(kind, {"briarwatch_stage": briarwatch_stage, "moonwell_supper_stage": moonwell_supper_stage}).is_empty():
 		return false
-	if furnishings.has(key) or int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
+	if plot_furnishings.has(key) or int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
 		return false
 	materials["wood"] = int(materials.get("wood", 0)) - FURNISHING_WOOD_COST
-	furnishings[key] = {"kind": kind, "rotation": quarter_turns}
+	plot_furnishings[key] = {"kind": kind, "rotation": quarter_turns}
 	return true
+
+
+static func sanitize_furnishings(saved: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for x in range(FURNISHING_COLUMNS):
+		for z in range(FURNISHING_ROWS):
+			var key := furnishing_cell_key(Vector2i(x, z))
+			var piece: Variant = saved.get(key, {})
+			if not piece is Dictionary:
+				continue
+			var kind := str(piece.get("kind", ""))
+			var turns := int(piece.get("rotation", -1))
+			if kind in FURNISHING_KINDS and turns >= 0 and turns <= 3:
+				result[key] = {"kind": kind, "rotation": turns}
+	return result
 
 
 func try_prepare_moonwell_supper(player_token: String) -> bool:
@@ -1022,6 +1061,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
 		or try_outpost_interaction(player_token)
+		or try_claim_plot(player_token)
 		or try_wilderness_cache(player_token)
 		or try_gather_wilderness(player_token)
 		or try_briarwatch_interaction(player_token)
@@ -2179,7 +2219,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 33,
+		"version": 34,
+		"wilderness_plots": wilderness_plots.duplicate(true),
 		"structures": structures.duplicate(true),
 		"wilderness_forage_days": wilderness_forage_days.duplicate(),
 		"outpost_parts": outpost_parts.duplicate(),
@@ -2290,6 +2331,16 @@ func load_dictionary(data: Dictionary) -> void:
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
 	structures = Structures.sanitize(data.get("structures", {})) if save_version >= 33 else {}
+	wilderness_plots.clear()
+	if save_version >= 34:
+		var saved_plots: Dictionary = data.get("wilderness_plots", {})
+		for x in range(Wilderness.COUNT):
+			for z in range(Wilderness.COUNT):
+				var cell := Vector2i(x, z)
+				var plot_id := Wilderness.key(cell)
+				if cell == Wilderness.outpost_cell(world_seed) or not saved_plots.get(plot_id) is Dictionary:
+					continue
+				wilderness_plots[plot_id] = {"structures": Structures.sanitize(saved_plots[plot_id].get("structures", {})), "furnishings": sanitize_furnishings(saved_plots[plot_id].get("furnishings", {}))}
 	wilderness_forage_days.clear()
 	if save_version >= 32:
 		var saved_forage: Dictionary = data.get("wilderness_forage_days", {})
@@ -2431,19 +2482,7 @@ func load_dictionary(data: Dictionary) -> void:
 	else:
 		moonwell_story_stage = "map_clue" if nima_story_stage == "complete" else "locked"
 		attuned_moonstones = {"bough": false, "brook": false, "path": false}
-	furnishings = {}
-	if save_version >= 25:
-		var saved_furnishings: Dictionary = data.get("furnishings", {})
-		for x: int in FURNISHING_COLUMNS:
-			for z: int in FURNISHING_ROWS:
-				var key := furnishing_cell_key(Vector2i(x, z))
-				var piece: Variant = saved_furnishings.get(key, {})
-				if not piece is Dictionary:
-					continue
-				var kind := str(piece.get("kind", ""))
-				var turns := int(piece.get("rotation", -1))
-				if kind in FURNISHING_KINDS and turns >= 0 and turns <= 3:
-					furnishings[key] = {"kind": kind, "rotation": turns}
+	furnishings = sanitize_furnishings(data.get("furnishings", {})) if save_version >= 25 else {}
 	if save_version >= 24:
 		moonwell_supper_stage = str(data.get("moonwell_supper_stage", "locked"))
 		if moonwell_supper_stage not in ["locked", "available", "complete"]:

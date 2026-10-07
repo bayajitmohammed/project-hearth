@@ -1,7 +1,7 @@
 extends Node3D
 
 const World = preload("res://scripts/world_state.gd")
-signal change_requested(cell: Vector2i, kind: String, quarter_turns: int, remove: bool)
+signal change_requested(cell: Vector2i, kind: String, quarter_turns: int, remove: bool, plot_id: String)
 signal mode_changed(active: bool)
 
 var active := false
@@ -14,6 +14,10 @@ var pieces: Dictionary = {}
 var rendered_layout: Dictionary = {}
 var rendered_structures: Dictionary = {}
 var structure_nodes: Dictionary = {}
+var plot_id := ""
+var remote_roots: Dictionary = {}
+var remote_layouts: Dictionary = {}
+var remote_seed := -1
 var preview: Node3D
 var grid: Node3D
 var panel: VBoxContainer
@@ -93,7 +97,7 @@ func rotate_piece() -> void:
 
 func request_change(remove: bool) -> void:
 	if active and ((remove and can_remove) or (not remove and can_place)):
-		change_requested.emit(cell, kind, quarter_turns, remove)
+		change_requested.emit(cell, kind, quarter_turns, remove, plot_id)
 
 
 func update_view(snapshot: Dictionary, token: String, yaw: float, connected: bool) -> void:
@@ -125,6 +129,21 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 				piece.rotation.y = int(layout[key]["rotation"]) * PI / 2.0
 				pieces[key] = piece
 		rendered_layout = layout.duplicate(true)
+	var player_position: Vector3 = snapshot.get("positions", {}).get(token, Vector3.INF)
+	var seed_value := int(snapshot.get("world_seed", 1))
+	var local_section := World.Wilderness.cell_at(player_position) if player_position.is_finite() else Vector2i(-99, -99)
+	_update_remote_plots(snapshot.get("wilderness_plots", {}), seed_value, local_section)
+	plot_id = World.Wilderness.key(local_section) if World.Wilderness.valid(local_section) else ""
+	var shift := Vector3.ZERO
+	var claimed := true
+	if not plot_id.is_empty():
+		shift = World.Wilderness.plot_origin(seed_value, local_section) - World.FURNISHING_ORIGIN
+		var plots: Dictionary = snapshot.get("wilderness_plots", {})
+		claimed = plots.has(plot_id)
+		layout = plots.get(plot_id, {}).get("furnishings", {})
+		structures = plots.get(plot_id, {}).get("structures", {})
+	grid.position = shift
+	toggle.text = "Build %s (B)" % ("south yard" if plot_id.is_empty() else World.Wilderness.title(local_section))
 	var eligible := connected and str(snapshot.get("quest_stage", "")) == "home_repaired"
 	eligible = eligible and not bool(snapshot.get("downed_players", {}).get(token, false))
 	panel.get_parent().visible = eligible
@@ -134,7 +153,7 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 		return
 	if not active:
 		return
-	var position: Vector3 = snapshot.get("positions", {}).get(token, Vector3.INF)
+	var position := player_position - shift
 	if not position.is_finite():
 		can_place = false
 		can_remove = false
@@ -142,7 +161,7 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	var aim := position + Vector3(-sin(yaw), 0.0, -cos(yaw)) * 2.0
 	var offset := (aim - World.FURNISHING_ORIGIN) / World.FURNISHING_SPACING
 	cell = Vector2i(roundi(offset.x), roundi(offset.z))
-	var valid := World.furnishing_cell_valid(cell)
+	var valid := claimed and World.furnishing_cell_valid(cell)
 	var target := World.furnishing_position(cell)
 	var nearby := position.distance_to(target) <= World.FURNISHING_REACH
 	var occupied := layout.has(World.furnishing_cell_key(cell))
@@ -152,18 +171,21 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	can_place = valid and nearby and not occupied and wood >= World.FURNISHING_WOOD_COST and requirement.is_empty()
 	var structure_error := ""
 	if kind in World.Structures.KINDS:
-		structure_error = World.Structures.change_error(structures, cell, kind, quarter_turns, false, snapshot.get("positions", {}).values())
+		var local_players: Array = []
+		for point: Vector3 in snapshot.get("positions", {}).values():
+			local_players.append(point - shift)
+		structure_error = World.Structures.change_error(structures, cell, kind, quarter_turns, false, local_players)
 		can_place = valid and nearby and structure_error.is_empty() and wood >= World.FURNISHING_WOOD_COST
 		can_remove = valid and nearby and World.Structures.change_error(structures, cell, kind, quarter_turns, true).is_empty()
 	preview.visible = valid
-	preview.position = target
+	preview.position = target + shift
 	preview.rotation.y = quarter_turns * PI / 2.0
 	for child: Node in preview.get_children():
 		if child is MeshInstance3D:
 			(child.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.9, 0.65, 0.55) if can_place else Color(0.95, 0.4, 0.3, 0.45)
 	place.disabled = not can_place
 	remove_button.disabled = not can_remove
-	var hint := "Walk to the south yard and look toward a cell."
+	var hint := "Walk toward the plot and look toward a cell."
 	if valid and nearby:
 		hint = "Occupied · remove to rearrange." if occupied else ("Ready to place." if can_place else "Gather 2 shared wood to build.")
 	if not requirement.is_empty():
@@ -173,7 +195,42 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 		if structures.has(World.Structures.key(cell, kind, quarter_turns)):
 			hint = "Selected slot occupied · remove to rearrange." if can_remove else World.Structures.change_error(structures, cell, kind, quarter_turns, true)
 	choose.text = "%s · change (T)" % _piece_name()
-	details.text = "SHARED SOUTH YARD\nWood %d · Rotation %d°\n%s\nMove; hold right mouse to look." % [wood, quarter_turns * 90, hint]
+	if not claimed:
+		hint = "Protected outpost · no building plot." if local_section == World.Wilderness.outpost_cell(seed_value) else "Claim this clearing at its post · 2 wood. Close build mode to interact."
+		grid.visible = false
+	else:
+		grid.visible = true
+	details.text = "SHARED %s\nWood %d · Rotation %d°\n%s\nMove; hold right mouse to look." % ["SOUTH YARD" if plot_id.is_empty() else World.Wilderness.title(local_section).to_upper(), wood, quarter_turns * 90, hint]
+
+
+func _update_remote_plots(plots: Dictionary, seed_value: int, local_section: Vector2i) -> void:
+	for id: String in remote_roots.keys():
+		var section := World.Structures.cell_for(id)
+		if seed_value != remote_seed or not plots.has(id) or absi(section.x - local_section.x) > 1 or absi(section.y - local_section.y) > 1:
+			remote_roots[id].free()
+			remote_roots.erase(id)
+			remote_layouts.erase(id)
+	remote_seed = seed_value
+	for id: String in plots:
+		var section := World.Structures.cell_for(id)
+		if absi(section.x - local_section.x) > 1 or absi(section.y - local_section.y) > 1:
+			continue
+		if remote_layouts.get(id) == plots[id]:
+			continue
+		if remote_roots.has(id):
+			remote_roots[id].free()
+		var root := Node3D.new()
+		add_child(root)
+		root.position = World.Wilderness.plot_origin(seed_value, section) - World.FURNISHING_ORIGIN
+		for category: String in ["furnishings", "structures"]:
+			for slot: String in plots[id][category]:
+				var data: Dictionary = plots[id][category][slot]
+				var piece := make_piece(data["kind"])
+				root.add_child(piece)
+				piece.position = World.Structures.position(World.Structures.cell_for(slot))
+				piece.rotation.y = int(data["rotation"]) * PI / 2
+		remote_roots[id] = root
+		remote_layouts[id] = plots[id].duplicate(true)
 
 
 func _piece_name() -> String:
