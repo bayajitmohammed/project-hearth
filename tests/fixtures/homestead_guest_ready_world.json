@@ -1,0 +1,26 @@
+{
+  "version": 36,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "reedbank_stage": "complete",
+  "materials": {"flour": 1, "herb": 1},
+  "player_provisions": {"guest-a": 1, "guest-b": 1},
+  "positions": {"guest-a": [-24, 0.6, 11.5], "guest-b": [-24, 0.6, 11.5]},
+  "wilderness_plots": {
+    "2,2": {
+      "furnishings": {
+        "0,0": {"kind": "bedroll", "rotation": 0},
+        "1,0": {"kind": "cookhearth", "rotation": 0},
+        "2,0": {"kind": "bread_oven", "rotation": 0}
+      },
+      "structures": {
+        "0,0/foundation": {"kind": "foundation", "rotation": 0},
+        "0,0/side0": {"kind": "wall", "rotation": 0},
+        "0,0/side2": {"kind": "doorway", "rotation": 2},
+        "0,0/roof": {"kind": "roof", "rotation": 0}
+      }
+    }
+  }
+}

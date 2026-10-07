@@ -1280,6 +1280,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_pulse_positions": world_state.briarwatch_pulse_positions.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
 		"homestead_planted_at": world_state.homestead_planted_at.duplicate(),
+		"homestead_guest": world_state.homestead_guest.duplicate(),
 		"structures": world_state.structures.duplicate(true),
 		"sparring": world_state.sparring.snapshot(),
 		"wilderness_plots": world_state.wilderness_plots.duplicate(true),
@@ -1961,6 +1962,8 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if is_instance_valid(wilderness.guest_marker):
+		_append_mobile_target(candidates, wilderness.guest_marker, WorldStateModel.homestead_guest_text(latest_snapshot, local_token), "interact", WorldStateModel.INTERACTION_RADIUS)
 	if bool(latest_snapshot.get("produce_stall_open", false)):
 		_append_mobile_target(candidates, sparring_circle.marker, "Sparring · volunteer/cancel", "interact", WorldStateModel.Sparring.JOIN_REACH)
 	for section_id: String in wilderness.cache_markers:
@@ -2793,6 +2796,10 @@ func _update_interaction_prompt(
 		return
 	var player_health: Dictionary = latest_snapshot.get("player_health", {})
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
+	if player_position.distance_to(WorldStateModel.homestead_guest_position(latest_snapshot)) <= WorldStateModel.INTERACTION_RADIUS:
+		interaction_prompt.text = "%s · %s" % [action_name, WorldStateModel.homestead_guest_text(latest_snapshot, local_token)]
+		interaction_prompt.visible = true
+		return
 	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
 		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
 			interaction_prompt.text = "%s · %s" % [action_name, target["text"]]
@@ -3222,6 +3229,9 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_s
 	if route_activated:
 		map_text += "\n• Briarwatch — %s" % ("safe beacon · return home" if str(latest_snapshot.get("briarwatch_stage", "rumor")) == "complete" else "northern watch · spirit bindings")
 	map_text += "\n• Western wilderness — %d / 9 sections charted" % latest_snapshot.get("wilderness_discoveries", {}).size()
+	var guest: Dictionary = latest_snapshot.get("homestead_guest", {})
+	if not guest.is_empty():
+		map_text += "\n• Sera — %s homestead · %s" % [WildernessLayout.title(WorldStateModel.Structures.cell_for(str(guest["plot"]))), "settled" if int(guest.get("meals", 0)) == 2 else "welcome waiting"]
 	if not latest_snapshot.get("wilderness_discoveries", {}).is_empty():
 		map_text += "\n• Fartrail Outpost — %s" % ("rest and trailcraft" if latest_snapshot.get("outpost_parts", {}).size() == 3 else "shared project")
 	return map_text

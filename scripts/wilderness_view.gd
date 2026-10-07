@@ -2,6 +2,7 @@ extends Node3D
 
 const Layout = preload("res://scripts/wilderness_layout.gd")
 const Art = preload("res://scripts/graybox_world.gd")
+const State = preload("res://scripts/world_state.gd")
 var sections: Dictionary = {}
 var cache_markers: Dictionary = {}
 var rendered_seed := -1
@@ -10,6 +11,9 @@ var outpost_markers: Dictionary = {}
 var outpost_pieces: Dictionary = {}
 var forage: Dictionary = {}
 var claim_markers: Dictionary = {}
+var guest_root: Node3D
+var guest_marker: Node3D
+var guest_awning: Node3D
 
 
 func update_view(snapshot: Dictionary, token: String) -> void:
@@ -60,6 +64,38 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 			outpost_pieces[part].visible = parts.has(part)
 		for station: String in outpost_markers:
 			outpost_markers[station].visible = (parts.size() == 3) if station in ["rest", "craft"] else (parts.size() < 3 and not parts.has(station))
+	_update_guest(snapshot, token)
+
+
+func _update_guest(snapshot: Dictionary, token: String) -> void:
+	var guest: Dictionary = snapshot.get("homestead_guest", {})
+	var plot := str(guest.get("plot", ""))
+	if not sections.has(plot):
+		if is_instance_valid(guest_root):
+			guest_root.free()
+		return
+	if not is_instance_valid(guest_root):
+		guest_root = Node3D.new()
+		guest_root.name = "SeraCamp"
+		sections[plot].add_child(guest_root)
+		guest_root.position = State.homestead_guest_position(snapshot)
+		Art._add_cylinder(guest_root, "ModestCloak", 0.4, 1.3, Vector3(-0.6, 0.1, 0), Color("8397a6"), 9)
+		Art._add_cylinder(guest_root, "FeaturelessHood", 0.29, 0.4, Vector3(-0.6, 0.9, 0), Color("b5a991"), 9)
+		Art._add_box(guest_root, "SeedSatchel", Vector3(0.4, 0.35, 0.35), Vector3(-0.05, -0.35, 0), Color("a28662"))
+		guest_marker = Art._add_station_marker(guest_root, "SeraMarker", Vector3.ZERO, "SERA", Color("e7d39b"))
+		var label := guest_marker.get_node("Label") as Label3D
+		label.fixed_size = true
+		label.pixel_size = 0.0015
+		guest_awning = Node3D.new()
+		guest_root.add_child(guest_awning)
+		Art._add_box(guest_awning, "WelcomeCanopy", Vector3(2.5, 0.12, 2.2), Vector3(0, 1.9, -0.35), Color("a1b99e"))
+		for x: float in [-1.1, 1.1]:
+			Art._add_cylinder(guest_awning, "CanopyPost", 0.09, 2.4, Vector3(x, 0.6, -1.2), Color("927555"), 7)
+		Art._add_box(guest_awning, "SeedTable", Vector3(1.1, 0.12, 0.65), Vector3(0.6, 0.15, -0.55), Color("9c805e"))
+		for x: float in [0.3, 0.7]:
+			Art._add_cylinder(guest_awning, "SeedJar", 0.14, 0.25, Vector3(x, 0.34, -0.55), Color("d3b876"), 8)
+	guest_awning.visible = int(guest.get("meals", 0)) == 2
+	(guest_marker.get_node("Label") as Label3D).text = "SERA · SEEDKEEPER\n" + State.homestead_guest_text(snapshot, token)
 
 
 func _build_section(cell: Vector2i) -> void:

@@ -38,6 +38,14 @@ An authored eastern branch of Northwood leads to Reedbank Hollow. Once Nima has 
 
 The repaired sails turn permanently, Oren moves from the trail to the mill, and a warm rest shelter opens for standing injured travelers. It does not revive downed players, generate goods, or require upkeep. Earlier saves begin with the untouched mill; no calendar or empty-world catch-up advances the story. This is a compact authored destination and resident story, not continent streaming or final art. Its trail, reeds, softly colored trees, and illuminated mill provide a distinct graybox place within the existing stylized-fantasy direction.
 
+## Sera's Welcome — a built-world response
+
+The first resident response to player-built settlement is **Sera**, a traveling seedkeeper. A claimed western homestead becomes eligible when it contains both a cookhearth and a bedroll with its own foundation and supported roof. The first eligible plot receives Sera at its trail entrance; sorted plot IDs resolve older saves containing several eligible homes. Arrival is caused by completed construction or migration, never by empty-world food production. The original city yard does not qualify.
+
+Any standing player may speak to Sera, then companions contribute two personal trail provisions, one at a time, toward a shared welcome meal. The request has no expiry, and removing or rearranging the qualifying furniture never evicts Sera or erases contributions. Completion leaves her permanent small seedkeeper awning beside the claim post, adds one neighborhood morale/reputation and one chronicle entry, and grants no coin, mastery, passive crops or exclusive access. Sera and the meal state persist and reconstruct when the section streams back in.
+
+The opening conversation gives its speaker one Sera rapport; after the welcome, each identity can check in once per world day for one rapport. These conversations never privatize the shared request or grant power. Sera remains accessible at the entrance rather than wandering away while needed. This is one condition-driven resident story, not a complete settlement population or event-director simulation.
+
 ## Failure and death
 
 A defeated player becomes downed and can be rescued. If the group fails, players return to the last safe place and leave behind a recoverable pack of gathered expedition materials. Equipped gear and permanent progression are never lost.

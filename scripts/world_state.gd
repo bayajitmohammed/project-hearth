@@ -226,6 +226,7 @@ var sparring := Sparring.new()
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var homestead_planted_at: Dictionary = {}
+var homestead_guest: Dictionary = {}
 var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
 var wilderness_forage_days: Dictionary = {}
@@ -615,6 +616,7 @@ func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, q
 			return false
 		materials["wood"] -= FURNISHING_WOOD_COST
 		plot_structures[slot] = {"kind": kind, "rotation": quarter_turns}
+		_refresh_homestead_guest()
 		return true
 	var key := furnishing_cell_key(cell)
 	if remove:
@@ -632,6 +634,73 @@ func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, q
 		return false
 	materials["wood"] = int(materials.get("wood", 0)) - FURNISHING_WOOD_COST
 	plot_furnishings[key] = {"kind": kind, "rotation": quarter_turns}
+	_refresh_homestead_guest()
+	return true
+
+
+func _refresh_homestead_guest() -> void:
+	if not homestead_guest.is_empty() or quest_stage != "home_repaired":
+		return
+	var sheltered: Dictionary = {}
+	var hearths: Dictionary = {}
+	for station: Dictionary in furnishing_stations({"world_seed": world_seed, "wilderness_plots": wilderness_plots}):
+		var plot: String = station["plot_id"]
+		if plot.is_empty():
+			continue
+		if station["kind"] == "bedroll" and station["sheltered"]:
+			sheltered[plot] = true
+		if station["kind"] == "cookhearth":
+			hearths[plot] = true
+	var candidates := sheltered.keys()
+	candidates.sort()
+	for plot: String in candidates:
+		if hearths.has(plot):
+			homestead_guest = {"plot": plot, "met": false, "meals": 0}
+			return
+
+
+static func homestead_guest_position(progress: Dictionary) -> Vector3:
+	var plot := str(progress.get("homestead_guest", {}).get("plot", ""))
+	if plot.is_empty():
+		return Vector3.INF
+	return Wilderness.claim_post(int(progress.get("world_seed", REGION_SEED)), Structures.cell_for(plot)) + Vector3(0, 0, -2.5)
+
+
+static func homestead_guest_text(progress: Dictionary, token: String = "") -> String:
+	var guest: Dictionary = progress.get("homestead_guest", {})
+	if not bool(guest.get("met", false)):
+		return "Meet Sera · a seedkeeper noticed your new home"
+	if int(guest.get("meals", 0)) < 2:
+		return "Welcome meal %d/2 · give 1 personal provision" % int(guest.get("meals", 0))
+	var rapport := int(progress.get("player_relationships", {}).get(token, {}).get("sera", 0))
+	return "Sera feels at home · rapport %d · check in once daily" % rapport
+
+
+func try_homestead_guest(player_token: String) -> bool:
+	if homestead_guest.is_empty() or not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	if positions[player_token].distance_to(homestead_guest_position({"world_seed": world_seed, "homestead_guest": homestead_guest})) > INTERACTION_RADIUS:
+		return false
+	if not bool(homestead_guest["met"]):
+		homestead_guest["met"] = true
+		_add_npc_rapport(player_token, "sera")
+		return true
+	if int(homestead_guest["meals"]) < 2:
+		if int(player_provisions.get(player_token, 0)) < 1:
+			return false
+		player_provisions[player_token] -= 1
+		homestead_guest["meals"] += 1
+		if int(homestead_guest["meals"]) == 2:
+			reputation += 1
+			neighborhood_morale += 1
+			chronicle.append("Sera the seedkeeper made a home beside the newcomers' %s homestead after a shared welcome meal." % Wilderness.title(Structures.cell_for(homestead_guest["plot"])))
+		return true
+	var check_ins: Dictionary = player_npc_check_in_day.get(player_token, {})
+	if int(check_ins.get("sera", 0)) >= world_day:
+		return false
+	check_ins["sera"] = world_day
+	player_npc_check_in_day[player_token] = check_ins
+	_add_npc_rapport(player_token, "sera")
 	return true
 
 
@@ -1185,6 +1254,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_recover_pack(player_token)
 		or try_sparring_interaction(player_token, active_tokens)
 		or try_use_furnishing(player_token)
+		or try_homestead_guest(player_token)
 		or try_outpost_interaction(player_token)
 		or try_claim_plot(player_token)
 		or try_wilderness_cache(player_token)
@@ -2370,7 +2440,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 36,
+		"version": 37,
+		"homestead_guest": homestead_guest.duplicate(),
 		"homestead_planted_at": homestead_planted_at.duplicate(),
 		"sparring": sparring.saved(),
 		"wilderness_plots": wilderness_plots.duplicate(true),
@@ -2777,6 +2848,14 @@ func load_dictionary(data: Dictionary) -> void:
 		)
 	sunwheat_planted_at.clear()
 	homestead_planted_at.clear()
+	homestead_guest.clear()
+	if save_version >= 37:
+		var stored_guest: Dictionary = data.get("homestead_guest", {})
+		var guest_plot := str(stored_guest.get("plot", ""))
+		if wilderness_plots.has(guest_plot):
+			var meals := clampi(int(stored_guest.get("meals", 0)), 0, 2)
+			homestead_guest = {"plot": guest_plot, "met": bool(stored_guest.get("met", false)) or meals > 0, "meals": meals}
+	_refresh_homestead_guest()
 	if save_version >= 36:
 		var stored_crops: Dictionary = data.get("homestead_planted_at", {})
 		for station: Dictionary in furnishing_stations({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots}):

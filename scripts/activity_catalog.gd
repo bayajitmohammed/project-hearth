@@ -2,7 +2,7 @@ extends RefCounted
 
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -23,6 +23,11 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
 		"Use E near people, supplies, and repair markers. Craft the repair kit with C; rest at the repaired cottage when injured.")
 	if home == "home_repaired":
+		var guest: Dictionary = state.get("homestead_guest", {})
+		if not guest.is_empty():
+			var location := Wilderness.title(Vector2i(int(str(guest["plot"]).get_slice(",", 0)), int(str(guest["plot"]).get_slice(",", 1))))
+			var meals := int(guest.get("meals", 0))
+			_add(result, "sera", "Sera's Welcome", "Resident story", meals == 2, "Sera settled at %s" % location if meals == 2 else ("Welcome Sera at %s · meal %d/2" % [location, meals] if bool(guest.get("met", false)) else "Meet Sera at your %s homestead" % location), "Your sheltered bedroll and cookhearth drew a traveling seedkeeper. Meet her beside the claim post, then give two personal trail provisions with E, one at a time. Any companion may contribute; there is no deadline. Her welcome leaves a permanent awning. Afterward each friend may check in once per world day for personal rapport.")
 		_add(result, "kitchen", "A Kitchen of Your Own", "Livelihood", false, "Build a cookhearth at home or in a wilderness claim", "Use B/T to choose stations, each costing two refundable wood. Outside build mode, E cooks requested stew first (2 moonroot), otherwise fish into a provision. Restoring Oren's mill teaches the Grain mill (2 sunwheat makes 1 flour) and Bread oven (1 flour + 1 herb makes 2 provisions). Ingredients are shared; the cook keeps provisions and Cooking credit. Stations never work unattended.")
 		var welcome := str(state.get("neighborhood_event_stage", "invitation"))
 		_add(result, "welcome", "Welcome Lights", "Story", welcome == "complete", "The welcome lanterns are lit" if welcome == "complete" else ("Speak to Mara about the gathering" if welcome == "invitation" else "Light the three neighborhood lanterns"), "The gathering lives beside the home road. Any companion can contribute.")
