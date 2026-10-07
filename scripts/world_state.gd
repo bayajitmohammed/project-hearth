@@ -73,10 +73,10 @@ const FURNISHING_WOOD_COST := 2
 const DECORATIVE_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
 const CROP_BEDS := {"moonroot_bed": {"crop": "moonroot", "yield": 1}, "sunwheat_bed": {"crop": "sunwheat", "yield": 2}}
 const HOMESTEAD_GROW_MINUTES := 120
-const UTILITY_KINDS := ["bedroll", "trailwork_bench", "moonroot_bed", "sunwheat_bed"]
+const UTILITY_KINDS := ["bedroll", "trailwork_bench", "moonroot_bed", "sunwheat_bed", "cookhearth", "grain_mill", "bread_oven"]
 const FURNISHING_KINDS := DECORATIVE_KINDS + UTILITY_KINDS
 const BUILDING_KINDS := DECORATIVE_KINDS + Structures.KINDS + UTILITY_KINDS
-const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table", "bedroll": "Bedroll", "trailwork_bench": "Trailwork bench", "moonroot_bed": "Moonroot bed", "sunwheat_bed": "Sunwheat bed"}
+const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table", "bedroll": "Bedroll", "trailwork_bench": "Trailwork bench", "moonroot_bed": "Moonroot bed", "sunwheat_bed": "Sunwheat bed", "cookhearth": "Cookhearth", "grain_mill": "Grain mill", "bread_oven": "Bread oven"}
 const REGION_SEED := 73021
 const MAX_WORLD_SEED := 2147483647
 const NORTHWOOD_REVEAL_Z := -16.0
@@ -561,7 +561,7 @@ static func furnishing_position(cell: Vector2i) -> Vector3:
 static func furnishing_requirement(kind: String, progress: Dictionary) -> String:
 	if kind == "moonroot_bed" and not bool(progress.get("ruin_waystone_activated", false)):
 		return "Restore the Old Stone Ruins waystone."
-	if kind == "sunwheat_bed" and str(progress.get("reedbank_stage", "")) != "complete":
+	if kind in ["sunwheat_bed", "grain_mill", "bread_oven"] and str(progress.get("reedbank_stage", "")) != "complete":
 		return "Restore Oren's Reedbank mill."
 	if kind == "watch_lantern" and str(progress.get("briarwatch_stage", "rumor")) != "complete":
 		return "Rekindle the Briarwatch beacon."
@@ -669,6 +669,13 @@ static func furnishing_stations(progress: Dictionary) -> Array[Dictionary]:
 			var cell := Structures.cell_for(slot)
 			var sheltered := supports.has(Structures.key(cell, "foundation", 0)) and supports.has(Structures.key(cell, "roof", 0))
 			result.append({"id": plot_id + "/" + slot, "plot_id": plot_id, "kind": kind, "position": furnishing_position(cell) + shift + Vector3(0, 0.6, 0), "sheltered": sheltered, "text": ("Rest in sheltered bedroll" if sheltered else "Bedroll needs foundation and roof") if kind == "bedroll" else "Trailcraft · 1 wood + 1 herb"})
+			match kind:
+				"cookhearth":
+					result.back()["text"] = "Cook requested stew (2 moonroot), else fish (1 provision)"
+				"grain_mill":
+					result.back()["text"] = "Mill 2 sunwheat into 1 flour"
+				"bread_oven":
+					result.back()["text"] = "Bake 1 flour + 1 herb into 2 provisions"
 			if CROP_BEDS.has(kind):
 				var station: Dictionary = result.back()
 				var remaining := homestead_crop_remaining(progress, station["id"])
@@ -703,6 +710,13 @@ func try_use_furnishing(player_token: String) -> bool:
 	var station := nearest_furnishing_station({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots, "homestead_planted_at": homestead_planted_at, "world_day": world_day, "world_minute": world_minute}, positions[player_token])
 	if station.is_empty():
 		return false
+	match station["kind"]:
+		"cookhearth":
+			return try_cook_hearth_stew(player_token) or try_cook_riverfish(player_token)
+		"grain_mill":
+			return _mill_sunwheat()
+		"bread_oven":
+			return _bake_trail_bread(player_token)
 	if CROP_BEDS.has(station["kind"]):
 		if station["crop_phase"] == "empty":
 			homestead_planted_at[station["id"]] = world_calendar_minutes()
@@ -1102,17 +1116,29 @@ func try_reedbank_livelihood(player_token: String) -> bool:
 			_add_mastery(player_token, "farming")
 			return true
 		return false
-	if player_position.distance_to(MILL_HOPPER_POSITION) <= INTERACTION_RADIUS and int(materials.get("sunwheat", 0)) >= 2:
-		materials["sunwheat"] -= 2
-		materials["flour"] = int(materials.get("flour", 0)) + 1
-		return true
-	if player_position.distance_to(REEDBANK_OVEN_POSITION) <= INTERACTION_RADIUS and int(materials.get("flour", 0)) >= 1 and int(materials.get("herb", 0)) >= 1:
-		materials["flour"] -= 1
-		materials["herb"] -= 1
-		player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 2
-		_add_mastery(player_token, "cooking")
-		return true
+	if player_position.distance_to(MILL_HOPPER_POSITION) <= INTERACTION_RADIUS:
+		return _mill_sunwheat()
+	if player_position.distance_to(REEDBANK_OVEN_POSITION) <= INTERACTION_RADIUS:
+		return _bake_trail_bread(player_token)
 	return false
+
+
+func _mill_sunwheat() -> bool:
+	if int(materials.get("sunwheat", 0)) < 2:
+		return false
+	materials["sunwheat"] -= 2
+	materials["flour"] = int(materials.get("flour", 0)) + 1
+	return true
+
+
+func _bake_trail_bread(player_token: String) -> bool:
+	if int(materials.get("flour", 0)) < 1 or int(materials.get("herb", 0)) < 1:
+		return false
+	materials["flour"] -= 1
+	materials["herb"] -= 1
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 2
+	_add_mastery(player_token, "cooking")
+	return true
 
 
 func try_reedbank_interaction(player_token: String) -> bool:
@@ -1272,7 +1298,7 @@ func try_record_trail_survey(player_token: String) -> bool:
 func try_cook_riverfish(player_token: String) -> bool:
 	if quest_stage != "home_repaired":
 		return false
-	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
+	if not _at_cookhearth(player_token):
 		return false
 	if bool(downed_players.get(player_token, false)):
 		return false
@@ -2123,11 +2149,13 @@ func try_harvest_garden(player_token: String) -> bool:
 
 
 func try_cook_hearth_stew(player_token: String) -> bool:
+	if bool(downed_players.get(player_token, false)):
+		return false
 	if not has_active_food_order():
 		return false
 	if daily_food_order_active and daily_food_order_kind != DAILY_ORDER_HEARTH_STEW:
 		return false
-	if register_player(player_token).distance_to(COOKFIRE_POSITION) > INTERACTION_RADIUS:
+	if not _at_cookhearth(player_token):
 		return false
 	if int(materials.get("moonroot", 0)) < 2:
 		return false
@@ -2142,6 +2170,16 @@ func try_cook_hearth_stew(player_token: String) -> bool:
 	materials["hearth_stew"] = int(materials.get("hearth_stew", 0)) + cook_count
 	_add_mastery(player_token, "cooking", cook_count)
 	return true
+
+
+func _at_cookhearth(player_token: String) -> bool:
+	var point := register_player(player_token)
+	if point.distance_to(COOKFIRE_POSITION) <= INTERACTION_RADIUS:
+		return true
+	if quest_stage != "home_repaired":
+		return false
+	var station := nearest_furnishing_station({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots}, point)
+	return station.get("kind", "") == "cookhearth"
 
 
 func try_deliver_hearth_stew(player_token: String) -> bool:

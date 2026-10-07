@@ -52,6 +52,12 @@ Outside build mode, explicit interaction plants an empty bed using reusable seed
 
 Planting times persist by plot and cell. Removing a planted bed discards that planting without produce or mastery; the build panel warns before the explicit removal action. Replacing or rotating through removal starts an empty bed, never a mature duplicate. Empty, growing and ripe states have distinct crop presentation and contextual text. Placement grants no mastery, coin or milestone reward. This is productive player-built farming, not automated production, private ownership or final crop art.
 
+## Player-built kitchens — implementation scope
+
+The next useful-homestead increment adds a **Cookhearth**, **Grain mill**, and **Bread oven**, each using the normal two-wood placement/refund and shared-cell rules. Cookhearths unlock after cottage repair; grain mills and ovens unlock when Oren's mill is restored. These stations work outdoors or inside a structure, at home or in a wilderness claim, without fuel upkeep or unattended production.
+
+A cookhearth uses the cottage's exact action priority: cook requested hearth stew when ingredients and outstanding order capacity permit, otherwise cook one personal riverfish (or one from the shared creel) into one personal provision. Stew batching retains Cooking-II convenience and per-unit credit. A grain mill turns two shared sunwheat into one shared flour without mastery; a bread oven consumes one shared flour and herb for two personal provisions and one Cooking mastery. Companions can hand off ingredients asynchronously through the existing shared bag; no new remote storage or reward multiplier is introduced. All actions require a nearby standing player, and removing a station refunds only its construction wood.
+
 ## Loot, trade, and currency
 
 Loot favors recipes, unusual materials, tools with trade-offs, keepsakes, and cosmetics over constant numeric upgrades. Players can trade directly and contribute to shared storage.

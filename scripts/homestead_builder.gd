@@ -311,7 +311,24 @@ func _rebuild_preview() -> void:
 
 static func make_piece(piece_kind: String) -> Node3D:
 	var result := Node3D.new()
-	if World.CROP_BEDS.has(piece_kind):
+	if piece_kind == "grain_mill":
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "MillBase", 0.85, 0.5, Vector3(0, 0.25, 0), Color("83918b"), 12)
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "GrindingStone", 0.75, 0.2, Vector3(0, 0.6, 0), Color("b2b6a7"), 12)
+		_box(result, Vector3(1.25, 0.12, 0.16), Vector3(0.3, 0.78, 0), Color("8b6c4a"))
+		_box(result, Vector3(0.15, 0.5, 0.15), Vector3(0.85, 0.98, 0), Color("8b6c4a"))
+	elif piece_kind == "bread_oven":
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "OvenBody", 0.8, 1.1, Vector3(0, 0.55, 0), Color("b58b69"), 10)
+		_box(result, Vector3(0.65, 0.5, 0.2), Vector3(0, 0.43, 0.76), Color("3b342f"))
+		_box(result, Vector3(0.9, 0.15, 0.6), Vector3(0, 0.15, 0.82), Color("8e8071"))
+		_box(result, Vector3(0.3, 0.8, 0.3), Vector3(0, 1.35, -0.35), Color("b58b69"))
+	elif piece_kind == "cookhearth":
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "HearthStone", 0.8, 0.2, Vector3(0, 0.1, 0), Color("8d9385"), 10)
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "Coals", 0.5, 0.12, Vector3(0, 0.23, 0), Color("dc9859"), 10)
+		for x: float in [-0.65, 0.65]:
+			_box(result, Vector3(0.12, 1.15, 0.12), Vector3(x, 0.7, 0), Color("675c4b"))
+		_box(result, Vector3(1.4, 0.12, 0.12), Vector3(0, 1.25, 0), Color("675c4b"))
+		preload("res://scripts/graybox_world.gd")._add_cylinder(result, "CookingPot", 0.38, 0.4, Vector3(0, 0.7, 0), Color("596c68"), 12)
+	elif World.CROP_BEDS.has(piece_kind):
 		_box(result, Vector3(2.25, 0.2, 1.8), Vector3(0, 0.1, 0), Color("6b5140"))
 		for z: float in [-0.9, 0.9]:
 			_box(result, Vector3(2.4, 0.3, 0.12), Vector3(0, 0.15, z), Color("a1815c"))

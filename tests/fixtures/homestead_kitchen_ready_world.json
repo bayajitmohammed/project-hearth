@@ -1,0 +1,21 @@
+{
+  "version": 36,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_waystone_activated": true,
+  "livelihood_stage": "food_need",
+  "reedbank_stage": "complete",
+  "world_day": 1,
+  "world_minute": 480,
+  "materials": {"wood": 4, "moonroot": 4, "herb": 1},
+  "shared_riverfish_stock": 1,
+  "positions": {"kitchen-a": [-15, 0.6, 17], "kitchen-b": [-12, 0.6, 17]},
+  "furnishings": {
+    "0,0": {"kind": "sunwheat_bed", "rotation": 0},
+    "1,0": {"kind": "grain_mill", "rotation": 0},
+    "2,0": {"kind": "bread_oven", "rotation": 0},
+    "3,0": {"kind": "cookhearth", "rotation": 0}
+  },
+  "homestead_planted_at": {"/0,0": 360}
+}

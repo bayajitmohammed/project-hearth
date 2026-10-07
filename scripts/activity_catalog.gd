@@ -2,7 +2,7 @@ extends RefCounted
 
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -23,6 +23,7 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
 		"Use E near people, supplies, and repair markers. Craft the repair kit with C; rest at the repaired cottage when injured.")
 	if home == "home_repaired":
+		_add(result, "kitchen", "A Kitchen of Your Own", "Livelihood", false, "Build a cookhearth at home or in a wilderness claim", "Use B/T to choose stations, each costing two refundable wood. Outside build mode, E cooks requested stew first (2 moonroot), otherwise fish into a provision. Restoring Oren's mill teaches the Grain mill (2 sunwheat makes 1 flour) and Bread oven (1 flour + 1 herb makes 2 provisions). Ingredients are shared; the cook keeps provisions and Cooking credit. Stations never work unattended.")
 		var welcome := str(state.get("neighborhood_event_stage", "invitation"))
 		_add(result, "welcome", "Welcome Lights", "Story", welcome == "complete", "The welcome lanterns are lit" if welcome == "complete" else ("Speak to Mara about the gathering" if welcome == "invitation" else "Light the three neighborhood lanterns"), "The gathering lives beside the home road. Any companion can contribute.")
 		_add(result, "fishing", "Willowmere Fishing", "Livelihood", false, "Cast at Willowmere Pond", "West of the home road: E casts, then E during BITE reels in a riverfish. Cook it at the cottage fire or leave it in the shared creel.")
