@@ -36,6 +36,7 @@ var wilderness: Node3D
 var briarwatch: Node3D
 var sparring_circle: Node3D
 var activity_journal: CanvasLayer
+var trade_panel: CanvasLayer
 
 var homestead_builder: Node3D
 var northern_region: Node3D
@@ -171,6 +172,8 @@ func _ready() -> void:
 		if active:
 			if activity_journal != null and activity_journal.active:
 				activity_journal.toggle_mode()
+			if trade_panel != null and trade_panel.active:
+				trade_panel.toggle_mode()
 			_release_mouse()
 	)
 	activity_journal = ActivityJournal.new()
@@ -178,12 +181,27 @@ func _ready() -> void:
 	activity_journal.pin_requested.connect(_request_activity_pin)
 	activity_journal.mode_changed.connect(func(active: bool) -> void:
 		if active:
+			if trade_panel != null and trade_panel.active:
+				trade_panel.toggle_mode()
 			if homestead_builder.active:
 				homestead_builder.toggle_mode()
 			_release_mouse()
 		else:
 			if client_connected or local_authority_player:
 				_capture_mouse()
+	)
+	trade_panel = preload("res://scripts/trade_panel.gd").new()
+	add_child(trade_panel)
+	trade_panel.command_requested.connect(_request_trade)
+	trade_panel.mode_changed.connect(func(active: bool) -> void:
+		if active:
+			if activity_journal.active:
+				activity_journal.toggle_mode()
+			if homestead_builder.active:
+				homestead_builder.toggle_mode()
+			_release_mouse()
+		elif client_connected or local_authority_player:
+			_capture_mouse()
 	)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -210,6 +228,10 @@ func _ready() -> void:
 			_connect_to_server.call_deferred()
 
 
+func _blocks_gameplay() -> bool:
+	return activity_journal.blocks_gameplay() or (trade_panel != null and trade_panel.blocks_gameplay())
+
+
 func _physics_process(delta: float) -> void:
 	if is_server:
 		if local_authority_player and local_input_enabled:
@@ -223,7 +245,7 @@ func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	input_vector = input_vector.rotated(-camera_yaw)
-	if activity_journal.blocks_gameplay():
+	if _blocks_gameplay():
 		input_vector = Vector2.ZERO
 	client_input_send_accumulator += delta
 	if (
@@ -233,7 +255,7 @@ func _physics_process(delta: float) -> void:
 		submit_input.rpc_id(1, input_vector)
 		last_sent_input = input_vector
 		client_input_send_accumulator = 0.0
-	if activity_journal.blocks_gameplay():
+	if _blocks_gameplay():
 		return
 	if Input.is_action_just_pressed("interact"):
 		_request_interaction()
@@ -257,7 +279,7 @@ func _update_local_authority_input() -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_vector = (input_vector + _touch_input_vector()).limit_length(1.0)
 	peer_inputs[1] = input_vector.rotated(-camera_yaw)
-	if activity_journal.blocks_gameplay():
+	if _blocks_gameplay():
 		peer_inputs[1] = Vector2.ZERO
 		return
 	if Input.is_action_just_pressed("interact"):
@@ -281,13 +303,16 @@ func _update_local_authority_input() -> void:
 func _process(delta: float) -> void:
 	if activity_journal.available and not (client_connected or local_authority_player):
 		activity_journal.update_view({}, local_token, false)
+	if trade_panel.available and not (client_connected or local_authority_player):
+		trade_panel.update_view({}, local_token, false)
+	trade_panel.launcher.visible = trade_panel.available and not trade_panel.active and not homestead_builder.active and not activity_journal.active
 	homestead_builder.update_view(latest_snapshot, local_token, camera_yaw, client_connected or local_authority_player)
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		interaction_prompt.visible = false
 	_interpolate_player_positions(delta)
 	if game_camera == null or not player_nodes.has(local_token):
 		return
-	if not activity_journal.blocks_gameplay():
+	if not _blocks_gameplay():
 		_update_controller_camera(delta)
 	var player_node: MeshInstance3D = player_nodes[local_token]
 	var eye_position := player_node.position + FIRST_PERSON_EYE_OFFSET
@@ -325,7 +350,7 @@ func _interpolate_player_positions(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if is_server and not local_authority_player:
 		return
-	if activity_journal.blocks_gameplay():
+	if _blocks_gameplay():
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (client_connected or local_authority_player):
 		if event.keycode == KEY_B and str(latest_snapshot.get("quest_stage", "")) == "home_repaired":
@@ -418,6 +443,7 @@ func _simulate_server(delta: float) -> void:
 	if world_state.simulate_briarwatch(delta, peer_to_token.values()):
 		_save_world()
 	world_state.sparring.tick(delta, world_state.positions, world_state.downed_players, peer_to_token.values())
+	world_state.trades.tick(delta, world_state.trade_context(peer_to_token.values()))
 	world_state.simulate_fishing(delta, peer_to_token.values())
 
 	snapshot_accumulator += delta
@@ -547,6 +573,27 @@ func request_activity_pin(activity_id: String) -> void:
 	var sender_id := multiplayer.get_remote_sender_id()
 	if peer_to_token.has(sender_id):
 		_try_activity_pin(peer_to_token[sender_id], activity_id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_trade(command: Dictionary) -> void:
+	if is_server:
+		var sender := multiplayer.get_remote_sender_id()
+		if peer_to_token.has(sender):
+			_try_trade(peer_to_token[sender], command)
+
+
+func _try_trade(token: String, command: Dictionary) -> void:
+	if world_state.try_personal_trade(token, command, peer_to_token.values()):
+		_save_world()
+	_publish_snapshot()
+
+
+func _request_trade(command: Dictionary) -> void:
+	if local_authority_player:
+		_try_trade(local_token, command)
+	elif client_connected:
+		request_trade.rpc_id(1, command)
 
 
 func _try_activity_pin(player_token: String, activity_id: String) -> void:
@@ -801,6 +848,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	)
 	_update_relationship_interface(snapshot)
 	activity_journal.update_view(snapshot, local_token, client_connected or local_authority_player)
+	trade_panel.update_view(snapshot, local_token, client_connected or local_authority_player)
 	_update_pinned_activity(snapshot)
 	_sync_recovery_packs(snapshot.get("recovery_packs", {}))
 	var creature_defeated := bool(snapshot.get("creature_defeated", false))
@@ -1212,6 +1260,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		var departing_token: String = peer_to_token[peer_id]
 		world_state.remove_festival_participant(departing_token)
 		world_state.sparring.cancel(departing_token)
+		world_state.trades.cancel_player(departing_token)
 		world_state.reset_player_fishing(departing_token)
 	peer_inputs.erase(peer_id)
 	peer_to_token.erase(peer_id)
@@ -1224,6 +1273,7 @@ func _exit_tree() -> void:
 	if is_server and local_authority_player:
 		world_state.remove_festival_participant(local_token)
 		world_state.sparring.cancel(local_token)
+		world_state.trades.cancel_player(local_token)
 		world_state.reset_player_fishing(local_token)
 		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
 		_save_world()
@@ -1283,6 +1333,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"homestead_guest": world_state.homestead_guest.duplicate(),
 		"structures": world_state.structures.duplicate(true),
 		"sparring": world_state.sparring.snapshot(),
+		"trades": world_state.trades.snapshot(),
 		"wilderness_plots": world_state.wilderness_plots.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
@@ -1867,7 +1918,7 @@ func _touch_input_vector() -> Vector2:
 func _update_mobile_targeting() -> void:
 	if mobile_context_button == null or mobile_crosshair == null:
 		return
-	if touch_controls == null or not touch_controls.visible or not client_connected or homestead_builder.active or activity_journal.blocks_gameplay():
+	if touch_controls == null or not touch_controls.visible or not client_connected or homestead_builder.active or _blocks_gameplay():
 		mobile_context_target = {}
 		mobile_context_button.visible = false
 		return
@@ -2160,7 +2211,7 @@ func _activate_mobile_context_target() -> void:
 
 
 func _request_interaction() -> void:
-	if activity_journal.blocks_gameplay():
+	if _blocks_gameplay():
 		return
 	if homestead_builder.active:
 		homestead_builder.request_change(false)
@@ -2172,7 +2223,7 @@ func _request_interaction() -> void:
 
 
 func _request_collect() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_collect(local_token)
@@ -2181,7 +2232,7 @@ func _request_collect() -> void:
 
 
 func _request_craft() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_craft(local_token)
@@ -2190,7 +2241,7 @@ func _request_craft() -> void:
 
 
 func _request_attack() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_attack(local_token)
@@ -2199,7 +2250,7 @@ func _request_attack() -> void:
 
 
 func _request_power_strike() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_power_strike(local_token)
@@ -2208,7 +2259,7 @@ func _request_power_strike() -> void:
 
 
 func _request_brace() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_brace(local_token)
@@ -2217,7 +2268,7 @@ func _request_brace() -> void:
 
 
 func _request_use_provision() -> void:
-	if homestead_builder.active or activity_journal.blocks_gameplay():
+	if homestead_builder.active or _blocks_gameplay():
 		return
 	if local_authority_player:
 		_try_use_trail_provision(local_token)

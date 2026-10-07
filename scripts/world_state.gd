@@ -5,6 +5,7 @@ const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 const Structures = preload("res://scripts/structure_layout.gd")
 const Sparring = preload("res://scripts/sparring_rules.gd")
+const PersonalTrades = preload("res://scripts/personal_trades.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -223,6 +224,7 @@ var furnishings: Dictionary = {}
 var structures: Dictionary = {}
 var wilderness_plots: Dictionary = {}
 var sparring := Sparring.new()
+var trades := PersonalTrades.new()
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var homestead_planted_at: Dictionary = {}
@@ -2365,6 +2367,14 @@ func try_festival_interaction(player_token: String) -> bool:
 	return true
 
 
+func trade_context(active_tokens: Array) -> Dictionary:
+	return {"positions": positions, "downed": downed_players, "active": active_tokens, "holdings": {"coin": player_coins, "riverfish": player_riverfish, "provision": player_provisions}}
+
+
+func try_personal_trade(player_token: String, request: Dictionary, active_tokens: Array) -> bool:
+	return trades.command(player_token, request, trade_context(active_tokens))
+
+
 func try_sparring_interaction(player_token: String, active_tokens: Array = []) -> bool:
 	if festival_participants.has(player_token) and festival_stage in ["signup", "racing"]:
 		return false
@@ -2520,6 +2530,7 @@ func to_dictionary() -> Dictionary:
 
 
 func load_dictionary(data: Dictionary) -> void:
+	trades = PersonalTrades.new()
 	world_seed = int(data.get("world_seed", REGION_SEED))
 	if world_seed < 1 or world_seed > MAX_WORLD_SEED:
 		world_seed = REGION_SEED

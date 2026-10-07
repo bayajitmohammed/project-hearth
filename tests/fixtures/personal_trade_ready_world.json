@@ -1,0 +1,12 @@
+{
+  "version": 37,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_waystone_activated": true,
+  "livelihood_stage": "food_need",
+  "materials": {"hearth_stew": 2},
+  "player_coins": {"trade-a": 4, "trade-b": 0},
+  "player_riverfish": {"trade-b": 3},
+  "positions": {"trade-a": [0, 0.6, 10], "trade-b": [1, 0.6, 10]}
+}
