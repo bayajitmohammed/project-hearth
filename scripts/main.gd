@@ -1272,7 +1272,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_wilderness_caches": world_state.player_wilderness_caches.duplicate(true),
 		"broken_briarwatch_bindings": world_state.broken_briarwatch_bindings.duplicate(),
 		"briarwatch_windup": world_state.briarwatch_windup,
-		"briarwatch_pulse_position": world_state.briarwatch_pulse_position,
+		"briarwatch_pulse_positions": world_state.briarwatch_pulse_positions.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
 		"structures": world_state.structures.duplicate(true),
 		"wilderness_plots": world_state.wilderness_plots.duplicate(true),

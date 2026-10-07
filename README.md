@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+**Briarwatch pressure waves:** one standing traveler in the clearing draws one locked ground mark; groups of 2–4 draw two, and 5–8 draw three. All marks give the same 1.2-second warning. Leave the circles or time a brace; overlapping circles can hit you only once per wave. New waves adapt to arrivals/withdrawals without resetting broken bindings or increasing health/rewards. Empty clearings cancel pending danger, and waves are never saved.
+
+Scaling coverage: `Godot --headless --path . --script res://tests/test_briarwatch_scaling.gd`. Use an isolated copy of `tests/fixtures/briarwatch_pressure_ready_world.json`, room `PRESSURE` on port `9473`, and simultaneous `tests/briarwatch_pressure_probe.gd` clients with `--connect=ws://127.0.0.1:9473 --room=PRESSURE` and identities `--player-token=pressure-a` / `--player-token=pressure-b`. For a browser companion in a separate room, the same probe accepts `--browser-companion` and defends for four minutes.
+
 **Useful homesteads:** the build catalogue now includes **Bedroll** and **Trailwork bench**, each costing/refunding two wood. Outside build mode, **E** at a bedroll restores a standing injured player only when its cell has a foundation and supported roof. Removing the roof disables rest. At a player-built bench, **E** consumes one shared wood and one herb for one personal provision. These work at home and in wilderness claims without passive output, mastery rewards, time skips, or respawn changes.
 
 Station coverage: `Godot --headless --path . --script res://tests/test_useful_homesteads.gd`. For concurrent rest/crafting, copy `tests/fixtures/useful_homesteads_ready_world.json` to an isolated save, serve room `STATIONS` on port `9471`, and launch `tests/useful_homesteads_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9471 --room=STATIONS` and identities `--player-token=station-a` / `--player-token=station-b`.

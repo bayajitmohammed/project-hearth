@@ -9,7 +9,7 @@ var beacon_marker: Node3D
 var beacon_light: OmniLight3D
 var beacon_beam: MeshInstance3D
 var spirit: MeshInstance3D
-var pulse: MeshInstance3D
+var pulses: Array[MeshInstance3D] = []
 var warning: Label
 
 
@@ -56,11 +56,13 @@ func _ready() -> void:
 		roots[binding_id] = root
 		binding_markers[binding_id] = Art._add_station_marker(self, "BindingMarker", point, "BREAK %s BINDING" % binding_id.to_upper(), Color("d6b1df"))
 	beacon_marker = Art._add_station_marker(self, "BeaconMarker", State.BRIARWATCH_BEACON, "REKINDLE WATCH BEACON", Color("efcf86"))
-	pulse = Art._add_cylinder(self, "SpiritPulseWarning", State.BRIARWATCH_PULSE_RADIUS, 0.05, Vector3.ZERO, Color(0.95, 0.35, 0.55, 0.7), 40)
-	var pulse_material := pulse.material_override as StandardMaterial3D
-	pulse_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	pulse_material.emission_enabled = true
-	pulse_material.emission = Color("bc547c")
+	for index in range(3):
+		var pulse := Art._add_cylinder(self, "SpiritPulseWarning%d" % index, State.BRIARWATCH_PULSE_RADIUS, 0.05, Vector3.ZERO, Color(0.95, 0.35, 0.55, 0.7), 40)
+		var pulse_material := pulse.material_override as StandardMaterial3D
+		pulse_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		pulse_material.emission_enabled = true
+		pulse_material.emission = Color("bc547c")
+		pulses.append(pulse)
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	warning = Label.new()
@@ -90,12 +92,17 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 	beacon_marker.visible = unlocked and stage in ["rekindle", "complete"]
 	(beacon_marker.get_node("Label") as Label3D).text = "RETURN HOME" if stage == "complete" else "REKINDLE WATCH BEACON"
 	var windup := float(snapshot.get("briarwatch_windup", 0.0))
-	var target: Vector3 = snapshot.get("briarwatch_pulse_position", Vector3.ZERO)
-	pulse.position = Vector3(target.x, 0.07, target.z)
-	pulse.visible = windup > 0.0
+	var marks: Array = snapshot.get("briarwatch_pulse_positions", [])
 	var local_position: Vector3 = snapshot.get("positions", {}).get(token, Vector3.INF)
-	warning.visible = windup > 0.0 and local_position.z < -49 and local_position.is_finite()
-	warning.text = "%s · %.1fs" % ["LEAVE THE MARK OR BRACE" if local_position.distance_to(target) <= State.BRIARWATCH_PULSE_RADIUS else "SPIRIT PULSE MARKED", windup]
+	var threatened := false
+	for index in range(pulses.size()):
+		pulses[index].visible = windup > 0.0 and index < marks.size()
+		if index < marks.size():
+			var target: Vector3 = marks[index]
+			pulses[index].position = Vector3(target.x, 0.07, target.z)
+			threatened = threatened or local_position.distance_to(target) <= State.BRIARWATCH_PULSE_RADIUS
+	warning.visible = windup > 0.0 and not marks.is_empty() and local_position.is_finite() and absf(local_position.x) <= 12 and local_position.z <= -55 and local_position.z >= State.WORLD_MIN_Z
+	warning.text = "%s · %d marks · %.1fs" % ["LEAVE THE MARK OR BRACE" if threatened else "SPIRIT GROUND MARKED", marks.size(), windup]
 
 
 static func targets(snapshot: Dictionary) -> Array[Dictionary]:

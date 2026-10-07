@@ -1,0 +1,11 @@
+{
+  "version": 34,
+  "quest_stage": "home_repaired",
+  "neighborhood_event_stage": "complete",
+  "creature_defeated": true,
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "briarwatch_stage": "bindings",
+  "positions": {"pressure-a": [0, 0.6, -60], "pressure-b": [6, 0.6, -60]},
+  "broken_briarwatch_bindings": {"west": true}
+}

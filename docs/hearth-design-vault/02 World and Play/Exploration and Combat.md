@@ -26,6 +26,12 @@ While bindings remain, the watch spirit periodically marks a standing traveler's
 
 The warning and cooldown are transient. Empty worlds and empty clearings cancel pending pulses, and rejoining never resumes a saved surprise hit. Damage stays inside the clearing and never reaches homes. Each first broken binding grants normal Exploration mastery to its contributor. Rekindling the beacon awards one shared morale/reputation/chronicle outcome, permanently ends the danger, and leaves a beacon that any standing traveler can use to return home. This is an authored encounter and new place, not continent streaming or final encounter scaling.
 
+### Cooperative pressure waves
+
+Briarwatch now scales simultaneous marked ground by standing active participants inside the clearing: one mark for a solo traveler, two for two to four travelers, and three for five to eight. Each wave locks distinct travelers' positions in stable rotating identity order. All circles share the existing 1.2-second warning, radius and three-second recovery; health, binding count and rewards do not inflate. Spread out, draw marks away from bindings, and coordinate brace/interception while companions complete the three jobs.
+
+Overlapping circles can threaten a player only once per wave, so a valid brace still protects against that wave. Existing Guardian interception remains one hit per brace. New arrivals and departures affect the next wave; marks already shown do not move or multiply mid-warning. Only currently active standing players inside the clearing can be struck, and an empty clearing cancels all marks. Broken bindings survive party-size changes and restarting; pending waves remain transient and are never saved.
+
 ## Combat
 
 Combat is accessible 3D action in either the default first-person view or the close over-the-shoulder third-person view: basic attack, charged or alternate action, dodge or guard, tool use, and a small ability loadout. Weapons and magic offer distinct roles without permanent classes.

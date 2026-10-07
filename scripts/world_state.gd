@@ -230,7 +230,7 @@ var briarwatch_stage := "rumor"
 var broken_briarwatch_bindings: Dictionary = {}
 var briarwatch_windup := 0.0
 var briarwatch_cooldown := 3.0
-var briarwatch_pulse_position := Vector3.ZERO
+var briarwatch_pulse_positions: Array[Vector3] = []
 var briarwatch_target_cursor := 0
 var world_seed := REGION_SEED
 var neighborhood_event_stage := "locked"
@@ -971,6 +971,7 @@ func try_briarwatch_interaction(player_token: String) -> bool:
 				if broken_briarwatch_bindings.size() == BRIARWATCH_BINDINGS.size():
 					briarwatch_stage = "rekindle"
 					briarwatch_windup = 0.0
+					briarwatch_pulse_positions.clear()
 				return true
 		return false
 	if player_position.distance_to(BRIARWATCH_BEACON) > INTERACTION_RADIUS:
@@ -992,13 +993,14 @@ func simulate_briarwatch(delta: float, active_tokens: Array) -> bool:
 		return false
 	var eligible: Array[String] = []
 	for token: String in active_tokens:
-		if positions.has(token) and not bool(downed_players.get(token, false)):
+		if not eligible.has(token) and positions.has(token) and not bool(downed_players.get(token, false)):
 			var point: Vector3 = positions[token]
 			if absf(point.x) <= 12.0 and point.z <= -55.0 and point.z >= WORLD_MIN_Z:
 				eligible.append(token)
 	eligible.sort()
 	if not ruin_waystone_activated or briarwatch_stage != "bindings" or eligible.is_empty():
 		briarwatch_windup = 0.0
+		briarwatch_pulse_positions.clear()
 		briarwatch_cooldown = 3.0
 		return false
 	if briarwatch_windup > 0.0:
@@ -1008,15 +1010,21 @@ func simulate_briarwatch(delta: float, active_tokens: Array) -> bool:
 		briarwatch_cooldown = 3.0
 		var struck := false
 		for token: String in eligible:
-			if (positions[token] as Vector3).distance_to(briarwatch_pulse_position) <= BRIARWATCH_PULSE_RADIUS:
-				_apply_enemy_hit(token, eligible, briarwatch_pulse_position)
-				struck = true
+			for mark: Vector3 in briarwatch_pulse_positions:
+				if (positions[token] as Vector3).distance_to(mark) <= BRIARWATCH_PULSE_RADIUS:
+					_apply_enemy_hit(token, eligible, mark)
+					struck = true
+					break # Overlapping circles are one threat per player per wave.
+		briarwatch_pulse_positions.clear()
 		return struck
 	briarwatch_cooldown = maxf(0.0, briarwatch_cooldown - delta)
 	if briarwatch_cooldown <= 0.0:
-		var target: String = eligible[briarwatch_target_cursor % eligible.size()]
-		briarwatch_target_cursor += 1
-		briarwatch_pulse_position = positions[target]
+		var count := 1 if eligible.size() == 1 else (2 if eligible.size() <= 4 else 3)
+		briarwatch_pulse_positions.clear()
+		for index in range(count):
+			var target: String = eligible[(briarwatch_target_cursor + index) % eligible.size()]
+			briarwatch_pulse_positions.append(positions[target])
+		briarwatch_target_cursor += count
 		briarwatch_windup = BRIARWATCH_WARNING_SECONDS
 	return false
 
@@ -2439,7 +2447,7 @@ func load_dictionary(data: Dictionary) -> void:
 	briarwatch_windup = 0.0
 	briarwatch_cooldown = 3.0
 	briarwatch_target_cursor = 0
-	briarwatch_pulse_position = Vector3.ZERO
+	briarwatch_pulse_positions.clear()
 	player_activity_pins.clear()
 	if save_version >= 28:
 		var saved_pins: Dictionary = data.get("player_activity_pins", {})
