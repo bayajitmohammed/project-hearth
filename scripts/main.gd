@@ -1279,6 +1279,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_windup": world_state.briarwatch_windup,
 		"briarwatch_pulse_positions": world_state.briarwatch_pulse_positions.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
+		"homestead_planted_at": world_state.homestead_planted_at.duplicate(),
 		"structures": world_state.structures.duplicate(true),
 		"sparring": world_state.sparring.snapshot(),
 		"wilderness_plots": world_state.wilderness_plots.duplicate(true),

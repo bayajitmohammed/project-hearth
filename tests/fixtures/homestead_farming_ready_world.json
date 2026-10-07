@@ -1,0 +1,17 @@
+{
+  "version": 36,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_waystone_activated": true,
+  "reedbank_stage": "complete",
+  "world_day": 1,
+  "world_minute": 480,
+  "materials": {"wood": 6},
+  "positions": {"farmer-a": [-15, 0.6, 17], "farmer-b": [-15, 0.6, 17]},
+  "furnishings": {
+    "0,0": {"kind": "moonroot_bed", "rotation": 0},
+    "1,0": {"kind": "sunwheat_bed", "rotation": 0}
+  },
+  "homestead_planted_at": {"/0,0": 360, "/1,0": 360}
+}

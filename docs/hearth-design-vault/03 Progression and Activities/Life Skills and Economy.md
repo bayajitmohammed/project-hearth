@@ -44,6 +44,14 @@ Oren's restored mill opens three shared sunwheat beds, a flour hopper, and a bre
 
 At the mill hopper, two shared sunwheat become one shared flour. At the nearby oven, one flour and one shared herb become two personal trail provisions and one Cooking mastery to the baker. Missing ingredients consume nothing. Milling adds no separate mastery or reward. Friends can divide sowing, harvesting, milling, foraging, and baking across sessions; no plot or intermediate ingredient is privately locked to its contributor. This is a new local production activity, not an automated factory or a source of coin, reputation, or repeated chronicle rewards. Old saves start with empty beds and no grain or flour.
 
+## Player-built crop beds — implementation scope
+
+Homestead farming extends the existing grid catalogue with **Moonroot bed** and **Sunwheat bed** recipes. The restored ruins route teaches moonroot beds; Oren's restored mill teaches sunwheat beds. Both use two shared wood and the ordinary full wood refund, occupy one furnishing cell, and work in the south yard or a claimed wilderness clearing. They may coexist with structures; this increment does not simulate sunlight or irrigation.
+
+Outside build mode, explicit interaction plants an empty bed using reusable seed stock. After 120 authoritative world minutes, harvesting yields one shared moonroot or two shared sunwheat and one Farming mastery point for the harvester. Crops are room-shared, remain ripe until harvested, and require another explicit planting. Bounded empty-world calendar catch-up may ripen an existing planting but never harvest, replant, award mastery or accumulate cycles. Existing cooking, milling and market costs remain unchanged.
+
+Planting times persist by plot and cell. Removing a planted bed discards that planting without produce or mastery; the build panel warns before the explicit removal action. Replacing or rotating through removal starts an empty bed, never a mature duplicate. Empty, growing and ripe states have distinct crop presentation and contextual text. Placement grants no mastery, coin or milestone reward. This is productive player-built farming, not automated production, private ownership or final crop art.
+
 ## Loot, trade, and currency
 
 Loot favors recipes, unusual materials, tools with trade-offs, keepsakes, and cosmetics over constant numeric upgrades. Players can trade directly and contribute to shared storage.

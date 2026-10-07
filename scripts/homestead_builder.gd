@@ -192,6 +192,8 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 		hint = "Occupied · remove to rearrange." if occupied else ("Ready to place." if can_place else "Gather 2 shared wood to build.")
 	if not requirement.is_empty():
 		hint = "RECIPE LOCKED · " + requirement
+	if occupied and kind not in World.Structures.KINDS and snapshot.get("homestead_planted_at", {}).has(plot_id + "/" + World.furnishing_cell_key(cell)):
+		hint = "Planted crop · removing discards the crop. Wood is refunded."
 	if kind in World.Structures.KINDS and valid and nearby:
 		hint = structure_error if not structure_error.is_empty() else ("Ready to build." if can_place else "Gather 2 shared wood to build.")
 		if structures.has(World.Structures.key(cell, kind, quarter_turns)):
@@ -261,10 +263,35 @@ func _update_station_markers(snapshot: Dictionary) -> void:
 			station_markers[id] = marker
 		station_markers[id].position = station["position"]
 		station_markers[id].get_node("Label").text = station["text"]
+		if World.CROP_BEDS.has(station["kind"]):
+			_update_crop(station_markers[id], station["kind"], station["crop_phase"])
+		elif station_markers[id].has_node("Crop"):
+			station_markers[id].get_node("Crop").free()
+			station_markers[id].remove_meta("crop_appearance")
 	for id: String in station_markers.keys():
 		if not needed.has(id):
 			station_markers[id].free()
 			station_markers.erase(id)
+
+
+func _update_crop(marker: Node3D, crop_kind: String, phase: String) -> void:
+	var appearance := crop_kind + "/" + phase
+	if marker.get_meta("crop_appearance", "") == appearance:
+		return
+	marker.set_meta("crop_appearance", appearance)
+	if marker.has_node("Crop"):
+		marker.get_node("Crop").free()
+	var crop := Node3D.new()
+	crop.name = "Crop"
+	marker.add_child(crop)
+	if phase == "empty":
+		return
+	var ripe := phase == "ripe"
+	for x: float in [-0.6, 0, 0.6]:
+		for z: float in [-0.35, 0.35]:
+			var height := 0.55 if ripe else 0.2
+			_box(crop, Vector3(0.1, height, 0.1), Vector3(x, -0.32 + height / 2, z), Color("669650"))
+			_box(crop, Vector3(0.3, 0.18, 0.3), Vector3(x, -0.32 + height, z), Color("b5cee6") if ripe and crop_kind == "moonroot_bed" else (Color("e4bd64") if ripe else Color("80b16a")))
 
 
 func _rebuild_preview() -> void:
@@ -284,7 +311,13 @@ func _rebuild_preview() -> void:
 
 static func make_piece(piece_kind: String) -> Node3D:
 	var result := Node3D.new()
-	if piece_kind == "bedroll":
+	if World.CROP_BEDS.has(piece_kind):
+		_box(result, Vector3(2.25, 0.2, 1.8), Vector3(0, 0.1, 0), Color("6b5140"))
+		for z: float in [-0.9, 0.9]:
+			_box(result, Vector3(2.4, 0.3, 0.12), Vector3(0, 0.15, z), Color("a1815c"))
+		for x: float in [-1.14, 1.14]:
+			_box(result, Vector3(0.12, 0.3, 1.8), Vector3(x, 0.15, 0), Color("a1815c"))
+	elif piece_kind == "bedroll":
 		_box(result, Vector3(1.15, 0.12, 2), Vector3(0, 0.2, 0), Color("527b79"))
 		_box(result, Vector3(0.95, 0.18, 0.4), Vector3(0, 0.32, -0.65), Color("ded3b6"))
 		_box(result, Vector3(1.2, 0.18, 1.25), Vector3(0, 0.29, 0.32), Color("849fa0"))

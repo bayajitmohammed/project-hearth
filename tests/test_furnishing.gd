@@ -95,6 +95,10 @@ func _init() -> void:
 	assert(builder.kind == "foundation")
 	for step in range(6):
 		builder.cycle_piece()
+	assert(builder.kind == "moonroot_bed")
+	builder.cycle_piece()
+	assert(builder.kind == "sunwheat_bed")
+	builder.cycle_piece()
 	assert(builder.kind == "bench")
 	print("PASS: shared furnishing conservation, authority, persistence, and preview")
 	quit()

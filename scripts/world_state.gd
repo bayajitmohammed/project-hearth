@@ -71,10 +71,12 @@ const FURNISHING_SPACING := Structures.SPACING
 const FURNISHING_REACH := 4.5
 const FURNISHING_WOOD_COST := 2
 const DECORATIVE_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
-const UTILITY_KINDS := ["bedroll", "trailwork_bench"]
+const CROP_BEDS := {"moonroot_bed": {"crop": "moonroot", "yield": 1}, "sunwheat_bed": {"crop": "sunwheat", "yield": 2}}
+const HOMESTEAD_GROW_MINUTES := 120
+const UTILITY_KINDS := ["bedroll", "trailwork_bench", "moonroot_bed", "sunwheat_bed"]
 const FURNISHING_KINDS := DECORATIVE_KINDS + UTILITY_KINDS
 const BUILDING_KINDS := DECORATIVE_KINDS + Structures.KINDS + UTILITY_KINDS
-const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table", "bedroll": "Bedroll", "trailwork_bench": "Trailwork bench"}
+const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table", "bedroll": "Bedroll", "trailwork_bench": "Trailwork bench", "moonroot_bed": "Moonroot bed", "sunwheat_bed": "Sunwheat bed"}
 const REGION_SEED := 73021
 const MAX_WORLD_SEED := 2147483647
 const NORTHWOOD_REVEAL_Z := -16.0
@@ -223,6 +225,7 @@ var wilderness_plots: Dictionary = {}
 var sparring := Sparring.new()
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
+var homestead_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
 var wilderness_forage_days: Dictionary = {}
@@ -556,6 +559,10 @@ static func furnishing_position(cell: Vector2i) -> Vector3:
 
 
 static func furnishing_requirement(kind: String, progress: Dictionary) -> String:
+	if kind == "moonroot_bed" and not bool(progress.get("ruin_waystone_activated", false)):
+		return "Restore the Old Stone Ruins waystone."
+	if kind == "sunwheat_bed" and str(progress.get("reedbank_stage", "")) != "complete":
+		return "Restore Oren's Reedbank mill."
 	if kind == "watch_lantern" and str(progress.get("briarwatch_stage", "rumor")) != "complete":
 		return "Rekindle the Briarwatch beacon."
 	if kind == "gathering_table" and str(progress.get("moonwell_supper_stage", "locked")) != "complete":
@@ -614,11 +621,12 @@ func try_change_furnishing(player_token: String, cell: Vector2i, kind: String, q
 		if not plot_furnishings.has(key):
 			return false
 		plot_furnishings.erase(key)
+		homestead_planted_at.erase(plot_id + "/" + key)
 		materials["wood"] = int(materials.get("wood", 0)) + FURNISHING_WOOD_COST
 		return true
 	if kind not in FURNISHING_KINDS or quarter_turns < 0 or quarter_turns > 3:
 		return false
-	if not furnishing_requirement(kind, {"briarwatch_stage": briarwatch_stage, "moonwell_supper_stage": moonwell_supper_stage}).is_empty():
+	if not furnishing_requirement(kind, {"briarwatch_stage": briarwatch_stage, "moonwell_supper_stage": moonwell_supper_stage, "ruin_waystone_activated": ruin_waystone_activated, "reedbank_stage": reedbank_stage}).is_empty():
 		return false
 	if plot_furnishings.has(key) or int(materials.get("wood", 0)) < FURNISHING_WOOD_COST:
 		return false
@@ -661,7 +669,21 @@ static func furnishing_stations(progress: Dictionary) -> Array[Dictionary]:
 			var cell := Structures.cell_for(slot)
 			var sheltered := supports.has(Structures.key(cell, "foundation", 0)) and supports.has(Structures.key(cell, "roof", 0))
 			result.append({"id": plot_id + "/" + slot, "plot_id": plot_id, "kind": kind, "position": furnishing_position(cell) + shift + Vector3(0, 0.6, 0), "sheltered": sheltered, "text": ("Rest in sheltered bedroll" if sheltered else "Bedroll needs foundation and roof") if kind == "bedroll" else "Trailcraft · 1 wood + 1 herb"})
+			if CROP_BEDS.has(kind):
+				var station: Dictionary = result.back()
+				var remaining := homestead_crop_remaining(progress, station["id"])
+				var crop: String = CROP_BEDS[kind]["crop"]
+				station["crop_phase"] = "empty" if remaining < 0 else ("ripe" if remaining == 0 else "growing")
+				station["text"] = "Plant %s · reusable seeds" % crop if remaining < 0 else ("Harvest %d %s" % [CROP_BEDS[kind]["yield"], crop] if remaining == 0 else "%s growing · %d world min" % [crop.capitalize(), remaining])
 	return result
+
+
+static func homestead_crop_remaining(progress: Dictionary, bed_id: String) -> int:
+	var plantings: Dictionary = progress.get("homestead_planted_at", {})
+	if not plantings.has(bed_id):
+		return -1
+	var now := (int(progress.get("world_day", 1)) - 1) * WORLD_MINUTES_PER_DAY + int(progress.get("world_minute", 0))
+	return maxi(0, int(plantings[bed_id]) + HOMESTEAD_GROW_MINUTES - now)
 
 
 static func nearest_furnishing_station(progress: Dictionary, point: Vector3) -> Dictionary:
@@ -678,8 +700,19 @@ static func nearest_furnishing_station(progress: Dictionary, point: Vector3) -> 
 func try_use_furnishing(player_token: String) -> bool:
 	if quest_stage != "home_repaired" or not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
-	var station := nearest_furnishing_station({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots}, positions[player_token])
+	var station := nearest_furnishing_station({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots, "homestead_planted_at": homestead_planted_at, "world_day": world_day, "world_minute": world_minute}, positions[player_token])
 	if station.is_empty():
+		return false
+	if CROP_BEDS.has(station["kind"]):
+		if station["crop_phase"] == "empty":
+			homestead_planted_at[station["id"]] = world_calendar_minutes()
+			return true
+		if station["crop_phase"] == "ripe":
+			homestead_planted_at.erase(station["id"])
+			var recipe: Dictionary = CROP_BEDS[station["kind"]]
+			materials[recipe["crop"]] = int(materials.get(recipe["crop"], 0)) + int(recipe["yield"])
+			_add_mastery(player_token, "farming")
+			return true
 		return false
 	if station["kind"] == "bedroll":
 		if not station["sheltered"] or int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
@@ -2299,7 +2332,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 35,
+		"version": 36,
+		"homestead_planted_at": homestead_planted_at.duplicate(),
 		"sparring": sparring.saved(),
 		"wilderness_plots": wilderness_plots.duplicate(true),
 		"structures": structures.duplicate(true),
@@ -2704,6 +2738,12 @@ func load_dictionary(data: Dictionary) -> void:
 			else 0
 		)
 	sunwheat_planted_at.clear()
+	homestead_planted_at.clear()
+	if save_version >= 36:
+		var stored_crops: Dictionary = data.get("homestead_planted_at", {})
+		for station: Dictionary in furnishing_stations({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots}):
+			if CROP_BEDS.has(station["kind"]) and stored_crops.has(station["id"]):
+				homestead_planted_at[station["id"]] = clampi(int(stored_crops[station["id"]]), 0, world_calendar_minutes())
 	if save_version >= 27:
 		var saved_plantings: Dictionary = data.get("sunwheat_planted_at", {})
 		for bed_id: String in SUNWHEAT_BEDS:
