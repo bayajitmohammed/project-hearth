@@ -1,0 +1,10 @@
+{
+  "version": 35,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "produce_stall_open": true,
+  "livelihood_stage": "complete",
+  "positions": {"spar-a": [10, 0.6, 18], "spar-b": [10, 0.6, 18]},
+  "player_outing_kits": {"spar-b": "guardian"}
+}

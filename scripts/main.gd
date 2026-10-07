@@ -34,6 +34,7 @@ const WildernessLayout = preload("res://scripts/wilderness_layout.gd")
 const WildernessView = preload("res://scripts/wilderness_view.gd")
 var wilderness: Node3D
 var briarwatch: Node3D
+var sparring_circle: Node3D
 var activity_journal: CanvasLayer
 
 var homestead_builder: Node3D
@@ -416,6 +417,7 @@ func _simulate_server(delta: float) -> void:
 		_save_world()
 	if world_state.simulate_briarwatch(delta, peer_to_token.values()):
 		_save_world()
+	world_state.sparring.tick(delta, world_state.positions, world_state.downed_players, peer_to_token.values())
 	world_state.simulate_fishing(delta, peer_to_token.values())
 
 	snapshot_accumulator += delta
@@ -714,6 +716,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	nima_map_table.visible = nima_story_stage == "complete"
 	reedbank.update_view(snapshot)
 	briarwatch.update_view(snapshot, local_token)
+	sparring_circle.update_view(snapshot, local_token)
 	wilderness.update_view(snapshot, local_token)
 	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
 	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
@@ -1208,6 +1211,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if peer_to_token.has(peer_id):
 		var departing_token: String = peer_to_token[peer_id]
 		world_state.remove_festival_participant(departing_token)
+		world_state.sparring.cancel(departing_token)
 		world_state.reset_player_fishing(departing_token)
 	peer_inputs.erase(peer_id)
 	peer_to_token.erase(peer_id)
@@ -1219,6 +1223,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 func _exit_tree() -> void:
 	if is_server and local_authority_player:
 		world_state.remove_festival_participant(local_token)
+		world_state.sparring.cancel(local_token)
 		world_state.reset_player_fishing(local_token)
 		world_state.mark_world_empty(int(Time.get_unix_time_from_system()))
 		_save_world()
@@ -1275,6 +1280,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_pulse_positions": world_state.briarwatch_pulse_positions.duplicate(),
 		"furnishings": world_state.furnishings.duplicate(true),
 		"structures": world_state.structures.duplicate(true),
+		"sparring": world_state.sparring.snapshot(),
 		"wilderness_plots": world_state.wilderness_plots.duplicate(true),
 		"world_day": world_state.world_day,
 		"world_minute": world_state.world_minute,
@@ -1479,6 +1485,8 @@ func _build_world() -> void:
 	add_child(reedbank)
 	briarwatch = Briarwatch.new()
 	add_child(briarwatch)
+	sparring_circle = preload("res://scripts/sparring_circle.gd").new()
+	add_child(sparring_circle)
 	wilderness = WildernessView.new()
 	add_child(wilderness)
 	moonwell_stones = world_nodes["moonwell_stones"]
@@ -1952,6 +1960,8 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	if bool(latest_snapshot.get("produce_stall_open", false)):
+		_append_mobile_target(candidates, sparring_circle.marker, "Sparring · volunteer/cancel", "interact", WorldStateModel.Sparring.JOIN_REACH)
 	for section_id: String in wilderness.cache_markers:
 		if not latest_snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(section_id):
 			_append_mobile_target(candidates, wilderness.cache_markers[section_id], "Take trail provision", "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2768,6 +2778,13 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
+	if bool(latest_snapshot.get("produce_stall_open", false)) and player_position.distance_to(WorldStateModel.Sparring.CENTER) <= WorldStateModel.Sparring.JOIN_REACH:
+		var duel: Dictionary = latest_snapshot.get("sparring", {})
+		var duel_stage := str(duel.get("stage", "available"))
+		if duel_stage in ["available", "waiting", "results"]:
+			interaction_prompt.text = "%s · %s" % [action_name, "Cancel sparring signup" if duel.get("participants", {}).has(local_token) else "Volunteer for normalized sparring"]
+			interaction_prompt.visible = true
+			return
 	var furniture_station := WorldStateModel.nearest_furnishing_station(latest_snapshot, player_position)
 	if not furniture_station.is_empty():
 		interaction_prompt.text = "%s · %s" % [action_name, furniture_station["text"]]

@@ -4,6 +4,7 @@ extends RefCounted
 const ActivityCatalog = preload("res://scripts/activity_catalog.gd")
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 const Structures = preload("res://scripts/structure_layout.gd")
+const Sparring = preload("res://scripts/sparring_rules.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -219,6 +220,7 @@ var moonwell_supper_courses := 0
 var furnishings: Dictionary = {}
 var structures: Dictionary = {}
 var wilderness_plots: Dictionary = {}
+var sparring := Sparring.new()
 var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var player_activity_pins: Dictionary = {}
@@ -1122,6 +1124,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_sparring_interaction(player_token, active_tokens)
 		or try_use_furnishing(player_token)
 		or try_outpost_interaction(player_token)
 		or try_claim_plot(player_token)
@@ -1364,6 +1367,8 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
 		return false
+	if sparring.participants.has(player_token):
+		return sparring.attack(player_token, positions, downed_players)
 	if float(player_attack_recovery.get(player_token, 0.0)) > 0.0:
 		return false
 	if (
@@ -1400,6 +1405,8 @@ func try_brace(player_token: String) -> bool:
 	register_player(player_token)
 	if bool(downed_players.get(player_token, false)):
 		return false
+	if sparring.participants.has(player_token):
+		return sparring.brace(player_token)
 	if float(player_brace_time.get(player_token, 0.0)) > 0.0:
 		return false
 	if float(player_brace_cooldown.get(player_token, 0.0)) > 0.0:
@@ -2171,6 +2178,8 @@ func _complete_daily_food_order() -> void:
 
 
 func try_festival_interaction(player_token: String) -> bool:
+	if sparring.participants.has(player_token):
+		return false
 	if livelihood_stage != "complete" or not produce_stall_open or festival_stage == "locked":
 		return false
 	var player_position := register_player(player_token)
@@ -2213,6 +2222,14 @@ func try_festival_interaction(player_token: String) -> bool:
 		if festival_finishers.size() >= festival_participants.size():
 			festival_stage = "results"
 	return true
+
+
+func try_sparring_interaction(player_token: String, active_tokens: Array = []) -> bool:
+	if festival_participants.has(player_token) and festival_stage in ["signup", "racing"]:
+		return false
+	if not active_tokens.is_empty():
+		sparring.tick(0, positions, downed_players, active_tokens)
+	return sparring.join(player_token, positions, downed_players, produce_stall_open)
 
 
 func remove_festival_participant(player_token: String) -> bool:
@@ -2282,7 +2299,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 34,
+		"version": 35,
+		"sparring": sparring.saved(),
 		"wilderness_plots": wilderness_plots.duplicate(true),
 		"structures": structures.duplicate(true),
 		"wilderness_forage_days": wilderness_forage_days.duplicate(),
@@ -2393,6 +2411,7 @@ func load_dictionary(data: Dictionary) -> void:
 	reputation = int(data.get("reputation", 1 if quest_stage == "home_repaired" else 0))
 	map_rumor_unlocked = bool(data.get("map_rumor_unlocked", quest_stage == "home_repaired"))
 	var save_version := int(data.get("version", 1))
+	sparring.load_saved(data.get("sparring", {}) if save_version >= 35 else {})
 	structures = Structures.sanitize(data.get("structures", {})) if save_version >= 33 else {}
 	wilderness_plots.clear()
 	if save_version >= 34:
