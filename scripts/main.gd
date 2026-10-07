@@ -1955,6 +1955,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 	for section_id: String in wilderness.cache_markers:
 		if not latest_snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(section_id):
 			_append_mobile_target(candidates, wilderness.cache_markers[section_id], "Take trail provision", "interact", WorldStateModel.INTERACTION_RADIUS)
+	for station: Dictionary in WorldStateModel.furnishing_stations(latest_snapshot):
+		if homestead_builder.station_markers.has(station["id"]):
+			_append_mobile_target(candidates, homestead_builder.station_markers[station["id"]], station["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	if latest_snapshot.get("quest_stage", "") == "home_repaired":
 		for section_id: String in wilderness.claim_markers:
 			if not latest_snapshot.get("wilderness_plots", {}).has(section_id):
@@ -2765,6 +2768,11 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
+	var furniture_station := WorldStateModel.nearest_furnishing_station(latest_snapshot, player_position)
+	if not furniture_station.is_empty():
+		interaction_prompt.text = "%s · %s" % [action_name, furniture_station["text"]]
+		interaction_prompt.visible = true
+		return
 	var player_health: Dictionary = latest_snapshot.get("player_health", {})
 	var downed_players: Dictionary = latest_snapshot.get("downed_players", {})
 	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):

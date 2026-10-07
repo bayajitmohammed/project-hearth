@@ -93,7 +93,7 @@ func _init() -> void:
 	assert(builder.kind == "gathering_table")
 	builder.cycle_piece()
 	assert(builder.kind == "foundation")
-	for step in range(4):
+	for step in range(6):
 		builder.cycle_piece()
 	assert(builder.kind == "bench")
 	print("PASS: shared furnishing conservation, authority, persistence, and preview")

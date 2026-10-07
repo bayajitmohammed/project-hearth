@@ -18,6 +18,7 @@ var plot_id := ""
 var remote_roots: Dictionary = {}
 var remote_layouts: Dictionary = {}
 var remote_seed := -1
+var station_markers: Dictionary = {}
 var preview: Node3D
 var grid: Node3D
 var panel: VBoxContainer
@@ -133,6 +134,7 @@ func update_view(snapshot: Dictionary, token: String, yaw: float, connected: boo
 	var seed_value := int(snapshot.get("world_seed", 1))
 	var local_section := World.Wilderness.cell_at(player_position) if player_position.is_finite() else Vector2i(-99, -99)
 	_update_remote_plots(snapshot.get("wilderness_plots", {}), seed_value, local_section)
+	_update_station_markers(snapshot)
 	plot_id = World.Wilderness.key(local_section) if World.Wilderness.valid(local_section) else ""
 	var shift := Vector3.ZERO
 	var claimed := true
@@ -237,6 +239,34 @@ func _piece_name() -> String:
 	return str(World.FURNISHING_NAMES.get(kind, World.Structures.NAMES.get(kind, kind)))
 
 
+func _update_station_markers(snapshot: Dictionary) -> void:
+	var needed: Dictionary = {}
+	for station: Dictionary in World.furnishing_stations(snapshot):
+		if not str(station["plot_id"]).is_empty() and not remote_roots.has(station["plot_id"]):
+			continue
+		var id: String = station["id"]
+		needed[id] = true
+		if not station_markers.has(id):
+			var marker := Node3D.new()
+			add_child(marker)
+			var label := Label3D.new()
+			label.name = "Label"
+			label.position.y = 0.9
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.font_size = 32
+			label.pixel_size = 0.0015
+			label.fixed_size = true
+			label.modulate = Color("ebd7ac")
+			marker.add_child(label)
+			station_markers[id] = marker
+		station_markers[id].position = station["position"]
+		station_markers[id].get_node("Label").text = station["text"]
+	for id: String in station_markers.keys():
+		if not needed.has(id):
+			station_markers[id].free()
+			station_markers.erase(id)
+
+
 func _rebuild_preview() -> void:
 	if preview != null:
 		preview.free()
@@ -254,7 +284,17 @@ func _rebuild_preview() -> void:
 
 static func make_piece(piece_kind: String) -> Node3D:
 	var result := Node3D.new()
-	if piece_kind == "foundation":
+	if piece_kind == "bedroll":
+		_box(result, Vector3(1.15, 0.12, 2), Vector3(0, 0.2, 0), Color("527b79"))
+		_box(result, Vector3(0.95, 0.18, 0.4), Vector3(0, 0.32, -0.65), Color("ded3b6"))
+		_box(result, Vector3(1.2, 0.18, 1.25), Vector3(0, 0.29, 0.32), Color("849fa0"))
+	elif piece_kind == "trailwork_bench":
+		_box(result, Vector3(2.1, 0.16, 1.1), Vector3(0, 0.95, 0), Color("967251"))
+		for x in [-0.8, 0.8]:
+			_box(result, Vector3(0.2, 0.9, 0.8), Vector3(x, 0.45, 0), Color("6d5841"))
+		_box(result, Vector3(0.6, 0.16, 0.5), Vector3(-0.4, 1.1, 0), Color("7ba185"))
+		_box(result, Vector3(0.4, 0.3, 0.4), Vector3(0.55, 1.2, 0.1), Color("c3a478"))
+	elif piece_kind == "foundation":
 		_box(result, Vector3(2.8, 0.12, 2.8), Vector3(0, 0.06, 0), Color("ab9470"))
 	elif piece_kind in ["wall", "doorway"]:
 		if piece_kind == "wall":

@@ -4,6 +4,10 @@ Godot prototype for the multiplayer world game. Slice 0 proves authoritative net
 
 ## Run locally on macOS
 
+**Useful homesteads:** the build catalogue now includes **Bedroll** and **Trailwork bench**, each costing/refunding two wood. Outside build mode, **E** at a bedroll restores a standing injured player only when its cell has a foundation and supported roof. Removing the roof disables rest. At a player-built bench, **E** consumes one shared wood and one herb for one personal provision. These work at home and in wilderness claims without passive output, mastery rewards, time skips, or respawn changes.
+
+Station coverage: `Godot --headless --path . --script res://tests/test_useful_homesteads.gd`. For concurrent rest/crafting, copy `tests/fixtures/useful_homesteads_ready_world.json` to an isolated save, serve room `STATIONS` on port `9471`, and launch `tests/useful_homesteads_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9471 --room=STATIONS` and identities `--player-token=station-a` / `--player-token=station-b`.
+
 **Wilderness homesteads:** after cottage repair, each western section except the Fartrail Outpost section offers a marked clearing. Press **E** at its post to claim the shared plot for two wood once. Use **B** nearby to build with the same furniture, foundations, walls, doorways and roofs as the south yard. Claims belong to the group, persist independently in version-34 saves, and never decay or generate passive goods. Buildings stream with nearby sections while their collision stays authoritative. Unclaimed land, caches, forage and authored landmarks remain protected.
 
 Plot coverage: `Godot --headless --path . --script res://tests/test_wilderness_plots.gd`. Use an isolated copy of `tests/fixtures/wilderness_plots_ready_world.json`, serve room `PLOTS` on port `9469`, and run `tests/wilderness_plots_multiplayer_probe.gd` simultaneously with `--connect=ws://127.0.0.1:9469 --room=PLOTS` and identities `--player-token=plot-a` / `--player-token=plot-b`.

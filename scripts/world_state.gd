@@ -69,9 +69,11 @@ const FURNISHING_ROWS := Structures.ROWS
 const FURNISHING_SPACING := Structures.SPACING
 const FURNISHING_REACH := 4.5
 const FURNISHING_WOOD_COST := 2
-const FURNISHING_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
-const BUILDING_KINDS := FURNISHING_KINDS + Structures.KINDS
-const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table"}
+const DECORATIVE_KINDS := ["bench", "flower_box", "watch_lantern", "gathering_table"]
+const UTILITY_KINDS := ["bedroll", "trailwork_bench"]
+const FURNISHING_KINDS := DECORATIVE_KINDS + UTILITY_KINDS
+const BUILDING_KINDS := DECORATIVE_KINDS + Structures.KINDS + UTILITY_KINDS
+const FURNISHING_NAMES := {"bench": "Bench", "flower_box": "Flower box", "watch_lantern": "Watch lantern", "gathering_table": "Gathering table", "bedroll": "Bedroll", "trailwork_bench": "Trailwork bench"}
 const REGION_SEED := 73021
 const MAX_WORLD_SEED := 2147483647
 const NORTHWOOD_REVEAL_Z := -16.0
@@ -638,6 +640,58 @@ static func sanitize_furnishings(saved: Dictionary) -> Dictionary:
 	return result
 
 
+static func furnishing_stations(progress: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var plots: Dictionary = progress.get("wilderness_plots", {}).duplicate()
+	plots[""] = {"furnishings": progress.get("furnishings", {}), "structures": progress.get("structures", {})}
+	var plot_ids := plots.keys()
+	plot_ids.sort()
+	for plot_id: String in plot_ids:
+		var shift := Vector3.ZERO if plot_id.is_empty() else Wilderness.plot_origin(int(progress.get("world_seed", REGION_SEED)), Structures.cell_for(plot_id)) - FURNISHING_ORIGIN
+		var layout: Dictionary = plots[plot_id]["furnishings"]
+		var supports: Dictionary = plots[plot_id]["structures"]
+		var slots := layout.keys()
+		slots.sort()
+		for slot: String in slots:
+			var kind := str(layout[slot]["kind"])
+			if kind not in UTILITY_KINDS:
+				continue
+			var cell := Structures.cell_for(slot)
+			var sheltered := supports.has(Structures.key(cell, "foundation", 0)) and supports.has(Structures.key(cell, "roof", 0))
+			result.append({"id": plot_id + "/" + slot, "plot_id": plot_id, "kind": kind, "position": furnishing_position(cell) + shift + Vector3(0, 0.6, 0), "sheltered": sheltered, "text": ("Rest in sheltered bedroll" if sheltered else "Bedroll needs foundation and roof") if kind == "bedroll" else "Trailcraft · 1 wood + 1 herb"})
+	return result
+
+
+static func nearest_furnishing_station(progress: Dictionary, point: Vector3) -> Dictionary:
+	var result: Dictionary = {}
+	var distance := INTERACTION_RADIUS
+	for station: Dictionary in furnishing_stations(progress):
+		var candidate: float = point.distance_to(station["position"])
+		if candidate <= distance and (result.is_empty() or candidate < distance):
+			result = station
+			distance = candidate
+	return result
+
+
+func try_use_furnishing(player_token: String) -> bool:
+	if quest_stage != "home_repaired" or not positions.has(player_token) or bool(downed_players.get(player_token, false)):
+		return false
+	var station := nearest_furnishing_station({"world_seed": world_seed, "furnishings": furnishings, "structures": structures, "wilderness_plots": wilderness_plots}, positions[player_token])
+	if station.is_empty():
+		return false
+	if station["kind"] == "bedroll":
+		if not station["sheltered"] or int(player_health.get(player_token, PLAYER_MAX_HEALTH)) >= PLAYER_MAX_HEALTH:
+			return false
+		player_health[player_token] = PLAYER_MAX_HEALTH
+		return true
+	if int(materials.get("wood", 0)) < 1 or int(materials.get("herb", 0)) < 1:
+		return false
+	materials["wood"] -= 1
+	materials["herb"] -= 1
+	player_provisions[player_token] = int(player_provisions.get(player_token, 0)) + 1
+	return true
+
+
 func try_prepare_moonwell_supper(player_token: String) -> bool:
 	if moonwell_supper_stage != "available":
 		return false
@@ -1060,6 +1114,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_aid_injured_friend(player_token, active_tokens)
 		or try_return_to_safety(player_token)
 		or try_recover_pack(player_token)
+		or try_use_furnishing(player_token)
 		or try_outpost_interaction(player_token)
 		or try_claim_plot(player_token)
 		or try_wilderness_cache(player_token)

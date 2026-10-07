@@ -1,0 +1,16 @@
+{
+  "version": 34,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "materials": {"wood": 1, "herb": 1},
+  "positions": {"station-a": [-15, 0.6, 17], "station-b": [-12, 0.6, 17]},
+  "player_health": {"station-a": 1, "station-b": 3},
+  "furnishings": {"0,0": {"kind": "bedroll", "rotation": 0}, "1,0": {"kind": "trailwork_bench", "rotation": 0}},
+  "structures": {
+    "0,0/foundation": {"kind": "foundation", "rotation": 0},
+    "0,0/side0": {"kind": "wall", "rotation": 0},
+    "0,0/side2": {"kind": "doorway", "rotation": 2},
+    "0,0/roof": {"kind": "roof", "rotation": 0}
+  }
+}
