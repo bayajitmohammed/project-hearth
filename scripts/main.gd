@@ -35,6 +35,7 @@ const WildernessView = preload("res://scripts/wilderness_view.gd")
 var wilderness: Node3D
 var briarwatch: Node3D
 var sparring_circle: Node3D
+var neighborhood_visit_view: Node3D
 var activity_journal: CanvasLayer
 var trade_panel: CanvasLayer
 
@@ -428,6 +429,8 @@ func _update_local_player_visibility() -> void:
 
 
 func _simulate_server(delta: float) -> void:
+	if not peer_to_token.is_empty() and world_state.refresh_neighborhood_visit():
+		_save_world()
 	if not peer_to_token.is_empty() and world_state.simulate_world_clock(delta):
 		_save_world()
 	for peer_id: int in peer_to_token:
@@ -764,6 +767,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	reedbank.update_view(snapshot)
 	briarwatch.update_view(snapshot, local_token)
 	sparring_circle.update_view(snapshot, local_token)
+	neighborhood_visit_view.update_view(snapshot, local_token)
 	wilderness.update_view(snapshot, local_token)
 	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
 	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
@@ -1331,6 +1335,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"furnishings": world_state.furnishings.duplicate(true),
 		"homestead_planted_at": world_state.homestead_planted_at.duplicate(),
 		"homestead_guest": world_state.homestead_guest.duplicate(),
+		"neighborhood_visits": world_state.neighborhood_visits.saved(),
 		"structures": world_state.structures.duplicate(true),
 		"sparring": world_state.sparring.snapshot(),
 		"trades": world_state.trades.snapshot(),
@@ -1540,6 +1545,8 @@ func _build_world() -> void:
 	add_child(briarwatch)
 	sparring_circle = preload("res://scripts/sparring_circle.gd").new()
 	add_child(sparring_circle)
+	neighborhood_visit_view = preload("res://scripts/neighborhood_visit_view.gd").new()
+	add_child(neighborhood_visit_view)
 	wilderness = WildernessView.new()
 	add_child(wilderness)
 	moonwell_stones = world_nodes["moonwell_stones"]
@@ -2013,6 +2020,10 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 				WorldStateModel.INTERACTION_RADIUS
 			)
 	_append_mobile_target(candidates, cottage_rest_marker, "Rest", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var visit_targets := WorldStateModel.Visits.targets(latest_snapshot)
+	for index in range(visit_targets.size()):
+		if not bool(visit_targets[index]["ready"]):
+			_append_mobile_target(candidates, neighborhood_visit_view.markers[index], visit_targets[index]["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	if is_instance_valid(wilderness.guest_marker):
 		_append_mobile_target(candidates, wilderness.guest_marker, WorldStateModel.homestead_guest_text(latest_snapshot, local_token), "interact", WorldStateModel.INTERACTION_RADIUS)
 	if bool(latest_snapshot.get("produce_stall_open", false)):
@@ -2833,6 +2844,11 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
+	for target: Dictionary in WorldStateModel.Visits.targets(latest_snapshot):
+		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
+			interaction_prompt.text = "%s · %s" % [action_name, target["text"]]
+			interaction_prompt.visible = true
+			return
 	if bool(latest_snapshot.get("produce_stall_open", false)) and player_position.distance_to(WorldStateModel.Sparring.CENTER) <= WorldStateModel.Sparring.JOIN_REACH:
 		var duel: Dictionary = latest_snapshot.get("sparring", {})
 		var duel_stage := str(duel.get("stage", "available"))

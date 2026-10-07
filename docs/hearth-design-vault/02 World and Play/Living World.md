@@ -40,6 +40,14 @@ The restored Old Stone Ruins route drives the first resident arrival condition: 
 
 Nima's completed map table also exposes the authored Moonwell Glade lead. Restoring its three dormant stones leaves a permanent luminous sanctuary in Northwood. This is a remembered place change driven only by player actions: weather, routine simulation, and empty-world calendar catch-up may change its ambience but never advance its restoration.
 
+## Neighborhood visits — implementation scope
+
+A small event director selects one persistent visit at the eastern market green while players are active. **Travelers' Rest** becomes eligible after the produce stall opens when rain falls or Fartrail Outpost is complete: travelers ask for two shared wood for shelter and two personal provisions for meals. **Seedkeepers' Exchange** becomes eligible after Sera's welcome: visitors ask for two shared herbs and two shared moonroot. Each visit has two separate nearby job stations; E contributes one named ingredient, and companions may divide the work or finish it alone.
+
+Eligible visit types never completed take priority; otherwise the least-completed eligible type wins, with saved seed/day breaking ties. There is only one outstanding visit and no deadline. Partial jobs persist across days, weather changes, disconnects and restarts. A completed visit cannot be replaced until a later world day. Empty-world catch-up neither selects nor contributes to visits, and missed days never queue a backlog.
+
+Each type's first completion leaves a permanent market-green feature (a travelers' canopy or seed planter), one chronicle entry and one morale/reputation gain. Every completed visit adds at most one provision to the existing bounded pantry; it grants no personal coin, mastery or exclusive access. Subsequent visits reuse the place and do not repeat milestone rewards or flood the chronicle. This is the first reusable condition-driven director with two authored templates, not a general settlement population, threat or faction simulation. Prototype quantities and graybox presentation remain subject to later playtesting.
+
 ## First weather and daylight depth
 
 Each world day has one deterministic forecast derived from the region seed and authoritative day number: clear, overcast, or gentle rain. Every client receives the same named weather in the world snapshot, while daylight color and brightness follow the shared clock. Night remains navigable and inviting through cool ambient light and warm authored landmarks rather than becoming black.

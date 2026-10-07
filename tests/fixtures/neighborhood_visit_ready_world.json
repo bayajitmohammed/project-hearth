@@ -1,0 +1,14 @@
+{
+  "version": 37,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"roof": true, "door": true, "hearth": true},
+  "neighborhood_event_stage": "complete",
+  "livelihood_stage": "complete",
+  "produce_stall_open": true,
+  "outpost_parts": {"shelter": true, "remedies": true, "meal": true},
+  "materials": {"wood": 2, "herb": 2, "moonroot": 2, "hearth_stew": 0},
+  "pantry_stock": 2,
+  "player_provisions": {"visit-b": 2},
+  "positions": {"visit-a": [15, 0.6, 2], "visit-b": [15, 0.6, -2]}
+}

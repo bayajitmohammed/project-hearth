@@ -6,6 +6,7 @@ const Wilderness = preload("res://scripts/wilderness_layout.gd")
 const Structures = preload("res://scripts/structure_layout.gd")
 const Sparring = preload("res://scripts/sparring_rules.gd")
 const PersonalTrades = preload("res://scripts/personal_trades.gd")
+const Visits = preload("res://scripts/neighborhood_visits.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -229,6 +230,7 @@ var reedbank_stage := "meet_oren"
 var sunwheat_planted_at: Dictionary = {}
 var homestead_planted_at: Dictionary = {}
 var homestead_guest: Dictionary = {}
+var neighborhood_visits := Visits.new()
 var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
 var wilderness_forage_days: Dictionary = {}
@@ -1257,6 +1259,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_sparring_interaction(player_token, active_tokens)
 		or try_use_furnishing(player_token)
 		or try_homestead_guest(player_token)
+		or try_neighborhood_visit(player_token)
 		or try_outpost_interaction(player_token)
 		or try_claim_plot(player_token)
 		or try_wilderness_cache(player_token)
@@ -1598,6 +1601,25 @@ func _update_guardian_intercept_feedback(delta: float) -> void:
 	if guardian_intercept_time <= 0.0:
 		guardian_intercept_player = ""
 		guardian_intercept_target = ""
+
+
+func refresh_neighborhood_visit() -> bool:
+	return neighborhood_visits.select_visit({"day": world_day, "seed": world_seed, "stall": produce_stall_open, "weather": world_weather(), "outpost": outpost_parts.size() == 3, "sera": int(homestead_guest.get("meals", 0)) == 2})
+
+
+func try_neighborhood_visit(player_token: String) -> bool:
+	if not positions.has(player_token):
+		return false
+	var result := neighborhood_visits.contribute(player_token, positions[player_token], bool(downed_players.get(player_token, false)), materials, player_provisions, world_day)
+	if result.is_empty():
+		return false
+	if bool(result["finished"]):
+		pantry_stock = mini(pantry_stock + 1, PANTRY_MAX_STOCK)
+		if bool(result["first"]):
+			reputation += 1
+			neighborhood_morale += 1
+			chronicle.append(Visits.TEMPLATES[result["kind"]]["memory"])
+	return true
 
 
 func simulate_world_clock(delta: float) -> bool:
@@ -2450,7 +2472,8 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 37,
+		"version": 38,
+		"neighborhood_visits": neighborhood_visits.saved(),
 		"homestead_guest": homestead_guest.duplicate(),
 		"homestead_planted_at": homestead_planted_at.duplicate(),
 		"sparring": sparring.saved(),
@@ -2877,6 +2900,9 @@ func load_dictionary(data: Dictionary) -> void:
 		for bed_id: String in SUNWHEAT_BEDS:
 			if saved_plantings.has(bed_id):
 				sunwheat_planted_at[bed_id] = clampi(int(saved_plantings[bed_id]), 0, world_calendar_minutes())
+	neighborhood_visits = Visits.new()
+	if save_version >= 38:
+		neighborhood_visits.restore(data.get("neighborhood_visits", {}), world_day)
 	# Cast timing is intentionally session-only and never resumes after a restart.
 	player_fishing_phase = {}
 	player_fishing_time = {}

@@ -1,0 +1,14 @@
+{
+  "version": 38,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"roof": true, "door": true, "hearth": true},
+  "neighborhood_event_stage": "complete",
+  "livelihood_stage": "complete",
+  "produce_stall_open": true,
+  "wilderness_plots": {"2,2": {"structures": {}, "furnishings": {}}},
+  "homestead_guest": {"plot": "2,2", "met": true, "meals": 2},
+  "neighborhood_visits": {"active": "", "completed": {"travelers": 1}, "jobs": [0, 0], "finished_day": 0},
+  "materials": {"wood": 0, "herb": 2, "moonroot": 2, "hearth_stew": 0},
+  "pantry_stock": 0
+}

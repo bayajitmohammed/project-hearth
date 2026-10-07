@@ -1,8 +1,9 @@
 extends RefCounted
 
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
+const Visits = preload("res://scripts/neighborhood_visits.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera", "visits"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -60,6 +61,7 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 	if str(state.get("festival_stage", "locked")) != "locked" or bool(state.get("produce_stall_open", false)):
 		_add(result, "festival", "Hearthlight Circuit", "Social activity", false, "Join the festival at the neighborhood arch", "Opt in with E, then interact again to start when your friends are ready. Follow the three ordered checkpoints; each finisher earns a cosmetic ribbon.")
 	if bool(state.get("produce_stall_open", false)):
+		_add(result, "visits", "The Market Green", "Living world", false, Visits.summary(state), "East market: E contributes at two job markers. Travelers need 2 wood + 2 personal provisions; seedkeepers need 2 herbs + 2 moonroot. Friends can split jobs; unfinished visits never expire.")
 		_add(result, "sparring", "The Sparring Circle", "Social activity", false, "Find a volunteer at the southeast training circle", "Two players opt in with E. After the countdown, Space/R taps and F guards with equal training gear. Match pips are separate from world health. Leave the ring to cancel; decisive bouts award both finishers cosmetic ribbons.")
 	return result
 
