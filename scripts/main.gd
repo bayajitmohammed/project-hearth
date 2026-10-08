@@ -2682,14 +2682,15 @@ func _update_pinned_activity(snapshot: Dictionary) -> void:
 	objective_label.text = str(entry["objective"])
 	progress_label.visible = true
 	progress_label.text = "%s · %s · Change with J" % [entry["category"], "Complete" if entry["complete"] else ("Shared outing" if automatic_watch else "Your chosen activity")]
-	dialogue_label.text = str(entry["description"])
+	dialogue_label.text = str(entry.get("hud_description", entry["description"]))
 	if automatic_wilderness:
 		var cell := WildernessLayout.cell_at(local_position)
 		var cache_position := WildernessLayout.cache_position(int(snapshot.get("world_seed", 1)), cell)
 		var claimed: bool = snapshot.get("player_wilderness_caches", {}).get(local_token, {}).has(WildernessLayout.key(cell))
 		objective_label.text = "%s · %s" % [WildernessLayout.title(cell), "cache collected" if claimed else "find the trail cache"]
-		progress_label.text = "Shared map %d / 9 · Your caches %d / 9" % [snapshot.get("wilderness_discoveries", {}).size(), snapshot.get("player_wilderness_caches", {}).get(local_token, {}).size()]
-		dialogue_label.text = "Cache %.0fm %s / %s. E takes one personal provision. Gather marked wood and herbs for shared supplies; sources renew each day. Home lies east." % [local_position.distance_to(cache_position), "west" if cache_position.x < local_position.x else "east", "north" if cache_position.z < local_position.z else "south"]
+		var biome_name := str(WildernessLayout.BIOMES[WildernessLayout.biome(int(snapshot.get("world_seed", 1)), cell)]["name"])
+		progress_label.text = "%s · Map %d/%d · Your caches %d/%d" % [biome_name, snapshot.get("wilderness_discoveries", {}).size(), WildernessLayout.TOTAL, snapshot.get("player_wilderness_caches", {}).get(local_token, {}).size(), WildernessLayout.TOTAL]
+		dialogue_label.text = "Cache %.0fm %s / %s. E takes one personal provision. Marked wood/herbs renew daily. Home %.0fm east / %.0fm %s." % [local_position.distance_to(cache_position), "west" if cache_position.x < local_position.x else "east", "north" if cache_position.z < local_position.z else "south", -local_position.x, absf(WorldStateModel.SPAWN_POINT.z - local_position.z), "south" if local_position.z < WorldStateModel.SPAWN_POINT.z else "north"]
 	if selected == "festival":
 		_update_festival_interface(
 			str(snapshot.get("festival_stage", "available")),
@@ -3303,7 +3304,7 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_s
 		map_text += "\n• Reedbank Hollow — %s" % ("working mill · rest shelter" if str(latest_snapshot.get("reedbank_stage", "")) == "complete" else "eastern trail · Oren's mill")
 	if route_activated:
 		map_text += "\n• Briarwatch — %s" % ("safe beacon · return home" if str(latest_snapshot.get("briarwatch_stage", "rumor")) == "complete" else "northern watch · spirit bindings")
-	map_text += "\n• Western wilderness — %d / 9 sections charted" % latest_snapshot.get("wilderness_discoveries", {}).size()
+	map_text += "\n• Western wilderness — %d / %d sections charted" % [latest_snapshot.get("wilderness_discoveries", {}).size(), WildernessLayout.TOTAL]
 	var guest: Dictionary = latest_snapshot.get("homestead_guest", {})
 	if not guest.is_empty():
 		map_text += "\n• Sera — %s homestead · %s" % [WildernessLayout.title(WorldStateModel.Structures.cell_for(str(guest["plot"]))), "settled" if int(guest.get("meals", 0)) == 2 else "welcome waiting"]

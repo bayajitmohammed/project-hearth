@@ -40,7 +40,7 @@ func _run() -> void:
 	restored.downed_players["a"] = false
 	assert(restored.try_wilderness_cache("a"))
 	world.move_player("a", Vector2.LEFT, 100)
-	assert(world.positions["a"].x == Layout.ORIGIN.x)
+	assert(world.positions["a"].x == Layout.MIN_X)
 	world.move_player("a", Vector2.DOWN, 100)
 	assert(world.positions["a"].z == 22)
 	var legacy := World.new()
@@ -55,7 +55,7 @@ func _run() -> void:
 	var first_trees := Layout.scenery(112358, cell)
 	snapshot["positions"]["a"] = Layout.center(Vector2i.ZERO)
 	view.update_view(snapshot, "a")
-	assert(not view.sections.has("2,2") and view.sections.size() == 4)
+	assert(not view.sections.has("2,2") and view.sections.size() == 9)
 	snapshot["positions"]["a"] = cache
 	view.update_view(snapshot, "a")
 	assert(view.sections.has("2,2") and Layout.scenery(view.rendered_seed, cell) == first_trees)

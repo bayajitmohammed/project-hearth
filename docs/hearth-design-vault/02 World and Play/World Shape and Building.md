@@ -20,6 +20,14 @@ The next implementation expands the playable footprint west of the home/Northwoo
 
 Entering a section adds its name to the shared map once and credits the discoverer's normal Exploration mastery. Each section has one persistent personal trail-cache claim: a standing player at the marker can take one provision once, without consuming a companion's claim. Discovery and cache claims never happen during empty-world catch-up. Terrain can unload and regenerate without losing either kind of progress. This first wilderness is peaceful graybox exploration, not final biomes, elevation, continent-scale streaming, or additional settlement simulation.
 
+### Outer western regions — expansion scope
+
+The next world-size increment extends the existing western grid north and west to **36 contiguous 32-metre sections**. The original nine retain their coordinate keys, names, scenery, caches, forage, plots and outpost exactly. New sections use negative grid coordinates rather than shifting established places. The western footprint becomes 192 by 192 metres; the authored home, Northwood, Briarwatch and Reedbank boundaries do not move. Clients still render only their local three-by-three section neighborhood, independently of companions.
+
+The 27 outer sections form seed-derived biome patches: **Pinewoods** offer three daily wood sources, **Bloom meadows** one wood and two herbs, and **Glimmer groves** two wood and one herb. These are distinct graybox vegetation/ground palettes and useful supply choices, not final terrain art, elevation or a complete continent. Original woodland keeps its original two wood/one herb distribution. Every source retains one shared yield per world day, while empty-world time never gathers anything.
+
+Shared discovery, personal one-time trail caches, claim posts, player-built homes and Sera's existing eligibility rules work throughout the larger footprint. Save loading validates against the complete region catalogue, so new discoveries, depletion and negative-coordinate homes survive restart without rewriting old records. The map/journal report the expanded total and local biome, and travel guidance gives both home directions rather than implying every return is due east. Further terrain shaping, roads/route upgrades, generated settlements and continent breadth remain later increments.
+
 ## Building and destruction
 
 Players receive a shared homestead and can claim additional wilderness plots. Building uses snap-friendly modular pieces with free decoration and limited terrain shaping.

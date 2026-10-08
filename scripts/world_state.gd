@@ -394,8 +394,14 @@ func move_player(player_token: String, input_vector: Vector2, delta: float) -> V
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	var next_position: Vector3 = register_player(player_token) + direction * 4.0 * delta
-	next_position.x = clampf(next_position.x, Wilderness.ORIGIN.x, REEDBANK_MAX_X)
-	next_position.z = clampf(next_position.z, WORLD_MIN_Z, WORLD_MAX_Z)
+	next_position.x = clampf(next_position.x, Wilderness.MIN_X, REEDBANK_MAX_X)
+	next_position.z = clampf(next_position.z, Wilderness.MIN_Z, WORLD_MAX_Z)
+	# The farther northern terrain exists only west of the authored corridor.
+	if next_position.x > WORLD_MIN_X and next_position.z < WORLD_MIN_Z:
+		if positions[player_token].z < WORLD_MIN_Z:
+			next_position.x = WORLD_MIN_X
+		else:
+			next_position.z = WORLD_MIN_Z
 	if next_position.x < WORLD_MIN_X and next_position.z > 22.0:
 		if positions[player_token].x < WORLD_MIN_X:
 			next_position.z = 22.0
@@ -2621,21 +2627,18 @@ func load_dictionary(data: Dictionary) -> void:
 	wilderness_plots.clear()
 	if save_version >= 34:
 		var saved_plots: Dictionary = data.get("wilderness_plots", {})
-		for x in range(Wilderness.COUNT):
-			for z in range(Wilderness.COUNT):
-				var cell := Vector2i(x, z)
-				var plot_id := Wilderness.key(cell)
-				if cell == Wilderness.outpost_cell(world_seed) or not saved_plots.get(plot_id) is Dictionary:
-					continue
-				wilderness_plots[plot_id] = {"structures": Structures.sanitize(saved_plots[plot_id].get("structures", {})), "furnishings": sanitize_furnishings(saved_plots[plot_id].get("furnishings", {}))}
+		for cell: Vector2i in Wilderness.cells():
+			var plot_id := Wilderness.key(cell)
+			if cell == Wilderness.outpost_cell(world_seed) or not saved_plots.get(plot_id) is Dictionary:
+				continue
+			wilderness_plots[plot_id] = {"structures": Structures.sanitize(saved_plots[plot_id].get("structures", {})), "furnishings": sanitize_furnishings(saved_plots[plot_id].get("furnishings", {}))}
 	wilderness_forage_days.clear()
 	if save_version >= 32:
 		var saved_forage: Dictionary = data.get("wilderness_forage_days", {})
-		for x in range(Wilderness.COUNT):
-			for z in range(Wilderness.COUNT):
-				for source: Dictionary in Wilderness.forage_nodes(world_seed, Vector2i(x, z)):
-					if saved_forage.has(source["id"]):
-						wilderness_forage_days[source["id"]] = clampi(int(saved_forage[source["id"]]), 0, maxi(int(data.get("world_day", 1)), 1))
+		for cell: Vector2i in Wilderness.cells():
+			for source: Dictionary in Wilderness.forage_nodes(world_seed, cell):
+				if saved_forage.has(source["id"]):
+					wilderness_forage_days[source["id"]] = clampi(int(saved_forage[source["id"]]), 0, maxi(int(data.get("world_day", 1)), 1))
 	outpost_parts.clear()
 	if save_version >= 31:
 		var saved_outpost: Dictionary = data.get("outpost_parts", {})
@@ -2647,16 +2650,15 @@ func load_dictionary(data: Dictionary) -> void:
 	if save_version >= 30:
 		var saved_sections: Dictionary = data.get("wilderness_discoveries", {})
 		var saved_claims: Dictionary = data.get("player_wilderness_caches", {})
-		for x in range(Wilderness.COUNT):
-			for z in range(Wilderness.COUNT):
-				var section_id := Wilderness.key(Vector2i(x, z))
-				if bool(saved_sections.get(section_id, false)):
-					wilderness_discoveries[section_id] = true
-				for token: String in saved_claims:
-					if saved_claims[token] is Dictionary and bool(saved_claims[token].get(section_id, false)):
-						if not player_wilderness_caches.has(token):
-							player_wilderness_caches[token] = {}
-						player_wilderness_caches[token][section_id] = true
+		for cell: Vector2i in Wilderness.cells():
+			var section_id := Wilderness.key(cell)
+			if bool(saved_sections.get(section_id, false)):
+				wilderness_discoveries[section_id] = true
+			for token: String in saved_claims:
+				if saved_claims[token] is Dictionary and bool(saved_claims[token].get(section_id, false)):
+					if not player_wilderness_caches.has(token):
+						player_wilderness_caches[token] = {}
+					player_wilderness_caches[token][section_id] = true
 	briarwatch_stage = str(data.get("briarwatch_stage", "rumor")) if save_version >= 29 else "rumor"
 	if briarwatch_stage not in ["rumor", "bindings", "rekindle", "complete"]:
 		briarwatch_stage = "rumor"

@@ -9,12 +9,11 @@ const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood"
 static func entries(state: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var charted: Array[String] = []
-	for x in range(Wilderness.COUNT):
-		for z in range(Wilderness.COUNT):
-			var cell := Vector2i(x, z)
-			if state.get("wilderness_discoveries", {}).has(Wilderness.key(cell)):
-				charted.append(Wilderness.title(cell))
-	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore west beyond the home and Northwood", "Nine seed-shaped woodland sections share map discoveries. Each trail stone holds one provision per player, once. Two wood piles and one herb patch per section renew each world day for shared projects and crafting. Use E nearby. Return east to reach home. Charted: %s." % (", ".join(charted) if not charted.is_empty() else "none yet"))
+	for cell: Vector2i in Wilderness.cells():
+		if state.get("wilderness_discoveries", {}).has(Wilderness.key(cell)):
+			charted.append(Wilderness.title(cell))
+	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore the western and northern outer trails", "%d seeded sections share discoveries and personal one-time caches. Daily sources: pinewoods 3 wood; bloom meadows 1 wood/2 herbs; woodland and glimmer groves 2 wood/1 herb. E gathers; claim posts open shared building. Home lies southeast from the outer north. Charted: %s." % [Wilderness.TOTAL, ", ".join(charted) if not charted.is_empty() else "none yet"])
+	result.back()["hud_description"] = "%d/%d charted. Pinewoods favor wood; bloom meadows favor herbs. E gathers or claims a cache. Claim posts open building. J lists discovered places." % [charted.size(), Wilderness.TOTAL]
 	var home := str(state.get("quest_stage", "meet_mara"))
 	if not state.get("wilderness_discoveries", {}).is_empty():
 		var outpost: Dictionary = state.get("outpost_parts", {})

@@ -102,10 +102,11 @@ func _build_section(cell: Vector2i) -> void:
 	var section := Node3D.new()
 	section.name = "Wilderness_%d_%d" % [cell.x, cell.y]
 	add_child(section)
-	var tint := Color("547a56").lightened(float(posmod(cell.x + cell.y, 3)) * 0.04)
+	var biome := Layout.biome(rendered_seed, cell)
+	var tint: Color = Layout.BIOMES[biome]["ground"].lightened(float(posmod(cell.x + cell.y, 3)) * 0.04)
 	Art._add_box(section, "Terrain", Vector3(Layout.SIZE, 0.2, Layout.SIZE), Layout.center(cell) + Vector3(0, -0.1, 0), tint)
 	for point: Vector3 in Layout.scenery(rendered_seed, cell):
-		Art._add_tree(section, "Tree", point)
+		_add_biome_scenery(section, point, biome)
 	var cache := Layout.cache_position(rendered_seed, cell)
 	Art._add_cylinder(section, "TrailStone", 0.4, 1.5, cache, Color("a6bcac"), 6)
 	Art._add_box(section, "Cache", Vector3(0.7, 0.4, 0.55), cache + Vector3(0.7, -0.3, 0), Color("9d8054"))
@@ -132,6 +133,44 @@ func _build_section(cell: Vector2i) -> void:
 		forage[source["id"]] = {"growth": growth, "marker": forage_marker, "kind": source["kind"]}
 	if cell == Layout.outpost_cell(rendered_seed):
 		_build_outpost(section)
+
+
+func _add_biome_scenery(section: Node3D, point: Vector3, biome: String) -> void:
+	if biome == "woodland":
+		Art._add_tree(section, "Tree", point)
+		return
+	var cluster := Node3D.new()
+	cluster.name = "BiomeScenery"
+	cluster.position = point
+	section.add_child(cluster)
+	if biome == "pinewood":
+		Art._add_cylinder(cluster, "Trunk", 0.2, 3.2, Vector3(0, 1.6, 0), Color("77634e"), 8)
+		for tier in range(3):
+			var crown := Art._add_cylinder(cluster, "PineCrown", 1.6 - tier * 0.35, 2.5, Vector3(0, 2.4 + tier, 0), Color("436f60").lightened(tier * 0.06), 9)
+			(crown.mesh as CylinderMesh).top_radius = 0
+	elif biome == "meadow":
+		for offset: float in [-0.55, 0, 0.55]:
+			Art._add_cylinder(cluster, "Stem", 0.035, 0.65, Vector3(offset, 0.325, offset * 0.5), Color("577951"), 5)
+			_add_round_canopy(cluster, Vector3(offset, 0.7, offset * 0.5), 0.22, Color("e4bbce") if offset == 0 else Color("eadca4"))
+	else:
+		Art._add_cylinder(cluster, "Trunk", 0.18, 3.2, Vector3(0, 1.6, 0), Color("a39caa"), 8)
+		_add_round_canopy(cluster, Vector3(-0.6, 3, 0), 1.2, Color("899cbb"))
+		_add_round_canopy(cluster, Vector3(0.6, 3.7, 0.2), 1.3, Color("a5a5c5"))
+
+
+func _add_round_canopy(parent: Node3D, point: Vector3, radius: float, tint: Color) -> void:
+	var crown := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 1.6
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	crown.mesh = mesh
+	crown.position = point
+	var material := StandardMaterial3D.new()
+	material.albedo_color = tint
+	crown.material_override = material
+	parent.add_child(crown)
 
 
 func _build_outpost(section: Node3D) -> void:

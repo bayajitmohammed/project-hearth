@@ -2,8 +2,21 @@ extends RefCounted
 
 const ORIGIN := Vector3(-113, 0, -74)
 const SIZE := 32.0
-const COUNT := 3
+const MIN_CELL := -3
+const MAX_CELL := 3 # Exclusive; the original 0..2 cells never move.
+const COUNT := MAX_CELL - MIN_CELL
+const TOTAL := COUNT * COUNT
+const MIN_X := ORIGIN.x + MIN_CELL * SIZE
+const MIN_Z := ORIGIN.z + MIN_CELL * SIZE
 const NAMES := ["Fernwatch", "Silverleaves", "Moss Hollow", "Willow Reach", "Quiet Pines", "Starfern", "Amber Grove", "Dewfields", "Westwind"]
+const OUTER_PREFIXES := ["Heather", "Mistral", "Lumen", "Cedar", "Dawn", "Opal"]
+const OUTER_SUFFIXES := ["Reach", "Glen", "Hollow", "Vale", "Fields", "Bower"]
+const BIOMES := {
+	"woodland": {"name": "Woodland", "ground": Color("547a56"), "attempts": 18, "wood": 2},
+	"pinewood": {"name": "Pinewoods", "ground": Color("436957"), "attempts": 18, "wood": 3},
+	"meadow": {"name": "Bloom meadow", "ground": Color("879b65"), "attempts": 12, "wood": 1},
+	"glimmer": {"name": "Glimmer grove", "ground": Color("596d80"), "attempts": 14, "wood": 2},
+}
 const OUTPOST_OFFSETS := {"shelter": Vector3(-3, 0, 0), "remedies": Vector3(3, 0, 0), "meal": Vector3(0, 0, 4), "rest": Vector3(-3, 0, 0), "craft": Vector3(3, 0, 0)}
 
 
@@ -26,7 +39,22 @@ static func cell_at(point: Vector3) -> Vector2i:
 
 
 static func valid(cell: Vector2i) -> bool:
-	return cell.x >= 0 and cell.x < COUNT and cell.y >= 0 and cell.y < COUNT
+	return cell.x >= MIN_CELL and cell.x < MAX_CELL and cell.y >= MIN_CELL and cell.y < MAX_CELL
+
+
+static func cells() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for x in range(MIN_CELL, MAX_CELL):
+		for z in range(MIN_CELL, MAX_CELL):
+			result.append(Vector2i(x, z))
+	return result
+
+
+static func biome(seed_value: int, cell: Vector2i) -> String:
+	if cell.x >= 0 and cell.y >= 0:
+		return "woodland"
+	var patch := Vector2i(floori(float(cell.x) / 2), floori(float(cell.y) / 2))
+	return ["pinewood", "meadow", "glimmer"][posmod(seed_value + patch.x * 17 + patch.y * 31, 3)]
 
 
 static func key(cell: Vector2i) -> String:
@@ -34,7 +62,11 @@ static func key(cell: Vector2i) -> String:
 
 
 static func title(cell: Vector2i) -> String:
-	return NAMES[cell.y * COUNT + cell.x] if valid(cell) else "Western wilderness"
+	if not valid(cell):
+		return "Western wilderness"
+	if cell.x >= 0 and cell.y >= 0:
+		return NAMES[cell.y * 3 + cell.x]
+	return OUTER_PREFIXES[cell.x - MIN_CELL] + " " + OUTER_SUFFIXES[cell.y - MIN_CELL]
 
 
 static func center(cell: Vector2i) -> Vector3:
@@ -57,7 +89,7 @@ static func scenery(seed_value: int, cell: Vector2i) -> Array[Vector3]:
 	var cache := cache_position(seed_value, cell)
 	var result: Array[Vector3] = []
 	var forage := forage_nodes(seed_value, cell)
-	for index in range(18):
+	for index in range(int(BIOMES[biome(seed_value, cell)]["attempts"])):
 		var point := center(cell) + Vector3(random.randf_range(-14, 14), 0, random.randf_range(-14, 14))
 		var clear := true
 		if cell != outpost_cell(seed_value):
@@ -94,7 +126,7 @@ static func forage_nodes(seed_value: int, cell: Vector2i) -> Array[Dictionary]:
 	for index in range(4):
 		if index == omit:
 			continue
-		var kind := "wood" if result.size() < 2 else "herb"
+		var kind := "wood" if result.size() < int(BIOMES[biome(seed_value, cell)]["wood"]) else "herb"
 		var point: Vector3 = center(cell) + corners[index] + Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
 		result.append({"id": "%s/%d" % [key(cell), result.size()], "kind": kind, "position": point})
 	return result
