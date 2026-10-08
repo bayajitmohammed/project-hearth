@@ -36,6 +36,7 @@ var wilderness: Node3D
 var briarwatch: Node3D
 var sparring_circle: Node3D
 var neighborhood_visit_view: Node3D
+var spell_view: Node3D
 var activity_journal: CanvasLayer
 var trade_panel: CanvasLayer
 
@@ -720,6 +721,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 		repair_result_nodes[part_id].visible = is_repaired
 	outing_kit_rack.visible = quest_stage == "home_repaired"
 	outing_kit_marker.visible = quest_stage == "home_repaired"
+	outing_kit_rack.get_node("MoonweaverFocus").visible = str(snapshot.get("moonwell_story_stage", "locked")) == "complete"
 	trailwork_bench.visible = quest_stage == "home_repaired"
 	trailwork_marker.visible = quest_stage == "home_repaired"
 	var built_homestead_lanterns: Dictionary = snapshot.get("built_homestead_lanterns", {})
@@ -768,6 +770,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	briarwatch.update_view(snapshot, local_token)
 	sparring_circle.update_view(snapshot, local_token)
 	neighborhood_visit_view.update_view(snapshot, local_token)
+	spell_view.update_view(snapshot, local_token)
 	wilderness.update_view(snapshot, local_token)
 	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
 	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
@@ -1299,6 +1302,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"player_health": world_state.player_health.duplicate(),
 		"downed_players": world_state.downed_players.duplicate(),
 		"player_attack_recovery": world_state.player_attack_recovery.duplicate(),
+		"spell_traces": world_state.spell_traces.duplicate(true),
 		"player_brace_time": world_state.player_brace_time.duplicate(),
 		"player_brace_cooldown": world_state.player_brace_cooldown.duplicate(),
 		"guardian_intercept_player": world_state.guardian_intercept_player,
@@ -1547,6 +1551,8 @@ func _build_world() -> void:
 	add_child(sparring_circle)
 	neighborhood_visit_view = preload("res://scripts/neighborhood_visit_view.gd").new()
 	add_child(neighborhood_visit_view)
+	spell_view = preload("res://scripts/spell_view.gd").new()
+	add_child(spell_view)
 	wilderness = WildernessView.new()
 	add_child(wilderness)
 	moonwell_stones = world_nodes["moonwell_stones"]
@@ -1957,7 +1963,7 @@ func _update_mobile_targeting() -> void:
 		elif _local_can_attack():
 			mobile_context_target = {
 				"kind": "power_strike",
-				"label": "Power strike",
+				"label": "Woven Burst" if str(latest_snapshot.get("player_outing_kits", {}).get(local_token, "")) == WorldStateModel.OutingKits.MOONWEAVER else "Power strike",
 				"screen_position": mobile_context_target.get("screen_position", center),
 			}
 		else:
@@ -2149,8 +2155,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 			_append_mobile_target(candidates, player_nodes[player_token], "Aid friend", "interact", WorldStateModel.INTERACTION_RADIUS)
 		elif can_offer_field_aid:
 			_append_mobile_target(candidates, player_nodes[player_token], "Give provision", "interact", WorldStateModel.INTERACTION_RADIUS)
-	_append_mobile_target(candidates, creature_node, "", "attack", 2.0)
-	_append_mobile_target(candidates, ruin_guardian_node, "", "attack", 2.0)
+	var attack_reach := float(WorldStateModel.OutingKits.stats(str(latest_snapshot.get("player_outing_kits", {}).get(local_token, "vanguard")))["reach"])
+	_append_mobile_target(candidates, creature_node, "", "attack", attack_reach)
+	_append_mobile_target(candidates, ruin_guardian_node, "", "attack", attack_reach)
 	return candidates
 
 
@@ -2396,7 +2403,7 @@ func _update_combat_interface(snapshot: Dictionary, creature_defeated: bool) -> 
 	var outing_kit := str(
 		snapshot.get("player_outing_kits", {}).get(local_token, WorldStateModel.OUTING_KIT_VANGUARD)
 	)
-	var outing_kit_text := "Guardian" if outing_kit == WorldStateModel.OUTING_KIT_GUARDIAN else "Vanguard"
+	var outing_kit_text := str(WorldStateModel.OutingKits.stats(outing_kit)["name"])
 	var creature_health := int(snapshot.get("creature_health", 0))
 	var creature_text := "defeated" if creature_defeated else (
 		"returning home (%d/%d)" % [creature_health, WorldStateModel.CREATURE_MAX_HEALTH]
@@ -3020,7 +3027,8 @@ func _update_interaction_prompt(
 				local_token, WorldStateModel.OUTING_KIT_VANGUARD
 			)
 		)
-		var next_kit := "Guardian" if current_kit == WorldStateModel.OUTING_KIT_VANGUARD else "Vanguard"
+		var next_id := WorldStateModel.OutingKits.next(current_kit, str(latest_snapshot.get("moonwell_story_stage", "locked")) == "complete")
+		var next_kit := str(WorldStateModel.OutingKits.stats(next_id)["name"])
 		interaction_prompt.text = "%s  ·  Equip %s kit" % [action_name, next_kit]
 		interaction_prompt.visible = true
 		return

@@ -156,6 +156,8 @@ static func _add_outing_kit_rack(root: Node3D) -> Dictionary:
 	_add_box(rack, "RackBeam", Vector3(1.9, 0.18, 0.18), Vector3(0.0, 1.4, 0.0), Color("694a36"))
 	_add_box(rack, "VanguardKit", Vector3(0.55, 0.8, 0.2), Vector3(-0.45, 0.85, 0.0), Color("b25f4a"))
 	_add_box(rack, "GuardianKit", Vector3(0.55, 0.8, 0.2), Vector3(0.45, 0.85, 0.0), Color("4f83a8"))
+	var focus := _add_cylinder(rack, "MoonweaverFocus", 0.18, 0.45, Vector3(0, 1.75, 0), Color("9aeeee"), 6)
+	focus.visible = false
 	var marker := _add_station_marker(
 		rack,
 		"OutingKitMarker",

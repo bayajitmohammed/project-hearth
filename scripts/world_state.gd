@@ -7,6 +7,7 @@ const Structures = preload("res://scripts/structure_layout.gd")
 const Sparring = preload("res://scripts/sparring_rules.gd")
 const PersonalTrades = preload("res://scripts/personal_trades.gd")
 const Visits = preload("res://scripts/neighborhood_visits.gd")
+const OutingKits = preload("res://scripts/outing_kits.gd")
 
 const SPAWN_POINT := Vector3(0.0, 0.6, 10.0)
 const COTTAGE_REST_POSITION := Vector3(-10.0, 0.6, 3.8)
@@ -199,6 +200,7 @@ var repaired_parts := {"door": false, "wall": false, "garden": false}
 var player_health: Dictionary = {}
 var downed_players: Dictionary = {}
 var player_attack_recovery: Dictionary = {}
+var spell_traces: Dictionary = {}
 var player_brace_time: Dictionary = {}
 var player_brace_cooldown: Dictionary = {}
 var guardian_intercept_player := ""
@@ -367,7 +369,7 @@ func register_player(player_token: String) -> Vector3:
 	player_chronicle_read_count[player_token] = clampi(
 		int(player_chronicle_read_count.get(player_token, 0)), 0, chronicle.size()
 	)
-	if str(player_outing_kits.get(player_token, "")) not in [OUTING_KIT_VANGUARD, OUTING_KIT_GUARDIAN]:
+	if str(player_outing_kits.get(player_token, "")) not in OutingKits.available(moonwell_story_stage == "complete"):
 		player_outing_kits[player_token] = OUTING_KIT_VANGUARD
 	if not player_provisions.has(player_token):
 		player_provisions[player_token] = 0
@@ -1476,17 +1478,13 @@ func try_switch_outing_kit(player_token: String) -> bool:
 		return false
 	if bool(downed_players.get(player_token, false)):
 		return false
-	player_outing_kits[player_token] = (
-		OUTING_KIT_GUARDIAN
-		if str(player_outing_kits.get(player_token, OUTING_KIT_VANGUARD)) == OUTING_KIT_VANGUARD
-		else OUTING_KIT_VANGUARD
-	)
+	player_outing_kits[player_token] = OutingKits.next(str(player_outing_kits[player_token]), moonwell_story_stage == "complete")
 	return true
 
 
 func outing_kit_label(player_token: String) -> String:
 	register_player(player_token)
-	return "Guardian" if player_outing_kits[player_token] == OUTING_KIT_GUARDIAN else "Vanguard"
+	return OutingKits.stats(player_outing_kits[player_token])["name"]
 
 
 func attack_creature(player_token: String) -> bool:
@@ -1508,8 +1506,9 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 	if (
 		exploration_stage in ["defeat_guardian", "restore_waystone"]
 		and not ruin_guardian_defeated
-		and positions[player_token].distance_to(ruin_guardian_position) <= 2.0
+		and _can_reach_enemy(player_token, ruin_guardian_position, RUIN_GUARDIAN_SPAWN, RUIN_GUARDIAN_LEASH_RADIUS, ruin_guardian_returning)
 	):
+		_record_spell_trace(player_token, ruin_guardian_position, damage)
 		player_attack_recovery[player_token] = _recovery_for_outing_kit(player_token, recovery_seconds)
 		ruin_guardian_health -= damage
 		_add_mastery(player_token, "combat")
@@ -1522,8 +1521,9 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 		return true
 	if creature_defeated:
 		return false
-	if positions[player_token].distance_to(creature_position) > 2.0:
+	if not _can_reach_enemy(player_token, creature_position, CREATURE_SPAWN, CREATURE_LEASH_RADIUS, creature_returning):
 		return false
+	_record_spell_trace(player_token, creature_position, damage)
 	player_attack_recovery[player_token] = _recovery_for_outing_kit(player_token, recovery_seconds)
 	creature_health -= damage
 	_add_mastery(player_token, "combat")
@@ -1533,6 +1533,36 @@ func _damage_creature(player_token: String, damage: int, recovery_seconds: float
 		creature_attack_windup = 0.0
 		creature_attack_target = ""
 	return true
+
+
+func _can_reach_enemy(player_token: String, target: Vector3, home: Vector3, leash: float, returning: bool) -> bool:
+	var kit := str(player_outing_kits[player_token])
+	var point: Vector3 = positions[player_token]
+	if point.distance_to(target) > float(OutingKits.stats(kit)["reach"]):
+		return false
+	if kit != OutingKits.MOONWEAVER:
+		return true
+	if returning or point.distance_to(home) > leash:
+		return false
+	var walls: Array[Rect2] = []
+	_append_tether_walls(walls, structures, Vector3.ZERO)
+	for plot_id: String in wilderness_plots:
+		var shift := Wilderness.plot_origin(world_seed, Structures.cell_for(plot_id)) - FURNISHING_ORIGIN
+		_append_tether_walls(walls, wilderness_plots[plot_id]["structures"], shift)
+	return OutingKits.clear_tether(point, target, walls)
+
+
+func _append_tether_walls(walls: Array[Rect2], layout: Dictionary, shift: Vector3) -> void:
+	for slot: String in layout:
+		var piece: Dictionary = layout[slot]
+		for solid: Rect2 in Structures.solid_rects(Structures.cell_for(slot), piece["kind"], int(piece["rotation"])):
+			solid.position += Vector2(shift.x, shift.z)
+			walls.append(solid)
+
+
+func _record_spell_trace(player_token: String, target: Vector3, damage: int) -> void:
+	if str(player_outing_kits[player_token]) == OutingKits.MOONWEAVER:
+		spell_traces[player_token] = {"from": positions[player_token] + Vector3(0, 0.4, 0), "to": target + Vector3(0, 0.4, 0), "remaining": 0.4, "heavy": damage > 1}
 
 
 func try_brace(player_token: String) -> bool:
@@ -1545,26 +1575,19 @@ func try_brace(player_token: String) -> bool:
 		return false
 	if float(player_brace_cooldown.get(player_token, 0.0)) > 0.0:
 		return false
-	var uses_guardian_kit: bool = str(player_outing_kits[player_token]) == OUTING_KIT_GUARDIAN
-	player_brace_time[player_token] = (
-		GUARDIAN_BRACE_WINDOW_SECONDS if uses_guardian_kit else PLAYER_BRACE_WINDOW_SECONDS
-	)
-	player_brace_cooldown[player_token] = (
-		GUARDIAN_BRACE_COOLDOWN_SECONDS if uses_guardian_kit else PLAYER_BRACE_COOLDOWN_SECONDS
-	)
+	var kit := OutingKits.stats(player_outing_kits[player_token])
+	player_brace_time[player_token] = kit["brace"]
+	player_brace_cooldown[player_token] = kit["brace_cooldown"]
 	return true
 
 
 func _recovery_for_outing_kit(player_token: String, base_recovery: float) -> float:
-	return base_recovery + (
-		GUARDIAN_ATTACK_RECOVERY_PENALTY_SECONDS
-		if player_outing_kits[player_token] == OUTING_KIT_GUARDIAN
-		else 0.0
-	)
+	return OutingKits.recovery(player_outing_kits[player_token], base_recovery)
 
 
 func reset_player_combat_timers(player_token: String) -> void:
 	register_player(player_token)
+	spell_traces.erase(player_token)
 	player_attack_recovery[player_token] = 0.0
 	player_brace_time[player_token] = 0.0
 	player_brace_cooldown[player_token] = 0.0
@@ -1580,6 +1603,10 @@ func simulate_creature(delta: float, active_tokens: Array) -> bool:
 
 
 func _update_player_combat_timers(delta: float, active_tokens: Array) -> void:
+	for token: String in spell_traces.keys():
+		spell_traces[token]["remaining"] = maxf(0, float(spell_traces[token]["remaining"]) - maxf(0, delta))
+		if token not in active_tokens or float(spell_traces[token]["remaining"]) <= 0:
+			spell_traces.erase(token)
 	for player_token: String in active_tokens:
 		register_player(player_token)
 		player_attack_recovery[player_token] = maxf(
@@ -2553,6 +2580,7 @@ func to_dictionary() -> Dictionary:
 
 
 func load_dictionary(data: Dictionary) -> void:
+	spell_traces.clear()
 	trades = PersonalTrades.new()
 	world_seed = int(data.get("world_seed", REGION_SEED))
 	if world_seed < 1 or world_seed > MAX_WORLD_SEED:

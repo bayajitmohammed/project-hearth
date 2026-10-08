@@ -47,6 +47,14 @@ The equipped kit persists with that player, is never dropped, and can only be ch
 
 Guardian's first cooperative action is **interception**. While actively braced, a standing Guardian within two metres of both a companion and the attacking creature may spend that brace to prevent the companion's hit. The companion's own brace has priority; otherwise the closest eligible Guardian is chosen deterministically. Vanguard cannot intercept, and interception grants no mastery, damage, health, range, or permanent benefit. This makes the slower kit meaningfully protective only through timing and formation.
 
+## Moonweaver — ranged magic implementation scope
+
+Restoring Moonwell adds **Moonweaver** to the repaired-home rack's free Vanguard → Guardian → Moonweaver cycle for every identity, including newcomers. This is a shared story-earned option, not a mastery or currency gate. The equipped choice persists and can be changed only while standing at the rack. Earlier worlds without the sanctuary retain the original two-kit cycle.
+
+Moonweaver uses the existing basic and alternate attack controls for guided **Moonthread** (one damage) and **Woven Burst** (two damage), reaching 5.5 metres instead of two. Both take twice the Vanguard recovery (0.9 / 2.2 seconds); brace lasts 0.45 seconds and recovers in 1.8 seconds, with no Guardian interception. Health, movement and per-action Combat credit do not increase. This trades melee output and forgiving defense for range rather than adding a stronger tier.
+
+The first magic uses the existing automatic enemy targeting, with the ruin guardian taking priority when eligible. It is a direct tether, not a simulated projectile or freely aimed spell. The caster must remain inside that enemy's home area, the enemy must not be returning home, and player-built solid walls block the tether while doorway openings permit it. Its 5.5-metre reach stays inside both enemy awareness ranges. Invalid casts cost no recovery or mastery; successful casts publish a short shared light trace, never saved or resumed. Magic cannot hit other players or Briarwatch's non-damageable spirit, and normalized sparring continues to use its own equal tap/guard rules. Final animation, additional spell types, freely aimed projectiles, broad device usability and human balance testing remain later work.
+
 ## First mastery conveniences
 
 The first tier-II techniques reduce repeated inputs without improving combat statistics or excluding newcomers:

@@ -1,0 +1,15 @@
+{
+  "version": 38,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_guardian_defeated": true,
+  "ruin_waystone_activated": true,
+  "exploration_stage": "complete",
+  "nima_story_stage": "complete",
+  "moonwell_story_stage": "complete",
+  "attuned_moonstones": {"bough": true, "brook": true, "path": true},
+  "player_outing_kits": {"magic-a": "moonweaver", "magic-b": "guardian"},
+  "positions": {"magic-a": [9, 0.6, -1.5], "magic-b": [9, 0.6, -1.5]}
+}

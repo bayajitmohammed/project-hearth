@@ -3,7 +3,7 @@ extends RefCounted
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 const Visits = preload("res://scripts/neighborhood_visits.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera", "visits"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera", "visits", "moonweaver"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -44,6 +44,8 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 	if nima != "locked":
 		_add(result, "nima", "Nima's Bearings", "Story", nima == "complete", str({"arrival": "Meet Nima at the home waystone", "find_case": "Recover Nima's field case in eastern Northwood", "return_case": "Return the recovered case to Nima", "complete": "Nima has settled beside the homestead"}.get(nima, "Speak to Nima")), "Her charts and map table open new shared leads. Friends can continue each other's story steps.")
 	var moonwell := str(state.get("moonwell_story_stage", "locked"))
+	if moonwell == "complete":
+		_add(result, "moonweaver", "Moonwell's Thread", "Outing kit", false, "Equip Moonweaver at the home gear rack", "E cycles kits freely. Moonweaver: Space/R casts guided magic at nearby enemies (5.5m). Same damage, slower attacks, shorter F brace. Walls block spells; sparring stays normalized.")
 	if moonwell != "locked":
 		_add(result, "moonwell", "Moonwell Glade", "Adventure", moonwell == "complete", str({"map_clue": "Study the lead at Nima's home map table", "find_glade": "Find the glade west of the Old Stone Ruins", "attune_stones": "Attune the three dormant moonstones", "complete": "The luminous spring is a shared sanctuary"}.get(moonwell, "Explore Moonwell Glade")), "Use E at each dormant stone. The restored spring heals standing travelers; it does not revive downed companions.")
 	var supper := str(state.get("moonwell_supper_stage", "locked"))
