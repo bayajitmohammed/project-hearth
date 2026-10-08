@@ -37,6 +37,7 @@ var briarwatch: Node3D
 var sparring_circle: Node3D
 var neighborhood_visit_view: Node3D
 var spell_view: Node3D
+var fartrail_route_view: Node3D
 var activity_journal: CanvasLayer
 var trade_panel: CanvasLayer
 
@@ -771,6 +772,7 @@ func receive_snapshot(snapshot: Dictionary) -> void:
 	sparring_circle.update_view(snapshot, local_token)
 	neighborhood_visit_view.update_view(snapshot, local_token)
 	spell_view.update_view(snapshot, local_token)
+	fartrail_route_view.update_view(snapshot, local_token)
 	wilderness.update_view(snapshot, local_token)
 	var moonwell_story_stage := str(snapshot.get("moonwell_story_stage", "locked"))
 	var attuned_moonstones: Dictionary = snapshot.get("attuned_moonstones", {})
@@ -1331,6 +1333,7 @@ func _snapshot_for_clients() -> Dictionary:
 		"briarwatch_stage": world_state.briarwatch_stage,
 		"wilderness_discoveries": world_state.wilderness_discoveries.duplicate(),
 		"outpost_parts": world_state.outpost_parts.duplicate(),
+		"fartrail_route_parts": world_state.fartrail_route_parts.duplicate(),
 		"wilderness_forage_days": world_state.wilderness_forage_days.duplicate(),
 		"player_wilderness_caches": world_state.player_wilderness_caches.duplicate(true),
 		"broken_briarwatch_bindings": world_state.broken_briarwatch_bindings.duplicate(),
@@ -1553,6 +1556,8 @@ func _build_world() -> void:
 	add_child(neighborhood_visit_view)
 	spell_view = preload("res://scripts/spell_view.gd").new()
 	add_child(spell_view)
+	fartrail_route_view = preload("res://scripts/fartrail_route_view.gd").new()
+	add_child(fartrail_route_view)
 	wilderness = WildernessView.new()
 	add_child(wilderness)
 	moonwell_stones = world_nodes["moonwell_stones"]
@@ -2044,6 +2049,9 @@ func _mobile_target_candidates() -> Array[Dictionary]:
 		for section_id: String in wilderness.claim_markers:
 			if not latest_snapshot.get("wilderness_plots", {}).has(section_id):
 				_append_mobile_target(candidates, wilderness.claim_markers[section_id], "Claim plot · 2 wood", "interact", WorldStateModel.INTERACTION_RADIUS)
+	var route_targets := WorldStateModel.fartrail_route_targets(latest_snapshot)
+	for index in range(route_targets.size()):
+		_append_mobile_target(candidates, fartrail_route_view.markers[index], route_targets[index]["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
 	for target: Dictionary in WildernessView.outpost_targets(latest_snapshot):
 		if wilderness.outpost_markers.has(target["id"]):
 			_append_mobile_target(candidates, wilderness.outpost_markers[target["id"]], target["text"], "interact", WorldStateModel.INTERACTION_RADIUS)
@@ -2852,6 +2860,11 @@ func _update_interaction_prompt(
 		interaction_prompt.visible = true
 		return
 	var player_positions: Dictionary = latest_snapshot.get("positions", {})
+	for target: Dictionary in WorldStateModel.fartrail_route_targets(latest_snapshot):
+		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
+			interaction_prompt.text = "%s · %s" % [action_name, target["text"]]
+			interaction_prompt.visible = true
+			return
 	for target: Dictionary in WorldStateModel.Visits.targets(latest_snapshot):
 		if player_position.distance_to(target["position"]) <= WorldStateModel.INTERACTION_RADIUS:
 			interaction_prompt.text = "%s · %s" % [action_name, target["text"]]
@@ -3309,7 +3322,7 @@ func _shared_map_text(discoveries: Dictionary, route_activated: bool, moonwell_s
 	if not guest.is_empty():
 		map_text += "\n• Sera — %s homestead · %s" % [WildernessLayout.title(WorldStateModel.Structures.cell_for(str(guest["plot"]))), "settled" if int(guest.get("meals", 0)) == 2 else "welcome waiting"]
 	if not latest_snapshot.get("wilderness_discoveries", {}).is_empty():
-		map_text += "\n• Fartrail Outpost — %s" % ("rest and trailcraft" if latest_snapshot.get("outpost_parts", {}).size() == 3 else "shared project")
+		map_text += "\n• Fartrail Outpost — %s" % ("home route open" if latest_snapshot.get("fartrail_route_parts", {}).size() == 2 else ("rest and trailcraft" if latest_snapshot.get("outpost_parts", {}).size() == 3 else "shared project"))
 	return map_text
 
 

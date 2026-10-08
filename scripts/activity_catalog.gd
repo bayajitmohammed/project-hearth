@@ -3,7 +3,7 @@ extends RefCounted
 const Wilderness = preload("res://scripts/wilderness_layout.gd")
 const Visits = preload("res://scripts/neighborhood_visits.gd")
 
-const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera", "visits", "moonweaver"]
+const IDS := ["automatic", "home", "welcome", "fishing", "building", "northwood", "nima", "moonwell", "supper", "reedbank", "sunwheat", "food", "festival", "briarwatch", "wilderness", "outpost", "sparring", "kitchen", "sera", "visits", "moonweaver", "fartrail_route"]
 
 
 static func entries(state: Dictionary) -> Array[Dictionary]:
@@ -15,10 +15,14 @@ static func entries(state: Dictionary) -> Array[Dictionary]:
 	_add(result, "wilderness", "The Western Trails", "Exploration", false, "Explore the western and northern outer trails", "%d seeded sections share discoveries and personal one-time caches. Daily sources: pinewoods 3 wood; bloom meadows 1 wood/2 herbs; woodland and glimmer groves 2 wood/1 herb. E gathers; claim posts open shared building. Home lies southeast from the outer north. Charted: %s." % [Wilderness.TOTAL, ", ".join(charted) if not charted.is_empty() else "none yet"])
 	result.back()["hud_description"] = "%d/%d charted. Pinewoods favor wood; bloom meadows favor herbs. E gathers or claims a cache. Claim posts open building. J lists discovered places." % [charted.size(), Wilderness.TOTAL]
 	var home := str(state.get("quest_stage", "meet_mara"))
+	if bool(state.get("ruin_waystone_activated", false)) and state.get("outpost_parts", {}).size() == 3:
+		var linked: bool = state.get("fartrail_route_parts", {}).size() == 2
+		_add(result, "fartrail_route", "The Way Home", "Travel project", linked, "Home and Fartrail are linked" if linked else "Build the Fartrail route · %d / 2 jobs" % state.get("fartrail_route_parts", {}).size(), "E at the outpost's north sign: 3 wood for a frame, 2 herbs for a binding. Once linked, its sign and the western home post offer free two-way travel for everyone. Arrivals do not heal or consume supplies.")
 	if not state.get("wilderness_discoveries", {}).is_empty():
 		var outpost: Dictionary = state.get("outpost_parts", {})
 		var site := Wilderness.outpost_position(int(state.get("world_seed", 1)))
 		_add(result, "outpost", "Fartrail Outpost", "Shared project", outpost.size() == 3, "Fartrail offers rest and trailcraft" if outpost.size() == 3 else "Establish a wilderness outpost · %d / 3 jobs" % outpost.size(), "In %s, near %.0fm west / %.0fm north of home. Shelter: 3 shared wood; remedies: 2 shared herbs; meal: 2 personal/creel fish. Any order, any companion. Finished jobs: %s. Completion opens separate rest and supply-crafting stations." % [Wilderness.title(Wilderness.outpost_cell(int(state.get("world_seed", 1)))), -site.x, 10 - site.z, ", ".join(outpost.keys()) if not outpost.is_empty() else "none"])
+		result.back()["hud_description"] = "Rest and trailcraft are open. After restoring the ruins route, the north sign accepts 3 wood and 2 herbs to link Fartrail with home." if outpost.size() == 3 else "E at Fartrail's three job markers: 3 wood for shelter, 2 herbs for remedies, and 2 personal/creel fish for a meal. Any companion can help. J gives the location."
 	_add(result, "home", "A New Home", "Story", home == "home_repaired",
 		str({"meet_mara": "Meet Mara beside the cottage", "recover_supplies": "Gather wood, herbs, and the lost forest supplies", "return_to_mara": "Return the supplies to Mara", "repair_cottage": "Craft a repair kit and repair the three cottage parts", "home_repaired": "Your shared cottage is repaired"}.get(home, "Meet Mara")),
 		"Use E near people, supplies, and repair markers. Craft the repair kit with C; rest at the repaired cottage when injured.")

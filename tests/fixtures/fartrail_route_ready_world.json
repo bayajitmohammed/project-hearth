@@ -1,0 +1,13 @@
+{
+  "version": 39,
+  "world_seed": 112358,
+  "quest_stage": "home_repaired",
+  "repaired_parts": {"door": true, "wall": true, "garden": true},
+  "neighborhood_event_stage": "complete",
+  "ruin_waystone_activated": true,
+  "ruin_guardian_defeated": true,
+  "exploration_stage": "complete",
+  "outpost_parts": {"shelter": true, "remedies": true, "meal": true},
+  "materials": {"wood": 3, "herb": 2},
+  "positions": {"route-a": [-97, 0.6, -26], "route-b": [-97, 0.6, -26]}
+}

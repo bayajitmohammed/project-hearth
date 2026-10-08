@@ -12,6 +12,12 @@ The map begins incomplete. Players learn from roads, rumors, high points, NPC di
 
 Travel should feel risky and interesting on the first visit, then convenient. Repaired routes, mounts, boats, and discovered waypoints make repeat journeys faster.
 
+### Fartrail route — implementation scope
+
+Once the Old Stone Ruins route and all three Fartrail Outpost jobs are complete, travelers can establish a second shared two-way route. At the outpost's northern sign, E contributes either a three-wood trail frame or a two-herb waylight binding, one unfinished affordable job per interaction. Partial work persists; companions may divide it, and no work happens while the world is empty. The frame awards its builder one normal Building credit; completion records one shared chronicle entry, without repeat rewards or stat increases.
+
+The completed sign links to a distinct post at the western edge of home. A standing player must explicitly interact at either endpoint; only that player travels. Fixed clear arrival spaces lie outside activation range to prevent repeated inputs from immediately bouncing back. The route is free after construction, never heals or restores resources, and cannot carry downed players. Newcomers inherit access to the shared route. The original ruins route and all existing claims remain unchanged. This is an earned travel convenience for western outings, not unrestricted teleportation or a replacement for first exploration.
+
 After the Old Stone Ruins waystone route is restored, Northwood offers one deterministic **trail survey** each world day. The shared marker rotates among a small authored set, but every standing player may record it once that day for one personal Exploration mastery point; one companion never consumes another's opportunity. The last recorded day persists per identity. Empty-world calendar catch-up may change which marker is current, but never records a survey or awards mastery. This makes repeat travel purposeful without privatizing the shared map or adding passive progression.
 
 Completing **Nima's Bearings** reveals her first follow-up destination at the homestead map table: **Moonwell Glade**, a sheltered spring on the western edge of Northwood. Any player may study the table, another may discover the glade, and companions may attune its three dormant moonstones in any order across sessions. Discovery and each first stone attunement award normal personal Exploration mastery to the player who performed that action; the landmark and its outcome remain shared immediately.

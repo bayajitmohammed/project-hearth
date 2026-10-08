@@ -95,6 +95,8 @@ const RUIN_GUARDIAN_MAX_HEALTH := 5
 const HOME_WAYSTONE_POSITION := Vector3(8.0, 0.6, 8.5)
 const RUIN_WAYSTONE_POSITION := Vector3(0.0, 0.6, -39.0)
 const HOME_WAYSTONE_ARRIVAL := Vector3(8.0, 0.6, 6.5)
+const FARTRAIL_HOME_POST := Vector3(-15, 0.6, 13.5)
+const FARTRAIL_HOME_ARRIVAL := Vector3(-12, 0.6, 13.5)
 const RUIN_WAYSTONE_ARRIVAL := Vector3(0.0, 0.6, -37.0)
 const GARDEN_PLOT_POSITIONS := {
 	"moonroot_1": Vector3(-14.0, 0.35, 9.0),
@@ -237,6 +239,8 @@ var player_activity_pins: Dictionary = {}
 var wilderness_discoveries: Dictionary = {}
 var wilderness_forage_days: Dictionary = {}
 var outpost_parts: Dictionary = {}
+var fartrail_route_parts: Dictionary = {}
+
 var player_wilderness_caches: Dictionary = {}
 var briarwatch_stage := "rumor"
 var broken_briarwatch_bindings: Dictionary = {}
@@ -1018,6 +1022,52 @@ func try_gather_wilderness(player_token: String) -> bool:
 	return false
 
 
+static func fartrail_route_targets(snapshot: Dictionary) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	if not bool(snapshot.get("ruin_waystone_activated", false)) or snapshot.get("outpost_parts", {}).size() != 3:
+		return targets
+	var parts: Dictionary = snapshot.get("fartrail_route_parts", {})
+	var complete := parts.size() == 2
+	var jobs: Array[String] = []
+	if not parts.has("frame"):
+		jobs.append("frame · 3 wood")
+	if not parts.has("binding"):
+		jobs.append("binding · 2 herbs")
+	targets.append({"position": FARTRAIL_HOME_POST, "text": "Travel to Fartrail" if complete else "Build the route at Fartrail Outpost"})
+	targets.append({"position": Wilderness.outpost_position(int(snapshot.get("world_seed", 1))) + Vector3(0, 0, -4), "text": "Travel home" if complete else "Route: " + " / ".join(jobs)})
+	return targets
+
+
+func try_fartrail_route(player_token: String) -> bool:
+	if not positions.has(player_token) or bool(downed_players.get(player_token, false)) or not ruin_waystone_activated or outpost_parts.size() != 3:
+		return false
+	var point: Vector3 = positions[player_token]
+	var post := Wilderness.outpost_position(world_seed) + Vector3(0, 0, -4)
+	if fartrail_route_parts.size() == 2:
+		if point.distance_to(FARTRAIL_HOME_POST) <= INTERACTION_RADIUS:
+			positions[player_token] = post + Vector3(0, 0, -2.5)
+			return true
+		if point.distance_to(post) <= INTERACTION_RADIUS:
+			positions[player_token] = FARTRAIL_HOME_ARRIVAL
+			return true
+		return false
+	if point.distance_to(post) > INTERACTION_RADIUS:
+		return false
+	for job: String in ["frame", "binding"]:
+		var resource := "wood" if job == "frame" else "herb"
+		var cost := 3 if job == "frame" else 2
+		if fartrail_route_parts.has(job) or int(materials.get(resource, 0)) < cost:
+			continue
+		materials[resource] -= cost
+		fartrail_route_parts[job] = true
+		if job == "frame":
+			_add_mastery(player_token, "building")
+		if fartrail_route_parts.size() == 2:
+			chronicle.append("The newcomers linked Fartrail Outpost to home, opening a lasting route for every traveler.")
+		return true
+	return false
+
+
 func try_outpost_interaction(player_token: String) -> bool:
 	if not positions.has(player_token) or bool(downed_players.get(player_token, false)):
 		return false
@@ -1268,6 +1318,7 @@ func interact(player_token: String, active_tokens: Array = []) -> bool:
 		or try_use_furnishing(player_token)
 		or try_homestead_guest(player_token)
 		or try_neighborhood_visit(player_token)
+		or try_fartrail_route(player_token)
 		or try_outpost_interaction(player_token)
 		or try_claim_plot(player_token)
 		or try_wilderness_cache(player_token)
@@ -2505,7 +2556,7 @@ func to_dictionary() -> Dictionary:
 			"position": [pack_position.x, pack_position.y, pack_position.z],
 		}
 	return {
-		"version": 38,
+		"version": 39,
 		"neighborhood_visits": neighborhood_visits.saved(),
 		"homestead_guest": homestead_guest.duplicate(),
 		"homestead_planted_at": homestead_planted_at.duplicate(),
@@ -2514,6 +2565,7 @@ func to_dictionary() -> Dictionary:
 		"structures": structures.duplicate(true),
 		"wilderness_forage_days": wilderness_forage_days.duplicate(),
 		"outpost_parts": outpost_parts.duplicate(),
+		"fartrail_route_parts": fartrail_route_parts.duplicate(),
 		"wilderness_discoveries": wilderness_discoveries.duplicate(),
 		"player_wilderness_caches": player_wilderness_caches.duplicate(true),
 		"briarwatch_stage": briarwatch_stage,
@@ -2931,6 +2983,12 @@ func load_dictionary(data: Dictionary) -> void:
 			if saved_plantings.has(bed_id):
 				sunwheat_planted_at[bed_id] = clampi(int(saved_plantings[bed_id]), 0, world_calendar_minutes())
 	neighborhood_visits = Visits.new()
+	fartrail_route_parts.clear()
+	if save_version >= 39 and ruin_waystone_activated and outpost_parts.size() == 3:
+		var saved_route: Dictionary = data.get("fartrail_route_parts", {})
+		for part: String in ["frame", "binding"]:
+			if bool(saved_route.get(part, false)):
+				fartrail_route_parts[part] = true
 	if save_version >= 38:
 		neighborhood_visits.restore(data.get("neighborhood_visits", {}), world_day)
 	# Cast timing is intentionally session-only and never resumes after a restart.

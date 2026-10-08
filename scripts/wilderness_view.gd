@@ -60,6 +60,7 @@ func update_view(snapshot: Dictionary, token: String) -> void:
 		(forage[source_id]["marker"].get_node("Label") as Label3D).text = "%s · %s" % [str(forage[source_id]["kind"]).to_upper(), "GATHER" if ready else "RETURNS TOMORROW"]
 	if is_instance_valid(outpost_root):
 		var parts: Dictionary = snapshot.get("outpost_parts", {})
+		outpost_root.get_node("OutpostSign").visible = parts.size() < 3 or not bool(snapshot.get("ruin_waystone_activated", false))
 		for part: String in outpost_pieces:
 			outpost_pieces[part].visible = parts.has(part)
 		for station: String in outpost_markers:
